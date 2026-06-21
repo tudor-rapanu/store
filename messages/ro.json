@@ -1,0 +1,24 @@
+{
+  "Navigation": {
+    "cart": "Coș"
+  },
+  "Catalog": {
+    "title": "Colecția"
+  },
+  "Auth": {
+    "loginTitle": "Welcome Back",
+    "loginDescription": "Log in to your Todd's Threads account.",
+    "registerTitle": "Create an Account",
+    "registerDescription": "Join to save orders and track Series 01 drops.",
+    "email": "Email Address",
+    "password": "Password",
+    "loginButton": "Sign In",
+    "registerButton": "Create Account",
+    "loading": "Processing...",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "registerLink": "Sign up",
+    "hasAccount": "Already have an account?",
+    "loginLink": "Log in"
+  }
+}

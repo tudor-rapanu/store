@@ -1,0 +1,20 @@
+import { PostHog } from "posthog-node";
+
+let posthogClient: PostHog | null = null;
+
+export function getPostHogClient() {
+  const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+
+  if (!token) {
+    return null;
+  }
+
+  if (!posthogClient) {
+    posthogClient = new PostHog(token, {
+      host: process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com",
+      flushAt: 1,
+      flushInterval: 0,
+    });
+  }
+  return posthogClient;
+}

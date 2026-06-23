@@ -1,20 +1,30 @@
 import { Netopia } from "netopia-card";
 import { readEnvValue } from "@/lib/env";
 
+function normalizeAbsoluteUrl(value: string) {
+  const cleaned = value.trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
+
+  if (/^https?:\/\//i.test(cleaned)) {
+    return cleaned;
+  }
+
+  return `https://${cleaned}`;
+}
+
 function getSiteUrl() {
-  return readEnvValue(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-    "NEXT_PUBLIC_SITE_URL",
-  )
-    .replace(/^["']|["']$/g, "")
-    .replace(/\/+$/, "");
+  return normalizeAbsoluteUrl(
+    readEnvValue(
+      process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+      "NEXT_PUBLIC_SITE_URL",
+    ),
+  );
 }
 
 function getNetopiaUrl(value: string | undefined, path: string) {
   const cleaned = value?.trim().replace(/^["']|["']$/g, "");
 
   if (cleaned) {
-    return cleaned;
+    return normalizeAbsoluteUrl(cleaned);
   }
 
   return `${getSiteUrl()}${path}`;

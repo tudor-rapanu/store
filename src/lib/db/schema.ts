@@ -110,6 +110,14 @@ export const orders = pgTable("orders", {
     .notNull(),
   awbNumber: text("awb_number"),
   trackingUrl: text("tracking_url"),
+  awbLabelUrl: text("awb_label_url"),
+  awbGeneratedAt: timestamp("awb_generated_at"),
+  samedayPickupPointId: text("sameday_pickup_point_id"),
+  samedayContactPersonId: text("sameday_contact_person_id"),
+  samedayServiceId: text("sameday_service_id"),
+  samedayPackageType: text("sameday_package_type"),
+  samedayAwbCost: integer("sameday_awb_cost"),
+  samedayRawResponse: jsonb("sameday_raw_response"),
   totalAmount: integer("total_amount").notNull(), // Stored in Bani
   status: text("status", { enum: ["pending", "paid", "failed"] })
     .default("pending")
@@ -156,6 +164,34 @@ export const orderItems = pgTable("order_items", {
     .references(() => productVariants.id),
   quantity: integer("quantity").notNull(),
   unitPrice: integer("unit_price").notNull(), // Price at time of purchase in Bani
+});
+
+// -------------------------------------------------------------------------
+// 6. SHIPPING PROVIDER CACHE TABLES
+// -------------------------------------------------------------------------
+export const shippingProviderTokens = pgTable("shipping_provider_tokens", {
+  provider: text("provider").primaryKey(),
+  token: text("token").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const samedayCounties = pgTable("sameday_counties", {
+  id: integer("id").primaryKey(),
+  name: text("name").notNull(),
+  rawData: jsonb("raw_data"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const samedayCities = pgTable("sameday_cities", {
+  id: integer("id").primaryKey(),
+  countyId: integer("county_id")
+    .references(() => samedayCounties.id)
+    .notNull(),
+  name: text("name").notNull(),
+  postalCode: text("postal_code"),
+  rawData: jsonb("raw_data"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // -------------------------------------------------------------------------

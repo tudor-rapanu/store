@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useActionState, startTransition } from "react";
+import { useEffect, useState, useActionState, startTransition } from "react";
 import posthog from "posthog-js";
 import Script from "next/script";
 import { useCart } from "@/lib/store/useCart";
@@ -9,7 +9,6 @@ import {
   createBankTransferOrder,
   type CheckoutCustomerData,
 } from "@/lib/actions/checkout";
-import { ROMANIAN_COUNTIES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +48,17 @@ declare global {
   }
 }
 
+type SamedayCounty = {
+  id: number;
+  name: string;
+};
+
+type SamedayCity = {
+  id: number;
+  name: string;
+  postalCode?: string;
+};
+
 export function CheckoutForm() {
   const { items, total, clearCart } = useCart();
   const [shippingMethod, setShippingMethod] = useState<"address" | "easybox">(
@@ -57,7 +67,13 @@ export function CheckoutForm() {
   const [paymentMethod, setPaymentMethod] = useState<"netopia" | "transfer">(
     "netopia",
   );
-  const [selectedCounty, setSelectedCounty] = useState<string>("");
+  const [counties, setCounties] = useState<SamedayCounty[]>([]);
+  const [cities, setCities] = useState<SamedayCity[]>([]);
+  const [selectedCountyId, setSelectedCountyId] = useState<string>("");
+  const [selectedCityId, setSelectedCityId] = useState<string>("");
+  const [citySearch, setCitySearch] = useState("");
+  const [isLoadingCounties, setIsLoadingCounties] = useState(false);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Sameday Locker State
@@ -66,6 +82,80 @@ export function CheckoutForm() {
     name: string;
     address: string;
   } | null>(null);
+
+  const selectedCounty = counties.find(
+    (county) => String(county.id) === selectedCountyId,
+  );
+  const selectedCity = cities.find((city) => String(city.id) === selectedCityId);
+
+  useEffect(() => {
+    async function loadCounties() {
+      setIsLoadingCounties(true);
+
+      try {
+        const response = await fetch("/api/shipping/sameday/counties");
+        const data = (await response.json()) as {
+          counties?: SamedayCounty[];
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Could not load counties.");
+        }
+
+        setCounties(data.counties ?? []);
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not load delivery counties.",
+        );
+      } finally {
+        setIsLoadingCounties(false);
+      }
+    }
+
+    void loadCounties();
+  }, []);
+
+  async function loadCities(
+    name = citySearch,
+    countyId = selectedCountyId,
+  ) {
+    if (!countyId) {
+      setErrorMessage("Please select a county first.");
+      return;
+    }
+
+    setIsLoadingCities(true);
+    setErrorMessage(null);
+
+    try {
+      const url = new URL("/api/shipping/sameday/cities", window.location.origin);
+      url.searchParams.set("countyId", countyId);
+      if (name.trim()) {
+        url.searchParams.set("name", name.trim());
+      }
+
+      const response = await fetch(url);
+      const data = (await response.json()) as {
+        cities?: SamedayCity[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Could not load cities.");
+      }
+
+      setCities(data.cities ?? []);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not load cities.",
+      );
+    } finally {
+      setIsLoadingCities(false);
+    }
+  }
 
   // Initialize Sameday Widget according to official docs
   const openEasyboxMap = () => {
@@ -111,8 +201,13 @@ export function CheckoutForm() {
         return null;
       }
 
-      if (!selectedCounty) {
+      if (!selectedCounty || !selectedCountyId) {
         setErrorMessage("Please select a county.");
+        return null;
+      }
+
+      if (!selectedCity || !selectedCityId) {
+        setErrorMessage("Please select a city.");
         return null;
       }
 
@@ -126,9 +221,17 @@ export function CheckoutForm() {
             shippingMethod === "easybox" && locker
               ? `Easybox: ${locker.name} (ID: ${locker.id}) - ${locker.address}`
               : (formData.get("street") as string),
-          city: formData.get("city") as string,
-          county: selectedCounty,
+          city: selectedCity.name,
+          county: selectedCounty.name,
           zip: formData.get("zip") as string,
+          samedayCityId: selectedCityId,
+          samedayCountyId: selectedCountyId,
+          samedayLockerId:
+            shippingMethod === "easybox" && locker ? locker.id : undefined,
+          samedayLockerName:
+            shippingMethod === "easybox" && locker ? locker.name : undefined,
+          samedayLockerAddress:
+            shippingMethod === "easybox" && locker ? locker.address : undefined,
         },
         shippingMethod,
       };
@@ -354,49 +457,68 @@ export function CheckoutForm() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label
-                  htmlFor="city"
-                  className="uppercase text-xs font-bold tracking-widest"
-                >
-                  City
-                </Label>
-                <Input
-                  id="city"
-                  name="city"
-                  required
-                  className="rounded-none border-black h-11"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="county"
-                  className="uppercase text-xs font-bold tracking-widest"
-                >
+                <Label className="uppercase text-xs font-bold tracking-widest">
                   County
                 </Label>
                 <Select
-                  onValueChange={setSelectedCounty}
+                  value={selectedCountyId}
+                  onValueChange={(value) => {
+                    setSelectedCountyId(value);
+                    setSelectedCityId("");
+                    setCities([]);
+                    setCitySearch("");
+                    void loadCities("", value);
+                  }}
                   required
-                  name="county"
+                  disabled={isLoadingCounties}
                 >
                   <SelectTrigger
                     id="county"
                     className="rounded-none border-black h-11"
                   >
-                    <SelectValue placeholder="Selecție Județ" />
+                    <SelectValue
+                      placeholder={
+                        isLoadingCounties ? "Loading counties" : "Select county"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent className="rounded-none border-black bg-white">
-                    {ROMANIAN_COUNTIES.map((county) => (
+                    {counties.map((county) => (
                       <SelectItem
-                        key={county}
-                        value={county}
+                        key={county.id}
+                        value={String(county.id)}
                         className="uppercase text-xs font-bold"
                       >
-                        {county}
+                        {county.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="uppercase text-xs font-bold tracking-widest">
+                  Search City
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={citySearch}
+                    onChange={(event) => setCitySearch(event.target.value)}
+                    disabled={!selectedCountyId}
+                    className="rounded-none border-black h-11"
+                    placeholder={
+                      selectedCountyId ? "Type city name" : "Select county first"
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!selectedCountyId || isLoadingCities}
+                    onClick={() => loadCities()}
+                    className="h-11 rounded-none border-black text-xs font-bold uppercase tracking-widest"
+                  >
+                    Search
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label
@@ -412,6 +534,45 @@ export function CheckoutForm() {
                   className="rounded-none border-black h-11"
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="uppercase text-xs font-bold tracking-widest">
+                City
+              </Label>
+              <Select
+                value={selectedCityId}
+                onValueChange={setSelectedCityId}
+                required
+                disabled={!selectedCountyId || isLoadingCities}
+              >
+                <SelectTrigger className="rounded-none border-black h-11">
+                  <SelectValue
+                    placeholder={
+                      selectedCountyId
+                        ? isLoadingCities
+                          ? "Loading cities"
+                          : "Select city"
+                        : "Select county first"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent className="rounded-none border-black bg-white">
+                  {cities.map((city) => (
+                    <SelectItem
+                      key={city.id}
+                      value={String(city.id)}
+                      className="uppercase text-xs font-bold"
+                    >
+                      {city.postalCode
+                        ? `${city.name} (${city.postalCode})`
+                        : city.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                Search after selecting a county to load Sameday-compliant cities.
+              </p>
             </div>
           </section>
 

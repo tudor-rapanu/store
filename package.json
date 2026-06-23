@@ -9,7 +9,9 @@
     "tunnel": "ngrok http 3000",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
-    "db:push": "supabase db push"
+    "db:push": "supabase db push",
+    "gcloud:build": "docker buildx build --platform linux/amd64 -t europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:latest --push .",
+    "gcloud:deploy": "gcloud run deploy todds-threads-service --image=europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:latest --region=europe-west4 --allow-unauthenticated --port=3000 --max-instances=5 --memory=1024Mi"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1068.0",

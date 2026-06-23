@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 
 import { AdminOrderEditor } from "@/components/order/AdminOrderEditor";
 import { AdminOrderItemsManager } from "@/components/order/AdminOrderItemsManager";
+import { SamedayAwbPanel } from "@/components/order/SamedayAwbPanel";
 import { Button } from "@/components/ui/button";
 import { isAdminUser } from "@/lib/admin-auth";
 import { markStaleNetopiaOrdersFailed } from "@/lib/actions/orders";
@@ -80,6 +81,9 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
     city?: string;
     county?: string;
     zip?: string;
+    samedayCountyId?: string;
+    samedayCityId?: string;
+    samedayLockerId?: string;
   };
 
   return (
@@ -105,6 +109,16 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           <AdminOrderEditor order={order} />
+
+          <SamedayAwbPanel
+            orderId={order.id}
+            paymentStatus={order.paymentStatus}
+            shippingMethod={order.shippingMethod}
+            awbNumber={order.awbNumber}
+            trackingUrl={order.trackingUrl}
+            labelUrl={order.awbLabelUrl}
+            address={address}
+          />
 
           <AdminOrderItemsManager
             orderId={order.id}

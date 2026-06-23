@@ -15,6 +15,11 @@ export interface CheckoutAddress {
   city: string;
   county: string;
   zip: string;
+  samedayCityId?: string;
+  samedayCountyId?: string;
+  samedayLockerId?: string;
+  samedayLockerName?: string;
+  samedayLockerAddress?: string;
 }
 
 export interface CheckoutCustomerData {
@@ -69,19 +74,29 @@ async function getCurrentUserId() {
   return user?.id ?? null;
 }
 
+function getSiteUrl() {
+  const value = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
+
+  if (!value) {
+    return undefined;
+  }
+
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+}
+
 function getOrderAccessUrl(
   locale: "en" | "ro",
   orderNumber: number,
   accessToken: string,
 ) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+  const siteUrl = getSiteUrl();
   const path = `/${locale}/orders/${orderNumber}?token=${accessToken}`;
 
   return siteUrl ? `${siteUrl}${path}` : path;
 }
 
 function getAdminOrderUrl(locale: "en" | "ro", orderId: string) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+  const siteUrl = getSiteUrl();
   const path = `/${locale}/admin/orders/${orderId}`;
 
   return siteUrl ? `${siteUrl}${path}` : path;

@@ -9,7 +9,9 @@ const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
 
 if (typeof window !== "undefined" && posthogKey && !posthog.__loaded) {
   posthog.init(posthogKey, {
-    api_host: `${window.location.origin}/ingest`,
+    api_host:
+      process.env.NEXT_PUBLIC_POSTHOG_HOST ||
+      `${window.location.origin}/ingest`,
     ui_host: "https://eu.posthog.com",
     capture_pageview: false,
     capture_pageleave: true,

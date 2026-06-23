@@ -92,3 +92,41 @@ export async function sendAdminOrderEmail({
     console.error("Failed to send admin order email:", error);
   }
 }
+
+export async function sendTrackingEmail({
+  email,
+  customerName,
+  orderId,
+  trackingUrl,
+}: {
+  email: string;
+  customerName: string;
+  orderId: string;
+  trackingUrl: string;
+}) {
+  try {
+    if (!resend) {
+      console.warn("Skipping tracking email because RESEND_API_KEY is not configured.");
+      return;
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM ?? "no-reply@example.com",
+      to: email,
+      subject: `Your Todd's Threads order #${orderId} has shipped`,
+      text: [
+        `Hi ${customerName},`,
+        "",
+        `Your order #${orderId} has shipped.`,
+        `Track it here: ${trackingUrl}`,
+        "",
+        "Todd's Threads",
+      ].join("\n"),
+    });
+
+    if (error) console.error("Resend Tracking Email Error:", error);
+    return data;
+  } catch (error) {
+    console.error("Failed to send tracking email:", error);
+  }
+}

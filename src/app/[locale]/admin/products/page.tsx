@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import { DeleteProductButton } from "@/components/product/DeleteProductButton";
 import { DuplicateProductButton } from "@/components/product/DuplicateProductButton";
+import { ImportProductsCsv } from "@/components/product/ImportProductsCsv";
 import { db } from "@/lib/db";
 import { products } from "@/lib/db/schema";
 import { getProductImageSrc } from "@/lib/product-images";
@@ -71,6 +72,8 @@ export default async function AdminProductsPage({
           <Link href={`/${activeLocale}/admin/products/new`}>New Item</Link>
         </Button>
       </div>
+
+      <ImportProductsCsv />
 
       <div className="divide-y divide-black border border-black">
         {items.length === 0 ? (

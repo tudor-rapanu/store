@@ -31,6 +31,7 @@
     "next": "16.2.9",
     "next-intl": "^4.13.0",
     "ntp-logo-react": "^1.0.0",
+    "papaparse": "^5.5.4",
     "postgres": "^3.4.9",
     "posthog-js": "^1.390.2",
     "posthog-node": "^5.38.1",
@@ -49,6 +50,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",

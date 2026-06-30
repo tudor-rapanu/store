@@ -25,6 +25,22 @@ export async function uploadProductImage(image: File, slug: string) {
   }
 
   const sourceBuffer = Buffer.from(await image.arrayBuffer());
+  return uploadProductImageBuffer(sourceBuffer, image.type, slug);
+}
+
+export async function uploadProductImageBuffer(
+  sourceBuffer: Buffer,
+  contentType: string,
+  slug: string,
+) {
+  if (sourceBuffer.byteLength > MAX_IMAGE_SIZE) {
+    throw new Error("Product images must be 25 MB or smaller.");
+  }
+
+  if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
+    throw new Error("Only JPEG, PNG, and WebP images are supported.");
+  }
+
   const baseKey = `catalog/normalized/${slug}-${crypto.randomUUID()}`;
 
   await Promise.all(

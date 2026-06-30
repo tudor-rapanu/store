@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 
 import { AdminCategoryManager } from "@/components/category/AdminCategoryManager";
@@ -24,16 +24,35 @@ export default async function AdminCategoriesPage({
   const activeLocale = locale === "ro" ? "ro" : "en";
   const categoryRows = await db
     .select({
-      category: categories,
-      product: products,
+      category: {
+        id: categories.id,
+        slug: categories.slug,
+        name: categories.name,
+        createdAt: categories.createdAt,
+      },
+      product: {
+        id: products.id,
+        slug: products.slug,
+        title: products.title,
+        imageUrl: products.imageUrl,
+      },
     })
     .from(categories)
     .leftJoin(
       productCategories,
       eq(productCategories.categoryId, categories.id),
     )
-    .leftJoin(products, eq(products.id, productCategories.productId));
-  const allProducts = await db.select().from(products);
+    .leftJoin(products, eq(products.id, productCategories.productId))
+    .orderBy(asc(categories.createdAt), asc(products.createdAt));
+  const allProducts = await db
+    .select({
+      id: products.id,
+      slug: products.slug,
+      title: products.title,
+      imageUrl: products.imageUrl,
+    })
+    .from(products)
+    .orderBy(asc(products.createdAt));
   const categoryMap = new Map<
     string,
     {

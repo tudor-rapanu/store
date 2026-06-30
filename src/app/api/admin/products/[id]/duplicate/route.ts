@@ -1,5 +1,4 @@
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
@@ -8,8 +7,8 @@ import {
   productVariants,
   products,
 } from "@/lib/db/schema";
-import { readEnvValue } from "@/lib/env";
-import { createClient } from "@/lib/supabase/server";
+import { isAdminUser } from "@/lib/admin-auth";
+import { revalidateCatalogViews } from "@/lib/catalog/cache";
 
 function errorResponse(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -21,16 +20,6 @@ function slugify(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-}
-
-async function assertAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const adminEmail = readEnvValue(process.env.ADMIN_EMAIL, "ADMIN_EMAIL");
-
-  return Boolean(user && user.email?.toLowerCase() === adminEmail.toLowerCase());
 }
 
 async function getUniqueProductSlug(baseSlug: string) {
@@ -76,7 +65,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await assertAdmin())) {
+  if (!(await isAdminUser())) {
     return errorResponse("You are not allowed to duplicate products.", 403);
   }
 
@@ -144,7 +133,7 @@ export async function POST(
     );
   }
 
-  revalidatePath("/", "layout");
+  revalidateCatalogViews({ productSlugs: [duplicatedProduct.slug] });
 
   return NextResponse.json({
     ok: true,

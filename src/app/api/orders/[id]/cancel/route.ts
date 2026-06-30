@@ -4,7 +4,12 @@ import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
+import { checkRequestRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ACCESS_TOKEN_PATTERN = /^[0-9a-f]{64}$/i;
 
 function errorResponse(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -14,10 +19,29 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const rateLimit = await checkRequestRateLimit(request, {
+    keyPrefix: "orders:cancel",
+    limit: 10,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit);
+  }
+
   const { id } = await params;
+
+  if (!UUID_PATTERN.test(id)) {
+    return errorResponse("Order was not found.", 404);
+  }
+
   const body = (await request.json().catch(() => ({}))) as {
     token?: string;
   };
+  const accessToken =
+    typeof body.token === "string" && ACCESS_TOKEN_PATTERN.test(body.token)
+      ? body.token
+      : undefined;
   const supabase = await createClient();
   const {
     data: { user },
@@ -34,7 +58,7 @@ export async function POST(
 
   const canAccess =
     Boolean(user?.id && order.userId === user.id) ||
-    Boolean(body.token && order.accessToken === body.token);
+    Boolean(accessToken && order.accessToken === accessToken);
 
   if (!canAccess) {
     return errorResponse("You are not allowed to cancel this order.", 403);

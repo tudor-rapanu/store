@@ -434,10 +434,10 @@ function CategoryRow({
 }
 
 function ProductThumbnail({ product }: { product: ProductSummary }) {
-  const imageSrc = getProductImageSrc(product.imageUrl);
+  const imageSrc = getProductImageSrc(product.imageUrl, "thumb");
 
   return (
-    <div className="relative size-12 shrink-0 overflow-hidden border border-slate-200 bg-slate-100">
+    <div className="relative size-12 shrink-0 overflow-hidden border border-slate-200 bg-white">
       {imageSrc ? (
         <Image
           src={imageSrc}

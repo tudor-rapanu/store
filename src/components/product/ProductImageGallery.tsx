@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { getProductImageSrc } from "@/lib/product-images";
+
 export function ProductImageGallery({
   images,
   title,
@@ -27,7 +29,7 @@ export function ProductImageGallery({
 
   return (
     <div className="space-y-4">
-      <div className="relative aspect-square overflow-hidden bg-slate-100">
+      <div className="relative aspect-square overflow-hidden border border-slate-200 bg-white">
         {activeImage ? (
           <div key={activeImage} className="product-gallery-image absolute inset-0">
             <Image
@@ -36,7 +38,7 @@ export function ProductImageGallery({
               fill
               priority
               unoptimized
-              className="object-contain p-8"
+              className="object-contain p-6 sm:p-8"
               sizes="(max-width: 1024px) 100vw, 60vw"
             />
           </div>
@@ -75,13 +77,13 @@ export function ProductImageGallery({
               key={image}
               type="button"
               onClick={() => setActiveIndex(index)}
-              className={`relative aspect-square border bg-slate-100 transition-all duration-200 hover:border-black ${
+              className={`relative aspect-square border bg-white transition-all duration-200 hover:border-black ${
                 index === activeIndex ? "border-black" : "border-slate-200"
               }`}
               aria-label={`View product image ${index + 1}`}
             >
               <Image
-                src={image}
+                src={getProductImageSrc(image, "thumb") ?? image}
                 alt=""
                 fill
                 unoptimized

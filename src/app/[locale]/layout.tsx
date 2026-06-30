@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { CookieConsentBanner } from "@/components/layout/CookieConsentBanner";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import { NextIntlClientProvider } from "next-intl";
@@ -26,6 +27,7 @@ export default async function LocaleLayout({
       <Navbar locale={locale as "en" | "ro"} />
       <div className="min-h-[calc(100vh-10rem)]">{children}</div>
       <Footer locale={locale as "en" | "ro"} />
+      <CookieConsentBanner locale={locale as "en" | "ro"} />
     </NextIntlClientProvider>
   );
 }

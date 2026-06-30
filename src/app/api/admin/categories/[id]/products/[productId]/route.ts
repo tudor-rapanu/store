@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
+import { revalidateCatalogViews } from "@/lib/catalog/cache";
 import { db } from "@/lib/db";
 import { productCategories } from "@/lib/db/schema";
 
@@ -29,7 +29,7 @@ export async function DELETE(
       ),
     );
 
-  revalidatePath("/", "layout");
+  revalidateCatalogViews();
 
   return NextResponse.json({ ok: true });
 }

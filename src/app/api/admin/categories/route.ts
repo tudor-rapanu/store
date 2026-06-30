@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
+import { revalidateCatalogViews } from "@/lib/catalog/cache";
 import { db } from "@/lib/db";
 import { categories } from "@/lib/db/schema";
 
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     name: { en: nameEn, ro: nameRo ?? nameEn },
   });
 
-  revalidatePath("/", "layout");
+  revalidateCatalogViews({ categorySlugs: [slug] });
 
   return NextResponse.json({ ok: true });
 }

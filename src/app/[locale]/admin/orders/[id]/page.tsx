@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -53,16 +53,43 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
 
   const items = await db
     .select({
-      item: orderItems,
-      variant: productVariants,
-      product: products,
+      item: {
+        id: orderItems.id,
+        quantity: orderItems.quantity,
+        unitPrice: orderItems.unitPrice,
+      },
+      variant: {
+        name: productVariants.name,
+        sku: productVariants.sku,
+      },
+      product: {
+        title: products.title,
+        slug: products.slug,
+      },
     })
     .from(orderItems)
     .leftJoin(productVariants, eq(productVariants.id, orderItems.variantId))
     .leftJoin(products, eq(products.id, orderItems.productId))
     .where(eq(orderItems.orderId, order.id));
-  const productRows = await db.select().from(products);
-  const variantRows = await db.select().from(productVariants);
+  const productRows = await db
+    .select({
+      id: products.id,
+      title: products.title,
+      basePrice: products.basePrice,
+      createdAt: products.createdAt,
+    })
+    .from(products)
+    .orderBy(desc(products.createdAt));
+  const variantRows = await db
+    .select({
+      id: productVariants.id,
+      productId: productVariants.productId,
+      name: productVariants.name,
+      sku: productVariants.sku,
+      price: productVariants.price,
+    })
+    .from(productVariants)
+    .orderBy(desc(productVariants.createdAt));
   const productOptions = productRows.map((product) => ({
     id: product.id,
     title: product.title[activeLocale] || product.title.en,
@@ -84,6 +111,7 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
     samedayCountyId?: string;
     samedayCityId?: string;
     samedayLockerId?: string;
+    samedayLockerOohType?: number | string;
   };
 
   return (

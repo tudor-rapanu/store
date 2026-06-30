@@ -181,6 +181,84 @@ function readNumber(record: UnknownRecord, keys: string[]) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function readNestedString(record: UnknownRecord, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" || typeof value === "number") {
+      return String(value);
+    }
+
+    const nested = asRecord(value);
+    const nestedValue = readString(nested, ["id", "value", "code", "name"]);
+    if (nestedValue) {
+      return nestedValue;
+    }
+  }
+
+  return "";
+}
+
+function looksLikePdoTax(record: UnknownRecord) {
+  const searchableValues = [
+    readString(record, ["taxCode", "tax_code", "code", "abbreviation"]),
+    readString(record, ["name", "label", "description"]),
+  ];
+
+  return searchableValues.some((value) => value.toUpperCase().includes("PDO"));
+}
+
+function matchesPackageType(record: UnknownRecord, packageType: string) {
+  const taxPackageType = readNestedString(record, [
+    "packageType",
+    "package_type",
+    "parcelType",
+    "parcel_type",
+  ]);
+
+  return !taxPackageType || taxPackageType === packageType;
+}
+
+function readServiceId(record: UnknownRecord) {
+  return readString(record, [
+    "id",
+    "serviceId",
+    "service_id",
+    "samedayServiceId",
+    "sameday_service_id",
+  ]);
+}
+
+function findServiceById(value: unknown, serviceId: string): UnknownRecord | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const match = findServiceById(item, serviceId);
+      if (match) {
+        return match;
+      }
+    }
+
+    return null;
+  }
+
+  const record = asRecord(value);
+  if (Object.keys(record).length === 0) {
+    return null;
+  }
+
+  if (readServiceId(record) === serviceId) {
+    return record;
+  }
+
+  for (const child of Object.values(record)) {
+    const match = findServiceById(child, serviceId);
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
+}
+
 function findPdoServiceTaxId(value: unknown, packageType: string): string | null {
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -198,20 +276,15 @@ function findPdoServiceTaxId(value: unknown, packageType: string): string | null
     return null;
   }
 
-  const taxCode = readString(record, ["taxCode", "tax_code", "code"]);
-  const id = readString(record, ["id", "serviceTaxId", "service_tax_id"]);
-  const taxPackageType = readString(record, [
-    "packageType",
-    "package_type",
-    "parcelType",
-    "parcel_type",
+  const id = readString(record, [
+    "id",
+    "serviceTaxId",
+    "service_tax_id",
+    "serviceOptionalTaxId",
+    "service_optional_tax_id",
   ]);
 
-  if (
-    taxCode.toUpperCase() === "PDO" &&
-    id &&
-    (!taxPackageType || taxPackageType === packageType)
-  ) {
+  if (looksLikePdoTax(record) && id && matchesPackageType(record, packageType)) {
     return id;
   }
 
@@ -223,6 +296,20 @@ function findPdoServiceTaxId(value: unknown, packageType: string): string | null
   }
 
   return null;
+}
+
+function getServiceOptionalTaxes(service: UnknownRecord) {
+  const sources = [
+    service.serviceOptionalTaxes,
+    service.service_optional_taxes,
+    service.optionalTaxes,
+    service.optional_taxes,
+    service.taxes,
+  ];
+
+  return sources.flatMap((source) =>
+    Array.isArray(source) ? source : source ? [source] : [],
+  );
 }
 
 async function authenticateSameday() {
@@ -534,17 +621,75 @@ export async function debugSamedayPickupPoints() {
   };
 }
 
-export async function getSamedayPdoServiceTaxId(packageType: string) {
+export async function getSamedayPdoServiceTaxId(
+  packageType: string,
+  serviceId: string,
+) {
   const response = await samedayRequest<unknown>("/api/client/services");
-  const serviceTaxId = findPdoServiceTaxId(response, packageType);
+  const service = findServiceById(response, serviceId);
+  const serviceTaxId = service
+    ? findPdoServiceTaxId(getServiceOptionalTaxes(service), packageType)
+    : null;
 
   if (!serviceTaxId) {
+    console.error(
+      "Sameday PDO optional tax lookup failed:",
+      {
+        packageType,
+        serviceId,
+        serviceFound: Boolean(service),
+        serviceKeys: service ? Object.keys(service) : [],
+        ...summarizeSamedayServices(response),
+      },
+    );
     throw new Error(
-      `Sameday PDO optional tax was not found for package type ${packageType}.`,
+      `Sameday PDO optional tax was not found for service ${serviceId} and package type ${packageType}.`,
     );
   }
 
+  console.log("Sameday PDO optional tax selected:", {
+    packageType,
+    serviceId,
+    serviceTaxId,
+  });
+
   return serviceTaxId;
+}
+
+function summarizeSamedayServices(value: unknown) {
+  const rows = asArray(value);
+  const optionalTaxes = rows.flatMap((row) => {
+    const record = asRecord(row);
+    return asArray(record.serviceOptionalTaxes ?? record.service_optional_taxes);
+  });
+
+  return {
+    topLevelKeys: Object.keys(asRecord(value)),
+    serviceCount: rows.length,
+    firstServiceKeys: Object.keys(asRecord(rows[0])),
+    optionalTaxCount: optionalTaxes.length,
+    optionalTaxPreview: optionalTaxes.slice(0, 20).map((tax) => {
+      const record = asRecord(tax);
+      return {
+        keys: Object.keys(record),
+        id: readString(record, [
+          "id",
+          "serviceTaxId",
+          "service_tax_id",
+          "serviceOptionalTaxId",
+          "service_optional_tax_id",
+        ]),
+        code: readString(record, ["taxCode", "tax_code", "code", "abbreviation"]),
+        name: readString(record, ["name", "label", "description"]),
+        packageType: readNestedString(record, [
+          "packageType",
+          "package_type",
+          "parcelType",
+          "parcel_type",
+        ]),
+      };
+    }),
+  };
 }
 
 export async function syncSamedayCounties() {
@@ -860,6 +1005,21 @@ function sortByName<T extends { name: string }>(items: T[]) {
 }
 
 export async function createSamedayAwb(input: CreateSamedayAwbInput) {
+  const isPickupPointDelivery = Boolean(input.oohLastMile);
+  const awbRecipient: Record<string, string | undefined> = {
+    county: input.countyId,
+    city: input.cityId,
+    postalCode: input.recipientPostalCode,
+    personType: "0",
+    name: input.recipientName,
+    phoneNumber: input.recipientPhone,
+    email: input.recipientEmail,
+  };
+
+  if (!isPickupPointDelivery) {
+    awbRecipient.address = input.recipientAddress;
+  }
+
   const payload: Record<string, unknown> = {
     packageType: input.packageType,
     insuredValue: "0.00",
@@ -872,16 +1032,7 @@ export async function createSamedayAwb(input: CreateSamedayAwbInput) {
     thirdPartyPickup: "0",
     pickupPoint: input.pickupPointId,
     service: input.serviceId,
-    awbRecipient: {
-      county: input.countyId,
-      city: input.cityId,
-      address: input.recipientAddress,
-      name: input.recipientName,
-      phoneNumber: input.recipientPhone,
-      email: input.recipientEmail,
-      postalCode: input.recipientPostalCode,
-      personType: "0",
-    },
+    awbRecipient,
     packageWeight: input.packageWeight,
     parcels: [
       {
@@ -897,14 +1048,21 @@ export async function createSamedayAwb(input: CreateSamedayAwbInput) {
 
   payload.contactPerson = input.contactPersonId;
 
+  console.log("Sameday AWB base payload:", sanitizeAwbPayload(payload));
+
   if (input.personalEasyboxLoad) {
-    const pdoServiceTaxId = await getSamedayPdoServiceTaxId(input.packageType);
-    payload.serviceOptionalTaxes = `PDO ${pdoServiceTaxId}`;
+    console.log("Sameday AWB personal dropoff requested:", {
+      packageType: input.packageType,
+      service: input.serviceId,
+    });
+    payload.serviceTaxes = ["PDO"];
   }
 
   if (input.oohLastMile) {
     payload.oohLastMile = input.oohLastMile;
   }
+
+  console.log("Sameday AWB payload:", sanitizeAwbPayload(payload));
 
   let response: unknown;
 

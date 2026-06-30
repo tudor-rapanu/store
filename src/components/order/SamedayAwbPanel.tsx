@@ -51,6 +51,7 @@ type SamedayAwbPanelProps = {
     samedayCountyId?: string;
     samedayCityId?: string;
     samedayLockerId?: string;
+    samedayLockerOohType?: number | string;
   };
 };
 
@@ -233,30 +234,41 @@ export function SamedayAwbPanel({
   async function generateAwb() {
     setMessage(null);
     setIsGenerating(true);
+    const payload = {
+          pickupPointId,
+          contactPersonId: activeContactPersonId,
+          packageType,
+      packageWeight: weight,
+      packageWidth: width,
+      packageLength: length,
+      packageHeight: height,
+      countyId,
+      cityId,
+      observation,
+      personalEasyboxLoad,
+    };
+
+    console.log("Generate Home AWB clicked:", {
+      orderId,
+      shippingMethod,
+      payload,
+    });
 
     try {
       const response = await fetch(`/api/admin/orders/${orderId}/generate-awb`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pickupPointId,
-          contactPersonId: activeContactPersonId,
-          serviceId: shippingMethod === "easybox" ? "15" : "7",
-          packageType,
-          packageWeight: weight,
-          packageWidth: width,
-          packageLength: length,
-          packageHeight: height,
-          countyId,
-          cityId,
-          observation,
-          personalEasyboxLoad,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = (await response.json()) as {
         ok?: boolean;
         error?: string;
       };
+      console.log("Generate AWB API response:", {
+        status: response.status,
+        ok: response.ok,
+        data,
+      });
 
       if (!response.ok || !data.ok) {
         throw new Error(data.error ?? "Could not generate AWB.");

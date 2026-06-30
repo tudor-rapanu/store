@@ -1,15 +1,21 @@
-import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
+import { CatalogPagination } from "@/components/catalog/CatalogPagination";
 import { ProductCard } from "@/components/product/ProductCard";
-import { db } from "@/lib/db";
-import { categories, productCategories, products } from "@/lib/db/schema";
+import {
+  getCachedCategoryBySlug,
+  getCachedPublicCategoryProducts,
+  PUBLIC_PRODUCTS_PER_PAGE,
+} from "@/lib/catalog/cache";
 
 type CategoryPageProps = {
   params: Promise<{
     locale: string;
     slug: string;
+  }>;
+  searchParams: Promise<{
+    page?: string;
   }>;
 };
 
@@ -20,11 +26,7 @@ export async function generateMetadata({
   const activeLocale = locale === "ro" ? "ro" : "en";
 
   try {
-    const [category] = await db
-      .select({ name: categories.name })
-      .from(categories)
-      .where(eq(categories.slug, slug))
-      .limit(1);
+    const category = await getCachedCategoryBySlug(slug);
 
     return {
       title: category
@@ -36,56 +38,35 @@ export async function generateMetadata({
   }
 }
 
-export default async function CategoryPage({ params }: CategoryPageProps) {
+function getCurrentPage(pageParam?: string) {
+  return Math.max(Number.parseInt(pageParam ?? "1", 10) || 1, 1);
+}
+
+export default async function CategoryPage({
+  params,
+  searchParams,
+}: CategoryPageProps) {
   const { locale, slug } = await params;
+  const { page: pageParam } = await searchParams;
   const activeLocale = locale === "ro" ? "ro" : "en";
+  const currentPage = getCurrentPage(pageParam);
+  const category = await getCachedCategoryBySlug(slug);
 
-  let category:
-    | {
-        id: string;
-        name: { en: string; ro: string };
-      }
-    | undefined;
-  let categoryLookupFailed = false;
-  let items: Array<typeof products.$inferSelect> = [];
-
-  try {
-    [category] = await db
-      .select({
-        id: categories.id,
-        name: categories.name,
-      })
-      .from(categories)
-      .where(eq(categories.slug, slug))
-      .limit(1);
-  } catch {
-    categoryLookupFailed = true;
-  }
-
-  if (!categoryLookupFailed && !category) {
+  if (!category) {
     notFound();
   }
 
-  if (category) {
-    try {
-      const rows = await db
-        .select({ product: products })
-        .from(products)
-        .innerJoin(
-          productCategories,
-          eq(productCategories.productId, products.id),
-        )
-        .innerJoin(categories, eq(categories.id, productCategories.categoryId))
-        .where(
-          and(eq(categories.slug, slug), eq(products.isPrivate, false)),
-        );
-
-      items = rows.map((row) => row.product);
-    } catch {
-      items = [];
-    }
-  }
-
+  const {
+    items,
+    total,
+    page: resolvedPage,
+    perPage,
+  } = await getCachedPublicCategoryProducts(
+    slug,
+    currentPage,
+    PUBLIC_PRODUCTS_PER_PAGE,
+  );
+  const totalPages = Math.max(Math.ceil(total / perPage), 1);
   const title = category?.name[activeLocale] || category?.name.en || slug;
 
   return (
@@ -104,16 +85,26 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
           No products found.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12">
-          {items.map((product, index) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              locale={activeLocale}
-              eager={index === 0}
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12">
+            {items.map((product, index) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                locale={activeLocale}
+                eager={index === 0}
+              />
+            ))}
+          </div>
+
+          {total > perPage && (
+            <CatalogPagination
+              basePath={`/${activeLocale}/category/${slug}`}
+              currentPage={resolvedPage}
+              totalPages={totalPages}
             />
-          ))}
-        </div>
+          )}
+        </>
       )}
     </main>
   );

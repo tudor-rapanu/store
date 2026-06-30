@@ -98,7 +98,7 @@ export default async function PublicOrderPage({
           variant="outline"
           className="rounded-none border-black text-xs font-bold uppercase tracking-widest"
         >
-          <Link href={`/${activeLocale}`}>Catalog</Link>
+          <Link href={`/${activeLocale}/products`}>Catalog</Link>
         </Button>
       </div>
 

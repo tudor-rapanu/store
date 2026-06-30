@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState, useActionState, startTransition } from "react";
+import {
+  useActionState,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  startTransition,
+} from "react";
 import posthog from "posthog-js";
 import Script from "next/script";
 import { useCart } from "@/lib/store/useCart";
@@ -13,32 +20,30 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  SamedayLocationPicker,
+  type SamedayLocationSelection,
+} from "@/components/shipping/SamedayLocationPicker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 declare global {
   interface Window {
     LockerPlugin: {
-      init: (config: {
-        clientId: string;
-        countryCode: string;
-        langCode: string;
-        apiUsername: string;
-        city?: string;
-        county?: string;
-        theme?: string;
-      }) => void;
+      init: (config: SamedayLockerPluginConfig) => void;
       getInstance: () => {
+        reinitializePlugin?: (config: SamedayLockerPluginConfig) => void;
         subscribe: (
           callback: (lockerData: {
-            lockerId: string;
+            lockerId: number | string;
+            id?: number | string;
+            oohId?: number | string;
+            oohType?: number;
             name: string;
             address: string;
+            cityId?: number;
+            city?: string;
+            countyId?: number;
+            county?: string;
+            postalCode?: string;
           }) => void,
         ) => void;
         open: () => void;
@@ -48,32 +53,77 @@ declare global {
   }
 }
 
-type SamedayCounty = {
-  id: number;
-  name: string;
+type SamedayLockerPluginConfig = {
+  clientId: string;
+  countryCode: "RO";
+  langCode: "ro" | "en";
+  apiUsername: string;
+  city?: string;
+  county?: string;
+  theme?: "light" | "dark";
+  filters?: [{ showLockers: boolean }, { showPudos: boolean }];
+  initialMapCenter?: "City" | "County";
 };
 
-type SamedayCity = {
-  id: number;
-  name: string;
-  postalCode?: string;
+type SamedayLockerRuntimeConfig = {
+  clientId: string;
+  apiUsername: string;
 };
 
-export function CheckoutForm() {
+type ShippingProfile = {
+  id: string;
+  name: string;
+  method: "address" | "easybox";
+  price: number;
+  freeShippingThreshold: number;
+  enabled: boolean;
+};
+
+export type CheckoutInitialCustomer = {
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  preferredShippingMethod?: "address" | "easybox";
+  address?: {
+    street?: string;
+    city?: string;
+    county?: string;
+    zip?: string;
+    samedayCityId?: string;
+    samedayCountyId?: string;
+  };
+};
+
+type CheckoutFormProps = {
+  initialCustomer?: CheckoutInitialCustomer;
+};
+
+export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
   const { items, total, clearCart } = useCart();
+  const lockerPluginSubscribedRef = useRef(false);
   const [shippingMethod, setShippingMethod] = useState<"address" | "easybox">(
-    "address",
+    initialCustomer?.preferredShippingMethod ?? "address",
   );
   const [paymentMethod, setPaymentMethod] = useState<"netopia" | "transfer">(
     "netopia",
   );
-  const [counties, setCounties] = useState<SamedayCounty[]>([]);
-  const [cities, setCities] = useState<SamedayCity[]>([]);
-  const [selectedCountyId, setSelectedCountyId] = useState<string>("");
-  const [selectedCityId, setSelectedCityId] = useState<string>("");
-  const [citySearch, setCitySearch] = useState("");
-  const [isLoadingCounties, setIsLoadingCounties] = useState(false);
-  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const [selectedLocation, setSelectedLocation] =
+    useState<SamedayLocationSelection>({
+      countyId: initialCustomer?.address?.samedayCountyId ?? "",
+      countyName: initialCustomer?.address?.county ?? "",
+      cityId: initialCustomer?.address?.samedayCityId ?? "",
+      cityName: initialCustomer?.address?.city ?? "",
+    });
+  const [isLockerScriptReady, setIsLockerScriptReady] = useState(false);
+  const [lockerConfig, setLockerConfig] =
+    useState<SamedayLockerRuntimeConfig | null>(null);
+  const [isLoadingLockerConfig, setIsLoadingLockerConfig] = useState(false);
+  const [shippingProfiles, setShippingProfiles] = useState<ShippingProfile[]>(
+    [],
+  );
+  const [isLoadingShippingProfiles, setIsLoadingShippingProfiles] =
+    useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Sameday Locker State
@@ -81,116 +131,176 @@ export function CheckoutForm() {
     id: string;
     name: string;
     address: string;
+    cityId?: string;
+    city?: string;
+    countyId?: string;
+    county?: string;
+    postalCode?: string;
+    oohType?: number;
   } | null>(null);
 
-  const selectedCounty = counties.find(
-    (county) => String(county.id) === selectedCountyId,
+  const cartSubtotal = total();
+  const activeShippingProfile = shippingProfiles.find(
+    (profile) => profile.method === shippingMethod && profile.enabled,
   );
-  const selectedCity = cities.find((city) => String(city.id) === selectedCityId);
+  const shippingAmount = activeShippingProfile
+    ? cartSubtotal >= activeShippingProfile.freeShippingThreshold
+      ? 0
+      : activeShippingProfile.price
+    : 0;
+  const orderTotal = cartSubtotal + shippingAmount;
+  const freeShippingRemainder = activeShippingProfile
+    ? Math.max(activeShippingProfile.freeShippingThreshold - cartSubtotal, 0)
+    : 0;
 
   useEffect(() => {
-    async function loadCounties() {
-      setIsLoadingCounties(true);
+    async function loadShippingProfiles() {
+      setIsLoadingShippingProfiles(true);
 
       try {
-        const response = await fetch("/api/shipping/sameday/counties");
+        const response = await fetch("/api/shipping/profiles", {
+          cache: "no-store",
+        });
         const data = (await response.json()) as {
-          counties?: SamedayCounty[];
+          profiles?: ShippingProfile[];
           error?: string;
         };
 
         if (!response.ok) {
-          throw new Error(data.error ?? "Could not load counties.");
+          throw new Error(data.error ?? "Could not load shipping profiles.");
         }
 
-        setCounties(data.counties ?? []);
+        setShippingProfiles(data.profiles ?? []);
       } catch (error) {
         setErrorMessage(
           error instanceof Error
             ? error.message
-            : "Could not load delivery counties.",
+            : "Could not load shipping profiles.",
         );
       } finally {
-        setIsLoadingCounties(false);
+        setIsLoadingShippingProfiles(false);
       }
     }
 
-    void loadCounties();
+    void loadShippingProfiles();
   }, []);
 
-  async function loadCities(
-    name = citySearch,
-    countyId = selectedCountyId,
-  ) {
-    if (!countyId) {
-      setErrorMessage("Please select a county first.");
+  useEffect(() => {
+    async function loadLockerConfig() {
+      setIsLoadingLockerConfig(true);
+
+      try {
+        const response = await fetch("/api/shipping/sameday/locker-config", {
+          cache: "no-store",
+        });
+        const data = (await response.json()) as {
+          clientId?: string;
+          apiUsername?: string;
+          error?: string;
+        };
+
+        if (!response.ok || !data.clientId || !data.apiUsername) {
+          throw new Error(data.error ?? "Sameday map is not configured.");
+        }
+
+        setLockerConfig({
+          clientId: data.clientId,
+          apiUsername: data.apiUsername,
+        });
+      } catch (error) {
+        setLockerConfig(null);
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not load Sameday map configuration.",
+        );
+      } finally {
+        setIsLoadingLockerConfig(false);
+      }
+    }
+
+    void loadLockerConfig();
+  }, []);
+
+  const openEasyboxMap = useCallback(() => {
+    setErrorMessage(null);
+
+    if (!lockerConfig) {
+      setErrorMessage("Sameday Easybox map is not configured yet.");
       return;
     }
 
-    setIsLoadingCities(true);
-    setErrorMessage(null);
-
-    try {
-      const url = new URL("/api/shipping/sameday/cities", window.location.origin);
-      url.searchParams.set("countyId", countyId);
-      if (name.trim()) {
-        url.searchParams.set("name", name.trim());
-      }
-
-      const response = await fetch(url);
-      const data = (await response.json()) as {
-        cities?: SamedayCity[];
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Could not load cities.");
-      }
-
-      setCities(data.cities ?? []);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Could not load cities.",
-      );
-    } finally {
-      setIsLoadingCities(false);
-    }
-  }
-
-  // Initialize Sameday Widget according to official docs
-  const openEasyboxMap = () => {
-    if (typeof window !== "undefined" && window.LockerPlugin) {
-      // 1. Initialize configuration
-      window.LockerPlugin.init({
-        clientId: "YOUR_SAMEDAY_CLIENT_ID", // Required
-        apiUsername: "YOUR_API_USERNAME", // Required by Sameday
-        countryCode: "RO",
-        langCode: "ro",
-        theme: "light",
-      });
-
-      // 2. Get the singleton instance
-      const pluginInstance = window.LockerPlugin.getInstance();
-
-      // 3. Subscribe to the callback event when a locker is clicked
-      pluginInstance.subscribe((lockerData) => {
-        setLocker({
-          id: lockerData.lockerId,
-          name: lockerData.name,
-          address: lockerData.address,
-        });
-        // Close the modal iframe automatically after selection
-        pluginInstance.close();
-      });
-
-      // 4. Open the modal map
-      pluginInstance.open();
-    } else {
+    if (
+      !isLockerScriptReady ||
+      typeof window === "undefined" ||
+      !window.LockerPlugin
+    ) {
       setErrorMessage(
         "Sameday map is still loading. Please try again in a moment.",
       );
+      return;
     }
-  };
+
+    const pluginConfig: SamedayLockerPluginConfig = {
+      clientId: lockerConfig.clientId,
+      apiUsername: lockerConfig.apiUsername,
+      countryCode: "RO",
+      langCode: "ro",
+      county: selectedLocation.countyName,
+      city: selectedLocation.cityName,
+      theme: "light",
+      filters: [{ showLockers: true }, { showPudos: true }],
+      initialMapCenter: selectedLocation.cityName
+        ? "City"
+        : selectedLocation.countyName
+          ? "County"
+          : undefined,
+    };
+
+    window.LockerPlugin.init(pluginConfig);
+
+    const pluginInstance = window.LockerPlugin.getInstance();
+    pluginInstance.reinitializePlugin?.(pluginConfig);
+
+    if (!lockerPluginSubscribedRef.current) {
+      pluginInstance.subscribe((lockerData) => {
+        const lockerId =
+          lockerData.lockerId || lockerData.id || lockerData.oohId;
+
+        if (!lockerId) {
+          setErrorMessage("The selected Easybox did not return a locker id.");
+          return;
+        }
+
+        setLocker({
+          id: String(lockerId),
+          name: lockerData.name,
+          address: lockerData.address,
+          cityId:
+            lockerData.cityId !== undefined
+              ? String(lockerData.cityId)
+              : undefined,
+          city: lockerData.city,
+          countyId:
+            lockerData.countyId !== undefined
+              ? String(lockerData.countyId)
+              : undefined,
+          county: lockerData.county,
+          postalCode: lockerData.postalCode,
+          oohType: lockerData.oohType,
+        });
+        pluginInstance.close();
+      });
+      lockerPluginSubscribedRef.current = true;
+    }
+
+    pluginInstance.open();
+  }, [
+    isLockerScriptReady,
+    lockerConfig,
+    selectedLocation.cityName,
+    selectedLocation.countyName,
+  ]);
 
   const [state, formAction, isPending] = useActionState(
     async (_prevState: unknown, formData: FormData) => {
@@ -201,12 +311,12 @@ export function CheckoutForm() {
         return null;
       }
 
-      if (!selectedCounty || !selectedCountyId) {
+      if (!selectedLocation.countyName || !selectedLocation.countyId) {
         setErrorMessage("Please select a county.");
         return null;
       }
 
-      if (!selectedCity || !selectedCityId) {
+      if (!selectedLocation.cityName || !selectedLocation.cityId) {
         setErrorMessage("Please select a city.");
         return null;
       }
@@ -221,21 +331,38 @@ export function CheckoutForm() {
             shippingMethod === "easybox" && locker
               ? `Easybox: ${locker.name} (ID: ${locker.id}) - ${locker.address}`
               : (formData.get("street") as string),
-          city: selectedCity.name,
-          county: selectedCounty.name,
+          city: selectedLocation.cityName,
+          county: selectedLocation.countyName,
           zip: formData.get("zip") as string,
-          samedayCityId: selectedCityId,
-          samedayCountyId: selectedCountyId,
+          samedayCityId: selectedLocation.cityId,
+          samedayCountyId: selectedLocation.countyId,
           samedayLockerId:
             shippingMethod === "easybox" && locker ? locker.id : undefined,
           samedayLockerName:
             shippingMethod === "easybox" && locker ? locker.name : undefined,
           samedayLockerAddress:
             shippingMethod === "easybox" && locker ? locker.address : undefined,
+          samedayLockerCityId:
+            shippingMethod === "easybox" && locker ? locker.cityId : undefined,
+          samedayLockerCity:
+            shippingMethod === "easybox" && locker ? locker.city : undefined,
+          samedayLockerCountyId:
+            shippingMethod === "easybox" && locker
+              ? locker.countyId
+              : undefined,
+          samedayLockerCounty:
+            shippingMethod === "easybox" && locker ? locker.county : undefined,
+          samedayLockerPostalCode:
+            shippingMethod === "easybox" && locker
+              ? locker.postalCode
+              : undefined,
+          samedayLockerOohType:
+            shippingMethod === "easybox" && locker ? locker.oohType : undefined,
         },
         shippingMethod,
       };
-      const locale = window.location.pathname.split("/")[1] === "ro" ? "ro" : "en";
+      const locale =
+        window.location.pathname.split("/")[1] === "ro" ? "ro" : "en";
 
       posthog.capture("checkout_started", {
         payment_method: paymentMethod,
@@ -243,11 +370,13 @@ export function CheckoutForm() {
         cart_total: total(),
         item_count: items.length,
         currency: "RON",
+        shipping_amount: shippingAmount,
+        order_total: orderTotal,
       });
 
       if (paymentMethod === "netopia") {
         const response = await initiateCheckout(
-          total(),
+          cartSubtotal,
           customerData,
           locale,
           items,
@@ -260,7 +389,7 @@ export function CheckoutForm() {
         return response;
       } else {
         const response = await createBankTransferOrder(
-          total(),
+          cartSubtotal,
           customerData,
           locale,
           items,
@@ -278,6 +407,8 @@ export function CheckoutForm() {
     },
     null,
   );
+  const isCheckoutDisabled =
+    isPending || isLoadingShippingProfiles || !activeShippingProfile;
 
   if (items.length === 0) {
     return (
@@ -293,6 +424,10 @@ export function CheckoutForm() {
       <Script
         src="https://cdn.sameday.ro/locker-plugin/lockerpluginsdk.js"
         strategy="lazyOnload"
+        onLoad={() => setIsLockerScriptReady(true)}
+        onError={() =>
+          setErrorMessage("Could not load the Sameday Easybox map.")
+        }
       />
 
       <div className="lg:col-span-7 space-y-8">
@@ -318,6 +453,7 @@ export function CheckoutForm() {
                   id="firstName"
                   name="firstName"
                   required
+                  defaultValue={initialCustomer?.firstName ?? ""}
                   className="rounded-none border-black h-11"
                 />
               </div>
@@ -332,6 +468,7 @@ export function CheckoutForm() {
                   id="lastName"
                   name="lastName"
                   required
+                  defaultValue={initialCustomer?.lastName ?? ""}
                   className="rounded-none border-black h-11"
                 />
               </div>
@@ -349,6 +486,7 @@ export function CheckoutForm() {
                   name="email"
                   type="email"
                   required
+                  defaultValue={initialCustomer?.email ?? ""}
                   className="rounded-none border-black h-11"
                 />
               </div>
@@ -364,6 +502,7 @@ export function CheckoutForm() {
                   name="phone"
                   type="tel"
                   required
+                  defaultValue={initialCustomer?.phone ?? ""}
                   className="rounded-none border-black h-11"
                 />
               </div>
@@ -382,7 +521,9 @@ export function CheckoutForm() {
                 className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
                 onClick={() => {
                   setShippingMethod("address");
-                  posthog.capture("shipping_method_selected", { method: "address" });
+                  posthog.capture("shipping_method_selected", {
+                    method: "address",
+                  });
                 }}
               >
                 Home Address
@@ -393,7 +534,9 @@ export function CheckoutForm() {
                 className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
                 onClick={() => {
                   setShippingMethod("easybox");
-                  posthog.capture("shipping_method_selected", { method: "easybox" });
+                  posthog.capture("shipping_method_selected", {
+                    method: "easybox",
+                  });
                 }}
               >
                 Sameday Easybox
@@ -402,6 +545,16 @@ export function CheckoutForm() {
 
             {shippingMethod === "easybox" && (
               <div className="p-6 border border-black bg-slate-50 space-y-4">
+                {isLoadingLockerConfig ? (
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Loading Sameday map configuration.
+                  </p>
+                ) : null}
+                {!isLoadingLockerConfig && !lockerConfig ? (
+                  <p className="text-xs font-bold uppercase tracking-wider text-destructive">
+                    Sameday Easybox map is missing configuration.
+                  </p>
+                ) : null}
                 {locker ? (
                   <div className="space-y-2">
                     <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">
@@ -429,6 +582,13 @@ export function CheckoutForm() {
                 )}
               </div>
             )}
+            {activeShippingProfile && (
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                {shippingAmount === 0
+                  ? "Shipping is free for this order."
+                  : `${(shippingAmount / 100).toFixed(2)} RON shipping. ${freeShippingRemainder > 0 ? `Add ${(freeShippingRemainder / 100).toFixed(2)} RON for free shipping.` : ""}`}
+              </p>
+            )}
           </section>
 
           {/* 3. Billing & Address Details */}
@@ -452,74 +612,18 @@ export function CheckoutForm() {
                 id="street"
                 name="street"
                 required
+                defaultValue={initialCustomer?.address?.street ?? ""}
                 className="rounded-none border-black h-11"
               />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="uppercase text-xs font-bold tracking-widest">
-                  County
-                </Label>
-                <Select
-                  value={selectedCountyId}
-                  onValueChange={(value) => {
-                    setSelectedCountyId(value);
-                    setSelectedCityId("");
-                    setCities([]);
-                    setCitySearch("");
-                    void loadCities("", value);
-                  }}
-                  required
-                  disabled={isLoadingCounties}
-                >
-                  <SelectTrigger
-                    id="county"
-                    className="rounded-none border-black h-11"
-                  >
-                    <SelectValue
-                      placeholder={
-                        isLoadingCounties ? "Loading counties" : "Select county"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-none border-black bg-white">
-                    {counties.map((county) => (
-                      <SelectItem
-                        key={county.id}
-                        value={String(county.id)}
-                        className="uppercase text-xs font-bold"
-                      >
-                        {county.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="uppercase text-xs font-bold tracking-widest">
-                  Search City
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={citySearch}
-                    onChange={(event) => setCitySearch(event.target.value)}
-                    disabled={!selectedCountyId}
-                    className="rounded-none border-black h-11"
-                    placeholder={
-                      selectedCountyId ? "Type city name" : "Select county first"
-                    }
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!selectedCountyId || isLoadingCities}
-                    onClick={() => loadCities()}
-                    className="h-11 rounded-none border-black text-xs font-bold uppercase tracking-widest"
-                  >
-                    Search
-                  </Button>
-                </div>
-              </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_160px]">
+              <SamedayLocationPicker
+                initialCountyId={initialCustomer?.address?.samedayCountyId}
+                initialCountyName={initialCustomer?.address?.county}
+                initialCityId={initialCustomer?.address?.samedayCityId}
+                initialCityName={initialCustomer?.address?.city}
+                onSelectionChange={setSelectedLocation}
+              />
               <div className="space-y-2">
                 <Label
                   htmlFor="zip"
@@ -531,48 +635,10 @@ export function CheckoutForm() {
                   id="zip"
                   name="zip"
                   required
+                  defaultValue={initialCustomer?.address?.zip ?? ""}
                   className="rounded-none border-black h-11"
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="uppercase text-xs font-bold tracking-widest">
-                City
-              </Label>
-              <Select
-                value={selectedCityId}
-                onValueChange={setSelectedCityId}
-                required
-                disabled={!selectedCountyId || isLoadingCities}
-              >
-                <SelectTrigger className="rounded-none border-black h-11">
-                  <SelectValue
-                    placeholder={
-                      selectedCountyId
-                        ? isLoadingCities
-                          ? "Loading cities"
-                          : "Select city"
-                        : "Select county first"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent className="rounded-none border-black bg-white">
-                  {cities.map((city) => (
-                    <SelectItem
-                      key={city.id}
-                      value={String(city.id)}
-                      className="uppercase text-xs font-bold"
-                    >
-                      {city.postalCode
-                        ? `${city.name} (${city.postalCode})`
-                        : city.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Search after selecting a county to load Sameday-compliant cities.
-              </p>
             </div>
           </section>
 
@@ -588,7 +654,9 @@ export function CheckoutForm() {
                 className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
                 onClick={() => {
                   setPaymentMethod("netopia");
-                  posthog.capture("payment_method_selected", { method: "netopia" });
+                  posthog.capture("payment_method_selected", {
+                    method: "netopia",
+                  });
                 }}
               >
                 Online Card (Netopia)
@@ -599,7 +667,9 @@ export function CheckoutForm() {
                 className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
                 onClick={() => {
                   setPaymentMethod("transfer");
-                  posthog.capture("payment_method_selected", { method: "bank_transfer" });
+                  posthog.capture("payment_method_selected", {
+                    method: "bank_transfer",
+                  });
                 }}
               >
                 Bank Transfer
@@ -653,22 +723,38 @@ export function CheckoutForm() {
                 ))}
               </div>
 
-              <div className="border-t border-black pt-4 flex justify-between items-end">
-                <span className="uppercase tracking-widest text-xs font-black">
-                  Total
-                </span>
-                <span className="text-3xl font-black tracking-tighter">
-                  {(total() / 100).toFixed(2)} RON
-                </span>
+              <div className="space-y-3 border-t border-black pt-4">
+                <SummaryRow label="Subtotal" value={cartSubtotal} />
+                <SummaryRow
+                  label={
+                    isLoadingShippingProfiles ? "Shipping" : "Shipping"
+                  }
+                  value={shippingAmount}
+                  valueLabel={
+                    isLoadingShippingProfiles
+                      ? "Loading"
+                      : shippingAmount === 0
+                        ? "Free"
+                        : undefined
+                  }
+                />
+                <div className="flex justify-between items-end pt-2">
+                  <span className="uppercase tracking-widest text-xs font-black">
+                    Total
+                  </span>
+                  <span className="text-3xl font-black tracking-tighter">
+                    {(orderTotal / 100).toFixed(2)} RON
+                  </span>
+                </div>
               </div>
 
               <Button
                 type="submit"
                 form="checkout-form"
-                disabled={isPending}
+                disabled={isCheckoutDisabled}
                 className="w-full h-14 rounded-none bg-black text-white hover:bg-slate-900 uppercase tracking-widest font-black text-sm mt-4 transition-colors"
               >
-                {isPending
+                {isPending || isLoadingShippingProfiles
                   ? "Processing..."
                   : paymentMethod === "netopia"
                     ? "Redirect to Payment"
@@ -678,6 +764,27 @@ export function CheckoutForm() {
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  valueLabel,
+}: {
+  label: string;
+  value: number;
+  valueLabel?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
+        {label}
+      </span>
+      <span className="font-black tracking-tight">
+        {valueLabel ?? `${(value / 100).toFixed(2)} RON`}
+      </span>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import createMiddleware from "next-intl/middleware";
+import { isAdminUserRecord } from "@/lib/auth/roles";
 import { readEnvValue } from "@/lib/env";
 
 // 1. Initialize the i18n middleware
@@ -52,7 +53,7 @@ export async function proxy(request: NextRequest) {
   if (isAdminRoute) {
     const adminEmail = readEnvValue(process.env.ADMIN_EMAIL, "ADMIN_EMAIL");
 
-    if (!user || user.email?.toLowerCase() !== adminEmail.toLowerCase()) {
+    if (!isAdminUserRecord(user, adminEmail)) {
       const locale = pathname.split("/")[1] || "en";
       return NextResponse.redirect(new URL(`/${locale}`, request.url));
     }

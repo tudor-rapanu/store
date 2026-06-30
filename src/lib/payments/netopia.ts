@@ -30,6 +30,20 @@ function getNetopiaUrl(value: string | undefined, path: string) {
   return `${getSiteUrl()}${path}`;
 }
 
+function getNetopiaNotifyUrl(value: string | undefined, path: string) {
+  const notifyUrl = getNetopiaUrl(value, path);
+  const webhookSecret = process.env.NETOPIA_WEBHOOK_SECRET?.trim();
+
+  if (!webhookSecret) {
+    return notifyUrl;
+  }
+
+  const url = new URL(notifyUrl);
+  url.searchParams.set("token", webhookSecret);
+
+  return url.toString();
+}
+
 function getNetopiaReturnUrl(
   value: string | undefined,
   path: string,
@@ -55,7 +69,7 @@ export function createNetopiaClient(redirectPath = "/en", orderId?: string) {
   return new Netopia({
     apiBaseUrl: getSiteUrl(),
     apiKey: readEnvValue(process.env.NETOPIA_API_KEY, "NETOPIA_API_KEY"),
-    notifyUrl: getNetopiaUrl(
+    notifyUrl: getNetopiaNotifyUrl(
       process.env.NETOPIA_CONFIRM_URL,
       "/api/webhooks/netopia",
     ),

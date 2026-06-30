@@ -54,23 +54,34 @@ export function MobileNavMenu({
 
         <div className="mt-6 flex flex-1 flex-col">
           <nav aria-label="Mobile navigation">
-            {categories.map((category) => (
-              <SheetClose asChild key={category.slug}>
-                <Link
-                  href={`/${locale}/category/${category.slug}`}
-                  className={linkClass}
-                >
-                  {category.name}
+            {!isAdmin && (
+              <SheetClose asChild>
+                <Link href={`/${locale}/products`} className={linkClass}>
+                  Shop
                 </Link>
               </SheetClose>
-            ))}
+            )}
+            {!isAdmin &&
+              categories.map((category) => (
+                <SheetClose asChild key={category.slug}>
+                  <Link
+                    href={`/${locale}/category/${category.slug}`}
+                    className={linkClass}
+                  >
+                    {category.name}
+                  </Link>
+                </SheetClose>
+              ))}
 
             {isLoggedIn ? (
               <>
                 {isAdmin ? (
                   <>
                     <SheetClose asChild>
-                      <Link href={`/${locale}/admin/orders`} className={linkClass}>
+                      <Link
+                        href={`/${locale}/admin/orders`}
+                        className={linkClass}
+                      >
                         Orders
                       </Link>
                     </SheetClose>
@@ -100,9 +111,26 @@ export function MobileNavMenu({
                     </SheetClose>
                   </>
                 ) : (
+                  <>
+                    <SheetClose asChild>
+                      <Link href={`/${locale}/account`} className={linkClass}>
+                        Account
+                      </Link>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Link
+                        href={`/${locale}/account/orders`}
+                        className={linkClass}
+                      >
+                        Orders
+                      </Link>
+                    </SheetClose>
+                  </>
+                )}
+                {isAdmin && (
                   <SheetClose asChild>
-                    <Link href={`/${locale}/account/orders`} className={linkClass}>
-                      Orders
+                    <Link href={`/${locale}/account`} className={linkClass}>
+                      Account
                     </Link>
                   </SheetClose>
                 )}
@@ -143,7 +171,7 @@ export function MobileNavMenu({
                 <input type="hidden" name="locale" value={locale} />
                 <Button
                   type="submit"
-                  className="h-11 w-full rounded-none bg-black text-white hover:bg-slate-800"
+                  className="h-11 w-full uppercase rounded-none bg-black text-white hover:bg-slate-800"
                 >
                   Logout
                 </Button>

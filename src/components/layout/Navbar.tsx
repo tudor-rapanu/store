@@ -5,6 +5,7 @@ import { PostHogIdentifier } from "./PostHogIdentifier";
 import { db } from "@/lib/db";
 import { categories } from "@/lib/db/schema";
 import { logoutFromLocale } from "@/lib/actions/auth";
+import { isAdminUserRecord } from "@/lib/auth/roles";
 import { readEnvValue } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -14,7 +15,7 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
     data: { user },
   } = await supabase.auth.getUser();
   const adminEmail = readEnvValue(process.env.ADMIN_EMAIL, "ADMIN_EMAIL");
-  const isAdmin = user?.email === adminEmail;
+  const isAdmin = isAdminUserRecord(user, adminEmail);
   const categoryLinks = await getCategoryLinks(locale);
 
   return (
@@ -37,17 +38,25 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
             <span className="truncate">Todd&apos;s Threads</span>
           </Link>
           <div className="flex items-center gap-2 sm:gap-4">
-            <div className="hidden lg:flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
-              {categoryLinks.map((category) => (
+            {!isAdmin && (
+              <div className="hidden lg:flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
                 <Link
-                  key={category.slug}
-                  href={`/${locale}/category/${category.slug}`}
+                  href={`/${locale}/products`}
                   className="hover:text-slate-500 transition-colors"
                 >
-                  {category.name}
+                  Shop
                 </Link>
-              ))}
-            </div>
+                {categoryLinks.map((category) => (
+                  <Link
+                    key={category.slug}
+                    href={`/${locale}/category/${category.slug}`}
+                    className="hover:text-slate-500 transition-colors"
+                  >
+                    {category.name}
+                  </Link>
+                ))}
+              </div>
+            )}
             <div className="hidden sm:flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
               {user ? (
                 <>
@@ -79,6 +88,12 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
                       </Link>
                     </>
                   )}
+                  <Link
+                    href={`/${locale}/account`}
+                    className="hover:text-slate-500 transition-colors"
+                  >
+                    Account
+                  </Link>
                   {!isAdmin && (
                     <Link
                       href={`/${locale}/account/orders`}
@@ -91,7 +106,7 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
                     <input type="hidden" name="locale" value={locale} />
                     <button
                       type="submit"
-                      className="border border-black px-3 py-2 hover:bg-black hover:text-white transition-colors"
+                      className="border border-black px-3 py-2 uppercase hover:bg-black hover:text-white transition-colors"
                     >
                       Logout
                     </button>
@@ -107,7 +122,7 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
                   </Link>
                   <Link
                     href={`/${locale}/register`}
-                    className="border border-black px-3 py-2 hover:bg-black hover:text-white transition-colors"
+                    className="border border-black px-3 py-2 uppercase hover:bg-black hover:text-white transition-colors"
                   >
                     Register
                   </Link>

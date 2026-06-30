@@ -39,7 +39,15 @@ export default async function AdminProductsPage({
   const currentPage = Math.min(requestedPage, totalPages);
   const offset = (currentPage - 1) * PRODUCTS_PER_PAGE;
   const items = await db
-    .select()
+    .select({
+      id: products.id,
+      slug: products.slug,
+      title: products.title,
+      basePrice: products.basePrice,
+      imageUrl: products.imageUrl,
+      isPrivate: products.isPrivate,
+      createdAt: products.createdAt,
+    })
     .from(products)
     .orderBy(desc(products.createdAt))
     .limit(PRODUCTS_PER_PAGE)
@@ -71,7 +79,7 @@ export default async function AdminProductsPage({
           </div>
         ) : (
           items.map((product) => {
-            const imageSrc = getProductImageSrc(product.imageUrl);
+            const imageSrc = getProductImageSrc(product.imageUrl, "thumb");
             const title = product.title[activeLocale] || product.title.en;
 
             return (
@@ -80,7 +88,7 @@ export default async function AdminProductsPage({
                 className="grid gap-4 p-4 md:grid-cols-[1fr_auto] md:items-center"
               >
                 <div className="flex items-center gap-4">
-                  <div className="relative size-16 shrink-0 overflow-hidden border border-slate-200 bg-slate-100">
+                  <div className="relative size-16 shrink-0 overflow-hidden border border-slate-200 bg-white">
                     {imageSrc ? (
                       <Image
                         src={imageSrc}

@@ -8,6 +8,7 @@ import {
   timestamp,
   jsonb,
   primaryKey,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -46,7 +47,10 @@ export const products = pgTable("products", {
   isPrivate: boolean("is_private").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("products_is_private_idx").on(table.isPrivate),
+  index("products_created_at_idx").on(table.createdAt),
+]);
 
 // -------------------------------------------------------------------------
 // 2. PRODUCT VARIANTS TABLE (For Size / Color variations)
@@ -65,7 +69,9 @@ export const productVariants = pgTable("product_variants", {
   stock: integer("stock").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("product_variants_product_id_idx").on(table.productId),
+]);
 
 // -------------------------------------------------------------------------
 // 3. CATEGORIES TABLE
@@ -88,7 +94,10 @@ export const productCategories = pgTable(
       .references(() => categories.id, { onDelete: "cascade" })
       .notNull(),
   },
-  (table) => [primaryKey({ columns: [table.productId, table.categoryId] })],
+  (table) => [
+    primaryKey({ columns: [table.productId, table.categoryId] }),
+    index("product_categories_category_id_idx").on(table.categoryId),
+  ],
 );
 
 // -------------------------------------------------------------------------
@@ -118,6 +127,8 @@ export const orders = pgTable("orders", {
   samedayPackageType: text("sameday_package_type"),
   samedayAwbCost: integer("sameday_awb_cost"),
   samedayRawResponse: jsonb("sameday_raw_response"),
+  subtotalAmount: integer("subtotal_amount").default(0).notNull(),
+  shippingAmount: integer("shipping_amount").default(0).notNull(),
   totalAmount: integer("total_amount").notNull(), // Stored in Bani
   status: text("status", { enum: ["pending", "paid", "failed"] })
     .default("pending")
@@ -147,7 +158,47 @@ export const orders = pgTable("orders", {
   cancelRequestedAt: timestamp("cancel_requested_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("orders_user_id_created_at_idx").on(table.userId, table.createdAt),
+  index("orders_created_at_idx").on(table.createdAt),
+  index("orders_payment_status_idx").on(table.paymentStatus),
+  index("orders_fulfillment_status_idx").on(table.fulfillmentStatus),
+  index("orders_payment_method_idx").on(table.paymentMethod),
+  index("orders_customer_email_idx").on(table.customerEmail),
+  index("orders_awb_number_idx").on(table.awbNumber),
+]);
+
+export const shippingProfiles = pgTable("shipping_profiles", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  method: text("method").$type<ShippingMethod>().notNull(),
+  price: integer("price").notNull(),
+  freeShippingThreshold: integer("free_shipping_threshold")
+    .default(15000)
+    .notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("shipping_profiles_method_enabled_idx").on(table.method, table.enabled),
+]);
+
+export const customerProfiles = pgTable("customer_profiles", {
+  userId: text("user_id").primaryKey(),
+  email: text("email").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  phone: text("phone"),
+  address: jsonb("address").$type<Record<string, unknown>>().default({}).notNull(),
+  preferredShippingMethod: text("preferred_shipping_method")
+    .$type<ShippingMethod>()
+    .default("address")
+    .notNull(),
+  marketingOptIn: boolean("marketing_opt_in").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("customer_profiles_email_idx").on(table.email),
+]);
 
 // -------------------------------------------------------------------------
 // 5. ORDER ITEMS TABLE
@@ -164,7 +215,11 @@ export const orderItems = pgTable("order_items", {
     .references(() => productVariants.id),
   quantity: integer("quantity").notNull(),
   unitPrice: integer("unit_price").notNull(), // Price at time of purchase in Bani
-});
+}, (table) => [
+  index("order_items_order_id_idx").on(table.orderId),
+  index("order_items_product_id_idx").on(table.productId),
+  index("order_items_variant_id_idx").on(table.variantId),
+]);
 
 // -------------------------------------------------------------------------
 // 6. SHIPPING PROVIDER CACHE TABLES
@@ -181,7 +236,9 @@ export const samedayCounties = pgTable("sameday_counties", {
   name: text("name").notNull(),
   rawData: jsonb("raw_data"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("sameday_counties_name_idx").on(table.name),
+]);
 
 export const samedayCities = pgTable("sameday_cities", {
   id: integer("id").primaryKey(),
@@ -192,7 +249,10 @@ export const samedayCities = pgTable("sameday_cities", {
   postalCode: text("postal_code"),
   rawData: jsonb("raw_data"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("sameday_cities_county_id_name_idx").on(table.countyId, table.name),
+  index("sameday_cities_postal_code_idx").on(table.postalCode),
+]);
 
 // -------------------------------------------------------------------------
 // RELATIONS DEFINITIONS (Enables clean relational queries via Drizzle)

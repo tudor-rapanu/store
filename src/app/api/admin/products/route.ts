@@ -1,7 +1,4 @@
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import crypto from "crypto";
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
@@ -11,12 +8,11 @@ import {
   productVariants,
   products,
 } from "@/lib/db/schema";
-import { readEnvValue } from "@/lib/env";
-import { r2Client } from "@/lib/storage/r2";
-import { createClient } from "@/lib/supabase/server";
+import { isAdminUser } from "@/lib/admin-auth";
+import { revalidateCatalogViews } from "@/lib/catalog/cache";
+import { uploadProductImage } from "@/lib/storage/product-images";
 
-const MAX_IMAGE_SIZE = 25 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+export const runtime = "nodejs";
 
 function errorResponse(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -154,41 +150,8 @@ async function syncProductCategories(productId: string, categoryNames: string[])
   }
 }
 
-async function uploadProductImage(image: File, slug: string) {
-  if (image.size > MAX_IMAGE_SIZE) {
-    throw new Error("Product images must be 25 MB or smaller.");
-  }
-
-  if (!ALLOWED_IMAGE_TYPES.has(image.type)) {
-    throw new Error("Only JPEG, PNG, and WebP images are supported.");
-  }
-
-  const fileExtension = image.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const uniqueFileName = `${slug}-${crypto.randomUUID()}.${fileExtension}`;
-  const s3Key = `catalog/${uniqueFileName}`;
-  const buffer = Buffer.from(await image.arrayBuffer());
-
-  await r2Client.send(
-    new PutObjectCommand({
-      Bucket: readEnvValue(process.env.R2_BUCKET_NAME, "R2_BUCKET_NAME"),
-      Key: s3Key,
-      Body: buffer,
-      ContentType: image.type,
-    }),
-  );
-
-  return `/${s3Key}`;
-}
-
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const adminEmail = readEnvValue(process.env.ADMIN_EMAIL, "ADMIN_EMAIL");
-
-  if (!user || user.email?.toLowerCase() !== adminEmail.toLowerCase()) {
+  if (!(await isAdminUser())) {
     return errorResponse("You are not allowed to create products.", 403);
   }
 
@@ -266,7 +229,7 @@ export async function POST(request: Request) {
 
   await syncProductCategories(product.id, categoryNames);
 
-  revalidatePath("/", "layout");
+  revalidateCatalogViews({ productSlugs: [product.slug] });
 
   return NextResponse.json({ ok: true });
 }

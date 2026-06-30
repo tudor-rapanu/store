@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
+import { revalidateCatalogViews } from "@/lib/catalog/cache";
 import { db } from "@/lib/db";
 import { categories } from "@/lib/db/schema";
 
@@ -40,6 +40,16 @@ export async function PATCH(
     return errorResponse("Category name and slug are required.");
   }
 
+  const [existingCategory] = await db
+    .select({ slug: categories.slug })
+    .from(categories)
+    .where(eq(categories.id, id))
+    .limit(1);
+
+  if (!existingCategory) {
+    return errorResponse("Category was not found.", 404);
+  }
+
   const [updatedCategory] = await db
     .update(categories)
     .set({
@@ -50,11 +60,9 @@ export async function PATCH(
     .where(eq(categories.id, id))
     .returning();
 
-  if (!updatedCategory) {
-    return errorResponse("Category was not found.", 404);
-  }
-
-  revalidatePath("/", "layout");
+  revalidateCatalogViews({
+    categorySlugs: [existingCategory.slug, updatedCategory.slug],
+  });
 
   return NextResponse.json({ ok: true });
 }
@@ -77,7 +85,7 @@ export async function DELETE(
     return errorResponse("Category was not found.", 404);
   }
 
-  revalidatePath("/", "layout");
+  revalidateCatalogViews({ categorySlugs: [deletedCategory.slug] });
 
   return NextResponse.json({ ok: true });
 }

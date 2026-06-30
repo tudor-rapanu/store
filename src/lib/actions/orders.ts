@@ -25,7 +25,7 @@ export async function markStaleNetopiaOrdersFailed() {
     : 60;
   const staleCutoff = new Date(Date.now() - timeoutMinutes * 60 * 1000);
 
-  const failedOrders = await db
+  await db
     .update(orders)
     .set({
       status: "failed",
@@ -38,8 +38,5 @@ export async function markStaleNetopiaOrdersFailed() {
         eq(orders.paymentStatus, "pending"),
         lt(orders.createdAt, staleCutoff),
       ),
-    )
-    .returning({ id: orders.id });
-
-  return failedOrders.length;
+    );
 }

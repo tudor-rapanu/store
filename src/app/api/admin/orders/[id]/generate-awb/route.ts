@@ -6,6 +6,7 @@ import { isAdminUser } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
 import { sendTrackingEmail } from "@/lib/email";
+import { SAMEDAY_SERVICE_IDS } from "@/lib/shipping/constants";
 import {
   createSamedayAwb,
   getSamedayTrackingUrl,
@@ -35,6 +36,7 @@ type ShippingAddress = {
   samedayCountyId?: string;
   samedayCityId?: string;
   samedayLockerId?: string;
+  samedayLockerOohType?: number | string;
 };
 
 function errorResponse(message: string, status = 400) {
@@ -55,6 +57,14 @@ function getLegacyEasyboxId(address: ShippingAddress) {
   return match?.[1]?.trim();
 }
 
+function getSamedayServiceId(shippingMethod: string) {
+  if (shippingMethod !== "easybox") {
+    return SAMEDAY_SERVICE_IDS.homeDelivery;
+  }
+
+  return SAMEDAY_SERVICE_IDS.easybox;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -65,6 +75,16 @@ export async function POST(
 
   const { id } = await params;
   const body = (await request.json().catch(() => ({}))) as GenerateAwbBody;
+  console.log("Generate AWB request received:", {
+    orderId: id,
+    hasPickupPointId: Boolean(body.pickupPointId),
+    hasContactPersonId: Boolean(body.contactPersonId),
+    serviceId: body.serviceId,
+    packageType: body.packageType,
+    countyId: body.countyId,
+    cityId: body.cityId,
+    personalEasyboxLoad: Boolean(body.personalEasyboxLoad),
+  });
   const [order] = await db
     .select()
     .from(orders)
@@ -126,10 +146,13 @@ export async function POST(
             "Easybox locker",
           )
         : undefined;
-    const serviceId = requiredString(
-      body.serviceId ?? (order.shippingMethod === "easybox" ? "15" : "7"),
-      "Service",
-    );
+    const serviceId = getSamedayServiceId(order.shippingMethod);
+    console.log("Generate AWB service resolved:", {
+      orderId: order.id,
+      shippingMethod: order.shippingMethod,
+      samedayLockerOohType: address.samedayLockerOohType,
+      serviceId,
+    });
 
     const awb = await createSamedayAwb({
       orderId: order.id,
@@ -196,6 +219,7 @@ export async function POST(
       labelUrl: awb.pdfLink,
     });
   } catch (error) {
+    console.error("Generate AWB failed:", error);
     return errorResponse(
       error instanceof Error ? error.message : "Could not generate AWB.",
       500,

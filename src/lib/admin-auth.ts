@@ -1,4 +1,5 @@
 import { readEnvValue } from "@/lib/env";
+import { isAdminUserRecord } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 
 export async function isAdminUser() {
@@ -8,5 +9,5 @@ export async function isAdminUser() {
   } = await supabase.auth.getUser();
   const adminEmail = readEnvValue(process.env.ADMIN_EMAIL, "ADMIN_EMAIL");
 
-  return Boolean(user?.email?.toLowerCase() === adminEmail.toLowerCase());
+  return isAdminUserRecord(user, adminEmail);
 }

@@ -51,10 +51,14 @@ function createId() {
 }
 
 function splitValues(values: string) {
-  return values
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
+  return Array.from(
+    new Set(
+      values
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
 function slugify(value: string) {
@@ -95,11 +99,34 @@ function deriveOptions(variants: Variant[]) {
   }));
 }
 
+function getAttributeSignature(
+  attributes: Record<string, string>,
+  optionNames: string[],
+) {
+  return optionNames
+    .map((name) => `${name}:${attributes[name] ?? ""}`)
+    .join("|");
+}
+
+function getOptionCombinations(options: { name: string; values: string[] }[]) {
+  return options.reduce<Record<string, string>[]>(
+    (combinations, option) =>
+      combinations.flatMap((combination) =>
+        option.values.map((value) => ({
+          ...combination,
+          [option.name]: value,
+        })),
+      ),
+    [{}],
+  );
+}
+
 export function AdminProductForm({
   locale,
   product,
   variants = [],
   imagePaths = [],
+  imageSources = {},
   categories = [],
   availableCategories = [],
 }: {
@@ -107,6 +134,7 @@ export function AdminProductForm({
   product?: Product;
   variants?: Variant[];
   imagePaths?: string[];
+  imageSources?: Record<string, string | null>;
   categories?: string[];
   availableCategories?: AvailableCategory[];
 }) {
@@ -116,6 +144,9 @@ export function AdminProductForm({
   const [isPending, setIsPending] = useState(false);
   const [slug, setSlug] = useState(product?.slug ?? "");
   const [slugWasEdited, setSlugWasEdited] = useState(false);
+  const [basePrice, setBasePrice] = useState(
+    product ? (product.basePrice / 100).toFixed(2) : "",
+  );
   const [existingImages, setExistingImages] = useState(imagePaths);
   const [selectedCategories, setSelectedCategories] = useState(categories);
   const [variantsEnabled, setVariantsEnabled] = useState(variants.length > 0);
@@ -247,6 +278,76 @@ export function AdminProductForm({
     ]);
   }
 
+  function generateVariantMatrix() {
+    const matrixOptions = options
+      .map((option) => ({
+        name: option.name.trim(),
+        values: splitValues(option.values),
+      }))
+      .filter((option) => option.name);
+
+    if (matrixOptions.length === 0) {
+      setError("Add at least one variant type before generating variants.");
+      return;
+    }
+
+    const missingValues = matrixOptions.find(
+      (option) => option.values.length === 0,
+    );
+
+    if (missingValues) {
+      setError(`Add at least one value for ${missingValues.name}.`);
+      return;
+    }
+
+    const optionNames = matrixOptions.map((option) => option.name);
+    const existingSignatures = new Set(
+      variantRows.map((variant) =>
+        getAttributeSignature(variant.attributes, optionNames),
+      ),
+    );
+    const defaultPrice = Number(basePrice) || 0;
+    const combinations = getOptionCombinations(matrixOptions);
+    const missingVariants = combinations
+      .map((attributes) => {
+        const name = optionNames
+          .map((optionName) => attributes[optionName])
+          .join(" / ");
+        const signature = getAttributeSignature(attributes, optionNames);
+
+        return { attributes, name, signature };
+      })
+      .filter((combination) => !existingSignatures.has(combination.signature));
+
+    setError(null);
+    setSuccess(null);
+
+    if (missingVariants.length === 0) {
+      setSuccess("All generated variants are already added.");
+      return;
+    }
+
+    setVariantRows((current) => [
+      ...current,
+      ...missingVariants.map(({ attributes, name }, index) => {
+        const nextIndex = current.length + index;
+
+        return {
+          id: createId(),
+          name,
+          sku: getVariantSlug(slug, name, nextIndex),
+          skuWasEdited: false,
+          attributes,
+          price: defaultPrice,
+          stock: 0,
+        };
+      }),
+    ]);
+    setSuccess(
+      `Added ${missingVariants.length} missing variants. ${combinations.length - missingVariants.length} already existed.`,
+    );
+  }
+
   function toggleCategory(categoryValue: string) {
     setSelectedCategories((current) =>
       current.includes(categoryValue)
@@ -328,6 +429,7 @@ export function AdminProductForm({
         setSelectedCategories([]);
         setSlug("");
         setSlugWasEdited(false);
+        setBasePrice("");
         setVariantsEnabled(false);
         setOptions([]);
         setVariantRows([]);
@@ -397,7 +499,7 @@ export function AdminProductForm({
               <Label htmlFor="price" className="uppercase text-xs font-bold tracking-widest">
                 Base Price (RON)
               </Label>
-              <Input id="price" name="price" type="number" step="0.01" required defaultValue={product ? (product.basePrice / 100).toFixed(2) : undefined} className="rounded-none border-black h-11" />
+              <Input id="price" name="price" type="number" step="0.01" required value={basePrice} onChange={(event) => setBasePrice(event.target.value)} className="rounded-none border-black h-11" />
             </div>
           </div>
 
@@ -477,11 +579,12 @@ export function AdminProductForm({
             {existingImages.length > 0 && (
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 {existingImages.map((imagePath, index) => {
-                  const src = getProductImageSrc(imagePath);
+                  const src =
+                    imageSources[imagePath] ?? getProductImageSrc(imagePath);
 
                   return (
                     <div key={imagePath} className="space-y-2">
-                      <div className="relative aspect-square border border-slate-200 bg-slate-100">
+                      <div className="relative aspect-square overflow-hidden border border-slate-200 bg-white">
                         {src && (
                           <Image src={src} alt="" fill unoptimized className="object-contain p-2" />
                         )}
@@ -544,9 +647,14 @@ export function AdminProductForm({
                     <h3 className="text-xs font-black uppercase tracking-widest">
                       Variants
                     </h3>
-                    <Button type="button" variant="outline" onClick={addVariant} className="h-9 rounded-none border-black uppercase tracking-widest text-xs">
-                      <Plus size={14} /> Variant
-                    </Button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={generateVariantMatrix} className="h-9 rounded-none border-black uppercase tracking-widest text-xs">
+                        Generate Matrix
+                      </Button>
+                      <Button type="button" variant="outline" onClick={addVariant} className="h-9 rounded-none border-black uppercase tracking-widest text-xs">
+                        <Plus size={14} /> Variant
+                      </Button>
+                    </div>
                   </div>
                   {variantRows.map((variant) => (
                     <div key={variant.id} className="space-y-3 border border-slate-200 p-3">

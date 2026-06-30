@@ -111,7 +111,18 @@ export default async function AdminOrdersPage({
   const currentPage = Math.min(requestedPage, totalPages);
   const offset = (currentPage - 1) * ORDERS_PER_PAGE;
   const items = await db
-    .select()
+    .select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      customerFirstName: orders.customerFirstName,
+      customerLastName: orders.customerLastName,
+      customerEmail: orders.customerEmail,
+      customerPhone: orders.customerPhone,
+      paymentStatus: orders.paymentStatus,
+      fulfillmentStatus: orders.fulfillmentStatus,
+      totalAmount: orders.totalAmount,
+      createdAt: orders.createdAt,
+    })
     .from(orders)
     .where(whereClause)
     .orderBy(desc(orders.createdAt))

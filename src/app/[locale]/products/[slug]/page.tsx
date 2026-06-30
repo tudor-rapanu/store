@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 
 import { Button } from "@/components/ui/button";
 import { AddToCart } from "@/components/product/AddToCart";
 import { ProductImageGallery } from "@/components/product/ProductImageGallery";
 import { ProductViewTracker } from "@/components/product/ProductViewTracker";
-import { db } from "@/lib/db";
-import { productVariants, products } from "@/lib/db/schema";
+import {
+  getCachedProductVariants,
+  getCachedPublicProductBySlug,
+} from "@/lib/catalog/cache";
 import { getProductImageSrcs } from "@/lib/product-images";
 
 type ProductPageProps = {
@@ -23,13 +24,7 @@ export async function generateMetadata({
 }: ProductPageProps): Promise<Metadata> {
   const { locale, slug } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
-  const [product] = await db
-    .select({
-      title: products.title,
-    })
-    .from(products)
-    .where(and(eq(products.slug, slug), eq(products.isPrivate, false)))
-    .limit(1);
+  const product = await getCachedPublicProductBySlug(slug);
 
   return {
     title: product
@@ -40,11 +35,7 @@ export async function generateMetadata({
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { locale, slug } = await params;
-  const [product] = await db
-    .select()
-    .from(products)
-    .where(and(eq(products.slug, slug), eq(products.isPrivate, false)))
-    .limit(1);
+  const product = await getCachedPublicProductBySlug(slug);
 
   if (!product) {
     notFound();
@@ -55,10 +46,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const description =
     product.description?.[activeLocale] || product.description?.en;
   const imageSrcs = getProductImageSrcs(product.imageUrl);
-  const variants = await db
-    .select()
-    .from(productVariants)
-    .where(eq(productVariants.productId, product.id));
+  const variants = await getCachedProductVariants(product.id);
 
   return (
     <main className="max-w-7xl mx-auto px-8 py-16">
@@ -100,7 +88,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               variant="outline"
               className="h-12 rounded-none border-black font-black uppercase tracking-widest"
             >
-              <Link href={`/${activeLocale}`}>Back to catalog</Link>
+              <Link href={`/${activeLocale}/products`}>Back to catalog</Link>
             </Button>
           </div>
         </section>

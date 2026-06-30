@@ -25,15 +25,15 @@ export function ProductCard({
   eager?: boolean;
 }) {
   const displayTitle = product.title[locale] || product.title.en;
-  const imageSrc = getProductImageSrc(product.imageUrl);
+  const imageSrc = getProductImageSrc(product.imageUrl, "card");
 
   return (
     <Link
       href={`/${locale}/products/${product.slug}`}
       className="group flex flex-col gap-4"
     >
-      <div className="aspect-square w-full bg-slate-100 overflow-hidden relative">
-        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
+      <div className="relative aspect-square w-full overflow-hidden border border-slate-200 bg-white">
+        <div className="absolute inset-0 bg-black/[0.03] opacity-0 transition-opacity group-hover:opacity-100 z-10" />
         {imageSrc ? (
           <Image
             src={imageSrc}
@@ -41,7 +41,7 @@ export function ProductCard({
             fill
             unoptimized
             loading={eager ? "eager" : "lazy"}
-            className="object-contain p-6 transition-transform duration-700 group-hover:scale-105"
+            className="object-contain p-5 transition-transform duration-500 group-hover:scale-[1.03] sm:p-6"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
         ) : (

@@ -1,9 +1,11 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { sendOrderEmail } from "@/lib/email";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { checkRequestRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 type NetopiaWebhookBody = {
   order?: Record<string, unknown>;
@@ -11,44 +13,178 @@ type NetopiaWebhookBody = {
   [key: string]: unknown;
 };
 
+type ParsedWebhookBody = {
+  body: NetopiaWebhookBody;
+  rawBodyLength: number;
+  parseMode: "json" | "form" | "invalid" | "too_large";
+};
+
+const MAX_WEBHOOK_BODY_LENGTH = 64 * 1024;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
 function getNetopiaStatusCode(status: unknown) {
   if (typeof status === "number") {
-    return status;
+    return Number.isInteger(status) && status >= 0 && status <= 999
+      ? status
+      : null;
   }
 
   if (typeof status === "string") {
     const parsed = Number.parseInt(status, 10);
 
-    return Number.isFinite(parsed) ? parsed : null;
+    return Number.isInteger(parsed) && parsed >= 0 && parsed <= 999
+      ? parsed
+      : null;
   }
 
   return null;
 }
 
-async function parseWebhookBody(request: Request): Promise<NetopiaWebhookBody> {
+async function parseWebhookBody(request: Request): Promise<ParsedWebhookBody> {
   const rawBody = await request.text();
 
+  if (rawBody.length > MAX_WEBHOOK_BODY_LENGTH) {
+    return { body: {}, rawBodyLength: rawBody.length, parseMode: "too_large" };
+  }
+
   try {
-    return JSON.parse(rawBody) as NetopiaWebhookBody;
+    const parsed = JSON.parse(rawBody) as unknown;
+
+    return {
+      body: isRecord(parsed) ? parsed : {},
+      rawBodyLength: rawBody.length,
+      parseMode: isRecord(parsed) ? "json" : "invalid",
+    };
   } catch {
     const params = new URLSearchParams(rawBody);
     const order = params.get("order");
     const payment = params.get("payment");
 
-    return {
-      order: order ? (JSON.parse(order) as Record<string, unknown>) : undefined,
-      payment: payment
-        ? (JSON.parse(payment) as Record<string, unknown>)
-        : undefined,
-    };
+    try {
+      const parsedOrder = order ? (JSON.parse(order) as unknown) : undefined;
+      const parsedPayment = payment ? (JSON.parse(payment) as unknown) : undefined;
+
+      return {
+        body: {
+          order: isRecord(parsedOrder) ? parsedOrder : undefined,
+          payment: isRecord(parsedPayment) ? parsedPayment : undefined,
+        },
+        rawBodyLength: rawBody.length,
+        parseMode: "form",
+      };
+    } catch {
+      return { body: {}, rawBodyLength: rawBody.length, parseMode: "invalid" };
+    }
   }
+}
+
+function shouldLogNetopiaWebhookShape() {
+  return process.env.NETOPIA_DEBUG_WEBHOOK?.trim().toLowerCase() === "true";
+}
+
+function getConfiguredWebhookSecret() {
+  return process.env.NETOPIA_WEBHOOK_SECRET?.trim();
+}
+
+function hasValidWebhookSecret(request: Request) {
+  const configuredSecret = getConfiguredWebhookSecret();
+
+  if (!configuredSecret) {
+    return true;
+  }
+
+  const receivedSecret = new URL(request.url).searchParams.get("token")?.trim();
+
+  if (!receivedSecret) {
+    return false;
+  }
+
+  const expected = Buffer.from(configuredSecret);
+  const received = Buffer.from(receivedSecret);
+
+  return (
+    expected.length === received.length &&
+    crypto.timingSafeEqual(expected, received)
+  );
+}
+
+function getDebugHeaders(headers: Headers) {
+  const interestingHeaders = [
+    "content-type",
+    "user-agent",
+    "x-forwarded-for",
+    "cf-connecting-ip",
+    "x-real-ip",
+  ];
+
+  return Object.fromEntries(
+    interestingHeaders
+      .map((header) => [header, headers.get(header)])
+      .filter(([, value]) => Boolean(value)),
+  );
+}
+
+function getValueShape(value: unknown) {
+  if (Array.isArray(value)) {
+    return "array";
+  }
+
+  if (value === null) {
+    return "null";
+  }
+
+  return typeof value;
+}
+
+function logNetopiaWebhookShape(
+  request: Request,
+  parsed: ParsedWebhookBody,
+) {
+  if (!shouldLogNetopiaWebhookShape()) {
+    return;
+  }
+
+  const { body } = parsed;
+
+  console.info("Netopia webhook debug shape:", {
+    headers: getDebugHeaders(request.headers),
+    parseMode: parsed.parseMode,
+    rawBodyLength: parsed.rawBodyLength,
+    topLevelKeys: Object.keys(body),
+    orderKeys: isRecord(body.order) ? Object.keys(body.order) : [],
+    paymentKeys: isRecord(body.payment) ? Object.keys(body.payment) : [],
+    topLevelShapes: Object.fromEntries(
+      Object.entries(body).map(([key, value]) => [key, getValueShape(value)]),
+    ),
+    orderShapes: isRecord(body.order)
+      ? Object.fromEntries(
+          Object.entries(body.order).map(([key, value]) => [
+            key,
+            getValueShape(value),
+          ]),
+        )
+      : {},
+    paymentShapes: isRecord(body.payment)
+      ? Object.fromEntries(
+          Object.entries(body.payment).map(([key, value]) => [
+            key,
+            getValueShape(value),
+          ]),
+        )
+      : {},
+  });
 }
 
 function getOrderId(order: Record<string, unknown>) {
   const value =
     order.id ?? order.orderID ?? order.orderId ?? order.order_id ?? order.ntpID;
 
-  return typeof value === "string" ? value : null;
+  return typeof value === "string" && UUID_PATTERN.test(value) ? value : null;
 }
 
 function getTransactionId(payment: Record<string, unknown>) {
@@ -61,9 +197,68 @@ function getTransactionId(payment: Record<string, unknown>) {
   return typeof value === "string" ? value : null;
 }
 
+function getPaymentAmountInCents(payment: Record<string, unknown>) {
+  const value = payment.amount;
+
+  if (typeof value !== "number" && typeof value !== "string") {
+    return null;
+  }
+
+  const parsed = typeof value === "number" ? value : Number.parseFloat(value);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  const centsFromMajorUnits = Math.round(parsed * 100);
+  const centsFromMinorUnits = Math.round(parsed);
+
+  return { centsFromMajorUnits, centsFromMinorUnits };
+}
+
+function getPaymentCurrency(payment: Record<string, unknown>) {
+  const value = payment.currency;
+
+  return typeof value === "string" ? value.trim().toUpperCase() : null;
+}
+
+function paymentAmountMatchesOrder(
+  payment: Record<string, unknown>,
+  orderTotalAmount: number,
+) {
+  const amount = getPaymentAmountInCents(payment);
+
+  if (!amount) {
+    return true;
+  }
+
+  return (
+    amount.centsFromMajorUnits === orderTotalAmount ||
+    amount.centsFromMinorUnits === orderTotalAmount
+  );
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await parseWebhookBody(request);
+    const rateLimit = await checkRequestRateLimit(request, {
+      keyPrefix: "webhook:netopia",
+      limit: 120,
+      windowMs: 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit);
+    }
+
+    if (!hasValidWebhookSecret(request)) {
+      console.warn("Netopia webhook rejected because the secret is invalid.");
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const parsedBody = await parseWebhookBody(request);
+    logNetopiaWebhookShape(request, parsedBody);
+
+    const body = parsedBody.body;
     const { order, payment } = body;
 
     if (!order || !payment) {
@@ -106,20 +301,13 @@ export async function POST(request: Request) {
 
     if (status === 3 || status === 5) {
       // Paid or Confirmed
-      // 1. Update the database
-      const [updatedOrder] = await db
-        .update(orders)
-        .set({
-          status: "paid",
-          paymentStatus: "paid",
-          fulfillmentStatus: "processing",
-          netopiaTxId: netopiaTxId,
-          updatedAt: new Date(),
-        })
+      const [existingOrder] = await db
+        .select()
+        .from(orders)
         .where(eq(orders.id, orderId))
-        .returning(); // Ensure you return the updated row
+        .limit(1);
 
-      if (!updatedOrder) {
+      if (!existingOrder) {
         console.warn("Netopia webhook order was not found.", { orderId });
         return NextResponse.json(
           { error: "Order was not found" },
@@ -127,15 +315,60 @@ export async function POST(request: Request) {
         );
       }
 
-      // 2. Fire the receipt email
-      sendOrderEmail(
-        updatedOrder.customerEmail,
-        updatedOrder.customerFirstName,
-        `TT-${updatedOrder.orderNumber}`,
-        updatedOrder.totalAmount,
-        false, // isBankTransfer = false
-        undefined,
-      );
+      const paymentCurrency = getPaymentCurrency(payment);
+
+      if (paymentCurrency && paymentCurrency !== "RON") {
+        console.warn("Netopia webhook currency mismatch.", {
+          orderId,
+          paymentCurrency,
+        });
+        return NextResponse.json(
+          { error: "Payment currency mismatch" },
+          { status: 400 },
+        );
+      }
+
+      if (!paymentAmountMatchesOrder(payment, existingOrder.totalAmount)) {
+        console.warn("Netopia webhook amount mismatch.", {
+          orderId,
+          expectedAmount: existingOrder.totalAmount,
+          receivedAmount: payment.amount,
+        });
+        return NextResponse.json(
+          { error: "Payment amount mismatch" },
+          { status: 400 },
+        );
+      }
+
+      const wasAlreadyPaid = existingOrder.paymentStatus === "paid";
+
+      // 1. Update the database
+      const [updatedOrder] = await db
+        .update(orders)
+        .set({
+          status: "paid",
+          paymentStatus: "paid",
+          fulfillmentStatus:
+            existingOrder.fulfillmentStatus === "new"
+              ? "processing"
+              : existingOrder.fulfillmentStatus,
+          netopiaTxId: netopiaTxId ?? existingOrder.netopiaTxId,
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, orderId))
+        .returning(); // Ensure you return the updated row
+
+      if (!wasAlreadyPaid) {
+        // 2. Fire the receipt email only on the first paid notification.
+        sendOrderEmail(
+          updatedOrder.customerEmail,
+          updatedOrder.customerFirstName,
+          `TT-${updatedOrder.orderNumber}`,
+          updatedOrder.totalAmount,
+          false, // isBankTransfer = false
+          undefined,
+        );
+      }
 
       const posthog = getPostHogClient();
       posthog?.capture({

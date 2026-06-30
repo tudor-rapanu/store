@@ -12,7 +12,7 @@ import {
   productVariants,
   products,
 } from "@/lib/db/schema";
-import { getProductImagePaths } from "@/lib/product-images";
+import { getProductImagePaths, getProductImageSrc } from "@/lib/product-images";
 
 type EditProductPageProps = {
   params: Promise<{
@@ -70,6 +70,13 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     .innerJoin(categories, eq(productCategories.categoryId, categories.id))
     .where(eq(productCategories.productId, product.id));
   const allCategories = await db.select().from(categories);
+  const imagePaths = getProductImagePaths(product.imageUrl);
+  const imageSources = Object.fromEntries(
+    imagePaths.map((imagePath) => [
+      imagePath,
+      getProductImageSrc(imagePath, "thumb"),
+    ]),
+  );
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
@@ -101,7 +108,8 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
           price: (variant.price ?? product.basePrice) / 100,
           stock: variant.stock,
         }))}
-        imagePaths={getProductImagePaths(product.imageUrl)}
+        imagePaths={imagePaths}
+        imageSources={imageSources}
         categories={linkedCategories.map((category) => category.name.en)}
         availableCategories={allCategories.map((category) => ({
           id: category.id,

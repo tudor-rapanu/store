@@ -10,6 +10,12 @@ declare global {
   var db: Database | undefined;
 }
 
+function getDatabaseMaxConnections() {
+  const value = Number.parseInt(process.env.DATABASE_MAX_CONNECTIONS ?? "5", 10);
+
+  return Number.isInteger(value) && value > 0 ? value : 5;
+}
+
 function createDb() {
   const connectionString = readEnvValue(
     process.env.DATABASE_URL,
@@ -17,7 +23,12 @@ function createDb() {
   );
 
   // Disable prefetch as it is not supported for "Transaction" pool mode.
-  const client = postgres(connectionString, { prepare: false });
+  const client = postgres(connectionString, {
+    connect_timeout: 10,
+    idle_timeout: 20,
+    max: getDatabaseMaxConnections(),
+    prepare: false,
+  });
 
   return drizzle(client, { schema });
 }

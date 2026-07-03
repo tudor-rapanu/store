@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatEur, formatRon } from "@/lib/currency/format";
 import { getProductImageSrc } from "@/lib/product-images";
+import { getProductPricePresentation } from "@/lib/product-pricing";
 
 interface TranslatedText {
   en: string;
@@ -13,6 +14,10 @@ interface Product {
   slug: string;
   title: TranslatedText;
   basePrice: number;
+  salePrice?: number | null;
+  saleEnabled?: boolean | null;
+  saleStartsAt?: Date | string | null;
+  saleEndsAt?: Date | string | null;
   imageUrl?: string | null;
 }
 
@@ -22,19 +27,32 @@ export function ProductCard({
   eager = false,
   displayCurrency = "RON",
   ronToEurRate = 0.2,
+  catalogDiscount,
 }: {
   product: Product;
   locale: "en" | "ro";
   eager?: boolean;
   displayCurrency?: "RON" | "EUR";
   ronToEurRate?: number;
+  catalogDiscount?: {
+    discountName: string;
+    discountedPrice: number;
+  };
 }) {
   const displayTitle = product.title[locale] || product.title.en;
   const imageSrc = getProductImageSrc(product.imageUrl, "card");
+  const price = getProductPricePresentation(product);
+  const finalPrice = catalogDiscount?.discountedPrice ?? price.effectivePrice;
+  const comparisonPrice = price.isOnSale ? price.regularPrice : price.effectivePrice;
+  const isDiscounted = finalPrice < comparisonPrice;
   const displayPrice =
     displayCurrency === "EUR"
-      ? formatEur(product.basePrice, ronToEurRate)
-      : formatRon(product.basePrice);
+      ? formatEur(finalPrice, ronToEurRate)
+      : formatRon(finalPrice);
+  const regularDisplayPrice =
+    displayCurrency === "EUR"
+      ? formatEur(comparisonPrice, ronToEurRate)
+      : formatRon(comparisonPrice);
 
   return (
     <Link
@@ -63,7 +81,23 @@ export function ProductCard({
         <h3 className="font-bold uppercase tracking-tight text-sm">
           {displayTitle}
         </h3>
-        <p className="text-sm text-slate-500">{displayPrice}</p>
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          {(price.isOnSale || isDiscounted) && (
+            <span className="text-xs line-through">{regularDisplayPrice}</span>
+          )}
+          <span
+            className={
+              price.isOnSale || isDiscounted ? "font-black text-destructive" : ""
+            }
+          >
+            {displayPrice}
+          </span>
+        </div>
+        {catalogDiscount && (
+          <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-destructive">
+            {catalogDiscount.discountName}
+          </p>
+        )}
       </div>
     </Link>
   );

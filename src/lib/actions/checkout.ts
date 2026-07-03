@@ -18,6 +18,11 @@ import { upsertCustomerProfile } from "@/lib/customer-profile";
 import { checkServerActionRateLimit } from "@/lib/rate-limit";
 import { formatEur, formatRon, normalizePaymentCurrency } from "@/lib/currency/format";
 import { getCurrencySettings } from "@/lib/currency/settings";
+import { recordVoucherUsage, resolveBestDiscount } from "@/lib/discounts";
+import {
+  getEffectiveProductPrice,
+  getEffectiveVariantPrice,
+} from "@/lib/product-pricing";
 
 // 1. Define strict types for the incoming customer data
 export interface CheckoutAddress {
@@ -48,6 +53,7 @@ export interface CheckoutCustomerData {
   address: CheckoutAddress;
   shippingMethod: "address" | "easybox" | "international";
   paymentCurrency?: "RON" | "EUR";
+  voucherCode?: string;
 }
 
 export interface CheckoutCartItem {
@@ -183,6 +189,11 @@ function validateCheckoutCustomerData(
     phone,
     shippingMethod,
     paymentCurrency,
+    voucherCode: getOptionalValidatedString(
+      customerData.voucherCode,
+      "Voucher code",
+      64,
+    ),
     address: {
       street,
       city,
@@ -433,7 +444,7 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
 
     const isSimpleProduct = item.variantId === item.productId;
     let variantId: string | null = null;
-    let unitPrice = product.basePrice;
+    let unitPrice = getEffectiveProductPrice(product);
     let stock: number | null = null;
 
     if (!isSimpleProduct) {
@@ -444,7 +455,7 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
       }
 
       variantId = variant.id;
-      unitPrice = variant.price ?? product.basePrice + variant.priceAdjustment;
+      unitPrice = getEffectiveVariantPrice(product, variant);
       stock = variant.stock;
     }
 
@@ -526,11 +537,21 @@ export async function initiateCheckout(
 
     const userId = await getCurrentUserId();
     const resolvedCart = await resolveCheckoutCart(cartItems);
+    const discount = await resolveBestDiscount({
+      items: resolvedCart.items,
+      email: customerData.email,
+      userId,
+      voucherCode: customerData.voucherCode,
+    });
+    const discountedSubtotal = Math.max(
+      resolvedCart.subtotal - discount.discountAmount,
+      0,
+    );
     const shippingAmount = await calculateShippingAmount(
       customerData.shippingMethod,
-      resolvedCart.subtotal,
+      discountedSubtotal,
     );
-    const orderTotal = resolvedCart.subtotal + shippingAmount;
+    const orderTotal = discountedSubtotal + shippingAmount;
     const payment = resolvePaymentAmount(orderTotal);
     const [newOrder] = await db
       .insert(orders)
@@ -544,6 +565,8 @@ export async function initiateCheckout(
         shippingAddress: customerData.address,
         shippingMethod: customerData.shippingMethod,
         subtotalAmount: resolvedCart.subtotal,
+        discountAmount: discount.discountAmount,
+        discountSnapshot: discount.discountSnapshot,
         shippingAmount,
         totalAmount: orderTotal,
         paymentAmount: payment.paymentAmount,
@@ -558,6 +581,12 @@ export async function initiateCheckout(
 
     await saveCheckoutProfile(userId, customerData);
     await createOrderItems(newOrder.id, resolvedCart.items);
+    await recordVoucherUsage({
+      discountSnapshot: discount.discountSnapshot,
+      orderId: newOrder.id,
+      userId,
+      email: customerData.email,
+    });
     sendAdminOrderEmail({
       orderId: `TT-${newOrder.orderNumber}`,
       customerName: `${customerData.firstName} ${customerData.lastName}`,
@@ -608,6 +637,8 @@ export async function initiateCheckout(
             order_number: newOrder.orderNumber,
             payment_method: "netopia",
             cart_total: resolvedCart.subtotal,
+            discount_amount: discount.discountAmount,
+            discount: discount.discountSnapshot,
             shipping_amount: shippingAmount,
             order_total: orderTotal,
             payment_amount: payment.paymentAmount,
@@ -661,11 +692,21 @@ export async function createBankTransferOrder(
 
     const userId = await getCurrentUserId();
     const resolvedCart = await resolveCheckoutCart(cartItems);
+    const discount = await resolveBestDiscount({
+      items: resolvedCart.items,
+      email: customerData.email,
+      userId,
+      voucherCode: customerData.voucherCode,
+    });
+    const discountedSubtotal = Math.max(
+      resolvedCart.subtotal - discount.discountAmount,
+      0,
+    );
     const shippingAmount = await calculateShippingAmount(
       customerData.shippingMethod,
-      resolvedCart.subtotal,
+      discountedSubtotal,
     );
-    const orderTotal = resolvedCart.subtotal + shippingAmount;
+    const orderTotal = discountedSubtotal + shippingAmount;
     const payment = resolvePaymentAmount(orderTotal);
     const [newOrder] = await db
       .insert(orders)
@@ -680,6 +721,8 @@ export async function createBankTransferOrder(
         shippingAddress: customerData.address,
         shippingMethod: customerData.shippingMethod,
         subtotalAmount: resolvedCart.subtotal,
+        discountAmount: discount.discountAmount,
+        discountSnapshot: discount.discountSnapshot,
         shippingAmount,
         totalAmount: orderTotal,
         paymentAmount: payment.paymentAmount,
@@ -693,6 +736,12 @@ export async function createBankTransferOrder(
       .returning();
     await saveCheckoutProfile(userId, customerData);
     await createOrderItems(newOrder.id, resolvedCart.items);
+    await recordVoucherUsage({
+      discountSnapshot: discount.discountSnapshot,
+      orderId: newOrder.id,
+      userId,
+      email: customerData.email,
+    });
     sendAdminOrderEmail({
       orderId: `TT-${newOrder.orderNumber}`,
       customerName: `${customerData.firstName} ${customerData.lastName}`,
@@ -721,6 +770,8 @@ export async function createBankTransferOrder(
         order_number: newOrder.orderNumber,
         payment_method: "bank_transfer",
         cart_total: resolvedCart.subtotal,
+        discount_amount: discount.discountAmount,
+        discount: discount.discountSnapshot,
         shipping_amount: shippingAmount,
         order_total: orderTotal,
         payment_amount: payment.paymentAmount,

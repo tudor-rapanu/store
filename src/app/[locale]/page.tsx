@@ -7,6 +7,7 @@ import {
   getCachedPublicCategories,
 } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
+import { getCatalogAutomaticDiscountPrices } from "@/lib/discounts";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
@@ -51,6 +52,7 @@ export default async function HomePage({ params }: PageProps) {
     getCachedPublicCategories(),
     getCurrencyPresentation(),
   ]);
+  const catalogDiscounts = await getCatalogAutomaticDiscountPrices(products);
 
   return (
     <main className="mx-auto max-w-7xl px-8 py-16">
@@ -103,6 +105,7 @@ export default async function HomePage({ params }: PageProps) {
                 eager={index === 0}
                 displayCurrency={currencyPresentation.displayCurrency}
                 ronToEurRate={currencyPresentation.ronToEurRate}
+                catalogDiscount={catalogDiscounts.get(product.id)}
               />
             ))}
           </div>

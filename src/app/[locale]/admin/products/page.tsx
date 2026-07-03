@@ -10,6 +10,7 @@ import { ImportProductsCsv } from "@/components/product/ImportProductsCsv";
 import { db } from "@/lib/db";
 import { products } from "@/lib/db/schema";
 import { getProductImageSrc } from "@/lib/product-images";
+import { getProductPricePresentation } from "@/lib/product-pricing";
 
 export const metadata: Metadata = {
   title: "Admin Products",
@@ -45,6 +46,10 @@ export default async function AdminProductsPage({
       slug: products.slug,
       title: products.title,
       basePrice: products.basePrice,
+      salePrice: products.salePrice,
+      saleEnabled: products.saleEnabled,
+      saleStartsAt: products.saleStartsAt,
+      saleEndsAt: products.saleEndsAt,
       imageUrl: products.imageUrl,
       isPrivate: products.isPrivate,
       createdAt: products.createdAt,
@@ -84,6 +89,7 @@ export default async function AdminProductsPage({
           items.map((product) => {
             const imageSrc = getProductImageSrc(product.imageUrl, "thumb");
             const title = product.title[activeLocale] || product.title.en;
+            const price = getProductPricePresentation(product);
 
             return (
               <div
@@ -112,7 +118,8 @@ export default async function AdminProductsPage({
                       {title}
                     </h2>
                     <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                      {product.slug} / {(product.basePrice / 100).toFixed(2)} RON
+                      {product.slug} / {(price.effectivePrice / 100).toFixed(2)} RON
+                      {price.isOnSale ? " sale" : ""}
                     </p>
                     {product.isPrivate && (
                       <p className="mt-1 text-xs font-black uppercase tracking-widest text-destructive">

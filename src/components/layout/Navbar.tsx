@@ -87,6 +87,12 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
                         Categories
                       </Link>
                       <Link
+                        href={`/${locale}/admin/discounts`}
+                        className="hover:text-slate-500 transition-colors"
+                      >
+                        Discounts
+                      </Link>
+                      <Link
                         href={`/${locale}/admin/settings`}
                         className="hover:text-slate-500 transition-colors"
                       >

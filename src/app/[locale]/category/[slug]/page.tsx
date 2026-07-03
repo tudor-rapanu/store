@@ -9,6 +9,7 @@ import {
   PUBLIC_PRODUCTS_PER_PAGE,
 } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
+import { getCatalogAutomaticDiscountPrices } from "@/lib/discounts";
 
 type CategoryPageProps = {
   params: Promise<{
@@ -64,6 +65,7 @@ export default async function CategoryPage({
   const { items, total, page: resolvedPage, perPage } = catalog;
   const totalPages = Math.max(Math.ceil(total / perPage), 1);
   const title = category?.name[activeLocale] || category?.name.en || slug;
+  const catalogDiscounts = await getCatalogAutomaticDiscountPrices(items);
 
   return (
     <main className="max-w-7xl mx-auto px-8 py-16">
@@ -91,6 +93,7 @@ export default async function CategoryPage({
                 eager={index === 0}
                 displayCurrency={currencyPresentation.displayCurrency}
                 ronToEurRate={currencyPresentation.ronToEurRate}
+                catalogDiscount={catalogDiscounts.get(product.id)}
               />
             ))}
           </div>

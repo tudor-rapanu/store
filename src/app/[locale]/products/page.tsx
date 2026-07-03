@@ -11,6 +11,7 @@ import {
   PUBLIC_PRODUCTS_PER_PAGE,
 } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
+import { getCatalogAutomaticDiscountPrices } from "@/lib/discounts";
 
 export const metadata: Metadata = {
   title: "Products",
@@ -85,6 +86,7 @@ async function ProductGrid({
   ]);
   const { items, total, page: resolvedPage, perPage } = catalog;
   const totalPages = Math.max(Math.ceil(total / perPage), 1);
+  const catalogDiscounts = await getCatalogAutomaticDiscountPrices(items);
 
   if (items.length === 0) {
     return (
@@ -105,6 +107,7 @@ async function ProductGrid({
             eager={index === 0}
             displayCurrency={currencyPresentation.displayCurrency}
             ronToEurRate={currencyPresentation.ronToEurRate}
+            catalogDiscount={catalogDiscounts.get(product.id)}
           />
         ))}
       </div>

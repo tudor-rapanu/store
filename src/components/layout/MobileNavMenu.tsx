@@ -108,6 +108,14 @@ export function MobileNavMenu({
                     </SheetClose>
                     <SheetClose asChild>
                       <Link
+                        href={`/${locale}/admin/discounts`}
+                        className={linkClass}
+                      >
+                        Discounts
+                      </Link>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Link
                         href={`/${locale}/admin/settings`}
                         className={linkClass}
                       >

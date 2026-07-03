@@ -11,6 +11,10 @@ import { isAdminUser } from "@/lib/admin-auth";
 import { markStaleNetopiaOrdersFailed } from "@/lib/actions/orders";
 import { db } from "@/lib/db";
 import { orderItems, orders, products, productVariants } from "@/lib/db/schema";
+import {
+  getEffectiveProductPrice,
+  getEffectiveVariantPrice,
+} from "@/lib/product-pricing";
 
 type AdminOrderPageProps = {
   params: Promise<{ locale: string; id: string }>;
@@ -76,6 +80,10 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
       id: products.id,
       title: products.title,
       basePrice: products.basePrice,
+      salePrice: products.salePrice,
+      saleEnabled: products.saleEnabled,
+      saleStartsAt: products.saleStartsAt,
+      saleEndsAt: products.saleEndsAt,
       createdAt: products.createdAt,
     })
     .from(products)
@@ -87,20 +95,25 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
       name: productVariants.name,
       sku: productVariants.sku,
       price: productVariants.price,
+      salePrice: productVariants.salePrice,
+      saleEnabled: productVariants.saleEnabled,
+      saleStartsAt: productVariants.saleStartsAt,
+      saleEndsAt: productVariants.saleEndsAt,
+      priceAdjustment: productVariants.priceAdjustment,
     })
     .from(productVariants)
     .orderBy(desc(productVariants.createdAt));
   const productOptions = productRows.map((product) => ({
     id: product.id,
     title: product.title[activeLocale] || product.title.en,
-    basePrice: product.basePrice,
+    basePrice: getEffectiveProductPrice(product),
     variants: variantRows
       .filter((variant) => variant.productId === product.id)
       .map((variant) => ({
         id: variant.id,
         name: variant.name ?? variant.sku,
         sku: variant.sku,
-        price: variant.price,
+        price: getEffectiveVariantPrice(product, variant),
       })),
   }));
   const address = order.shippingAddress as {
@@ -203,6 +216,11 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
           <InfoBox title="Payment">
             <p>Method: {order.paymentMethod.replaceAll("_", " ")}</p>
             <p>Status: {order.paymentStatus}</p>
+            <p>Subtotal: {(order.subtotalAmount / 100).toFixed(2)} RON</p>
+            {order.discountAmount > 0 && (
+              <p>Discount: -{(order.discountAmount / 100).toFixed(2)} RON</p>
+            )}
+            <p>Shipping: {(order.shippingAmount / 100).toFixed(2)} RON</p>
             <p>Total: {(order.totalAmount / 100).toFixed(2)} RON</p>
             <p>
               Payment: {((order.paymentAmount ?? order.totalAmount) / 100).toFixed(2)}{" "}

@@ -154,6 +154,22 @@ export function CheckoutForm({
   const [isLoadingShippingProfiles, setIsLoadingShippingProfiles] =
     useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [email, setEmail] = useState(initialCustomer?.email ?? "");
+  const [voucherCode, setVoucherCode] = useState("");
+  const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
+  const [discountPreview, setDiscountPreview] = useState<{
+    discountAmount: number;
+    discount?: {
+      id: string;
+      name: string;
+      code: string | null;
+      amount: number;
+    } | null;
+    message?: string;
+  }>({
+    discountAmount: 0,
+    discount: null,
+  });
 
   // Sameday Locker State
   const [locker, setLocker] = useState<{
@@ -169,20 +185,22 @@ export function CheckoutForm({
   } | null>(null);
 
   const cartSubtotal = total();
+  const discountAmount = Math.min(discountPreview.discountAmount, cartSubtotal);
+  const discountedSubtotal = Math.max(cartSubtotal - discountAmount, 0);
   const activeShippingProfile = shippingProfiles.find(
     (profile) => profile.method === shippingMethod && profile.enabled,
   );
   const shippingAmount = activeShippingProfile
     ? shippingMethod !== "international" &&
-      cartSubtotal >= activeShippingProfile.freeShippingThreshold
+      discountedSubtotal >= activeShippingProfile.freeShippingThreshold
       ? 0
       : activeShippingProfile.price
     : 0;
-  const orderTotal = cartSubtotal + shippingAmount;
+  const orderTotal = discountedSubtotal + shippingAmount;
   const freeShippingRemainder = activeShippingProfile
     ? shippingMethod === "international"
       ? 0
-      : Math.max(activeShippingProfile.freeShippingThreshold - cartSubtotal, 0)
+      : Math.max(activeShippingProfile.freeShippingThreshold - discountedSubtotal, 0)
     : 0;
   const selectedCountry =
     CHECKOUT_COUNTRIES.find((country) => country.code === countryCode) ??
@@ -233,6 +251,69 @@ export function CheckoutForm({
 
     void loadShippingProfiles();
   }, []);
+
+  async function previewDiscount({ showErrors = false } = {}) {
+    if (items.length === 0) {
+      setDiscountPreview({
+        discountAmount: 0,
+        discount: null,
+      });
+      return;
+    }
+
+    setIsApplyingVoucher(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/discounts/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items,
+          email,
+          voucherCode,
+        }),
+      });
+      const data = (await response.json()) as {
+        discountAmount?: number;
+        discount?: {
+          id: string;
+          name: string;
+          code: string | null;
+          amount: number;
+        } | null;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Could not apply voucher.");
+      }
+
+      setDiscountPreview({
+        discountAmount: data.discountAmount ?? 0,
+        discount: data.discount ?? null,
+        message: data.message,
+      });
+    } catch (error) {
+      if (showErrors) {
+        setErrorMessage(
+          error instanceof Error ? error.message : "Could not apply voucher.",
+        );
+      }
+    } finally {
+      setIsApplyingVoucher(false);
+    }
+  }
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void previewDiscount();
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, email, voucherCode]);
 
   useEffect(() => {
     async function loadLockerConfig() {
@@ -423,6 +504,7 @@ export function CheckoutForm({
         },
         shippingMethod,
         paymentCurrency: normalizePaymentCurrency(paymentCurrency),
+        voucherCode,
       };
       const locale =
         window.location.pathname.split("/")[1] === "ro" ? "ro" : "en";
@@ -431,6 +513,8 @@ export function CheckoutForm({
         payment_method: paymentMethod,
         shipping_method: shippingMethod,
         cart_total: total(),
+        discount_amount: discountAmount,
+        discount: discountPreview.discount,
         item_count: items.length,
         currency: "RON",
         display_currency: paymentCurrency,
@@ -475,7 +559,10 @@ export function CheckoutForm({
     null,
   );
   const isCheckoutDisabled =
-    isPending || isLoadingShippingProfiles || !activeShippingProfile;
+    isPending ||
+    isApplyingVoucher ||
+    isLoadingShippingProfiles ||
+    !activeShippingProfile;
 
   if (items.length === 0) {
     return (
@@ -553,7 +640,8 @@ export function CheckoutForm({
                   name="email"
                   type="email"
                   required
-                  defaultValue={initialCustomer?.email ?? ""}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
                   className="rounded-none border-black h-11"
                 />
               </div>
@@ -865,6 +953,38 @@ export function CheckoutForm({
               <div className="space-y-3 border-t border-black pt-4">
                 <div className="space-y-2">
                   <Label
+                    htmlFor="voucherCode"
+                    className="text-xs font-bold uppercase tracking-widest text-slate-500"
+                  >
+                    Voucher
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="voucherCode"
+                      value={voucherCode}
+                      onChange={(event) =>
+                        setVoucherCode(event.target.value.toUpperCase())
+                      }
+                      className="h-10 rounded-none border-black uppercase"
+                      placeholder="CODE"
+                    />
+                    <Button
+                      type="button"
+                      disabled={isApplyingVoucher}
+                      onClick={() => previewDiscount({ showErrors: true })}
+                      className="h-10 rounded-none bg-black px-4 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
+                    >
+                      {isApplyingVoucher ? "..." : "Apply"}
+                    </Button>
+                  </div>
+                  {discountPreview.message && (
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      {discountPreview.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label
                     htmlFor="paymentCurrency"
                     className="text-xs font-bold uppercase tracking-widest text-slate-500"
                   >
@@ -890,6 +1010,15 @@ export function CheckoutForm({
                   value={cartSubtotal}
                   formatAmount={formatCheckoutAmount}
                 />
+                {discountAmount > 0 && (
+                  <SummaryRow
+                    label={discountPreview.discount?.name ?? "Discount"}
+                    value={-discountAmount}
+                    formatAmount={(value) =>
+                      `-${formatCheckoutAmount(Math.abs(value))}`
+                    }
+                  />
+                )}
                 <SummaryRow
                   label={
                     isLoadingShippingProfiles ? "Shipping" : "Shipping"

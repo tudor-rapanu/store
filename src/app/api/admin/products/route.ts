@@ -28,8 +28,40 @@ type VariantInput = {
   sku: string;
   attributes: Record<string, string>;
   price?: number;
+  salePrice?: number | null;
+  saleEnabled?: boolean;
+  saleStartsAt?: Date | null;
+  saleEndsAt?: Date | null;
   stock?: number;
 };
+
+function parseOptionalPriceBani(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(value);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error("Enter a valid sale price.");
+  }
+
+  return Math.round(parsed * 100);
+}
+
+function parseOptionalDate(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("Enter a valid sale date.");
+  }
+
+  return parsed;
+}
 
 function slugify(value: string) {
   return value
@@ -89,6 +121,22 @@ function parseVariants(value: string) {
         "price" in variant && typeof variant.price === "number"
           ? variant.price
           : 0,
+      salePrice:
+        "salePrice" in variant && typeof variant.salePrice === "number"
+          ? variant.salePrice
+          : null,
+      saleEnabled:
+        "saleEnabled" in variant && typeof variant.saleEnabled === "boolean"
+          ? variant.saleEnabled
+          : false,
+      saleStartsAt:
+        "saleStartsAt" in variant && typeof variant.saleStartsAt === "string"
+          ? parseOptionalDate(variant.saleStartsAt)
+          : null,
+      saleEndsAt:
+        "saleEndsAt" in variant && typeof variant.saleEndsAt === "string"
+          ? parseOptionalDate(variant.saleEndsAt)
+          : null,
       stock:
         "stock" in variant && typeof variant.stock === "number"
           ? variant.stock
@@ -102,6 +150,22 @@ function parseCategoryNames(value: string) {
     .split(",")
     .map((name) => name.trim())
     .filter(Boolean);
+}
+
+function validateVariantSales(variants: VariantInput[]) {
+  for (const variant of variants) {
+    if (variant.saleEnabled && (!variant.salePrice || variant.salePrice <= 0)) {
+      throw new Error(`Enter a sale price for ${variant.name || "each enabled variant sale"}.`);
+    }
+
+    if (
+      variant.saleStartsAt &&
+      variant.saleEndsAt &&
+      variant.saleStartsAt >= variant.saleEndsAt
+    ) {
+      throw new Error(`Variant sale end date must be after the start date.`);
+    }
+  }
 }
 
 async function syncProductCategories(productId: string, categoryNames: string[]) {
@@ -162,6 +226,10 @@ export async function POST(request: Request) {
   const descriptionRo = getString(formData, "descriptionRo");
   const slug = slugify(getString(formData, "slug"));
   const priceInput = getString(formData, "price");
+  const saleEnabled = formData.get("saleEnabled") === "on";
+  const salePriceInput = getString(formData, "salePrice");
+  const saleStartsAtInput = getString(formData, "saleStartsAt");
+  const saleEndsAtInput = getString(formData, "saleEndsAt");
   const isPrivate = formData.get("isPrivate") === "on";
   const categoryNames = parseCategoryNames(getString(formData, "categories"));
   const images = formData
@@ -187,6 +255,7 @@ export async function POST(request: Request) {
 
   try {
     variants = parseVariants(variantsInput);
+    validateVariantSales(variants);
   } catch (error) {
     return errorResponse(
       error instanceof Error ? error.message : "Invalid variants JSON.",
@@ -194,6 +263,28 @@ export async function POST(request: Request) {
   }
 
   const basePrice = Math.round(price * 100);
+  let salePrice: number | null = null;
+  let saleStartsAt: Date | null = null;
+  let saleEndsAt: Date | null = null;
+
+  try {
+    salePrice = parseOptionalPriceBani(salePriceInput);
+    saleStartsAt = parseOptionalDate(saleStartsAtInput);
+    saleEndsAt = parseOptionalDate(saleEndsAtInput);
+  } catch (error) {
+    return errorResponse(
+      error instanceof Error ? error.message : "Invalid sale settings.",
+    );
+  }
+
+  if (saleEnabled && !salePrice) {
+    return errorResponse("Enter a sale price or disable the sale.");
+  }
+
+  if (saleStartsAt && saleEndsAt && saleStartsAt >= saleEndsAt) {
+    return errorResponse("Sale end date must be after the start date.");
+  }
+
   const uploadedImages = await Promise.all(
     images.map((image) => uploadProductImage(image, slug)),
   );
@@ -208,6 +299,10 @@ export async function POST(request: Request) {
         ? { en: descriptionEn, ro: descriptionRo || descriptionEn }
         : null,
     basePrice,
+    salePrice: saleEnabled ? salePrice : null,
+    saleEnabled,
+    saleStartsAt: saleEnabled ? saleStartsAt : null,
+    saleEndsAt: saleEnabled ? saleEndsAt : null,
     imageUrl,
     isSimple: variants.length === 0,
     isPrivate,
@@ -221,6 +316,13 @@ export async function POST(request: Request) {
         sku: getVariantSku(variant, slug, variants.indexOf(variant)),
         attributes: variant.attributes,
         price: Math.round((variant.price ?? 0) * 100),
+        salePrice:
+          variant.saleEnabled && variant.salePrice
+            ? Math.round(variant.salePrice * 100)
+            : null,
+        saleEnabled: variant.saleEnabled ?? false,
+        saleStartsAt: variant.saleEnabled ? variant.saleStartsAt : null,
+        saleEndsAt: variant.saleEnabled ? variant.saleEndsAt : null,
         priceAdjustment: 0,
         stock: variant.stock ?? 0,
       })),

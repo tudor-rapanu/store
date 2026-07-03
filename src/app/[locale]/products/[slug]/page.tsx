@@ -84,8 +84,24 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 slug: product.slug,
                 title,
                 basePrice: product.basePrice,
+                salePrice: product.salePrice,
+                saleEnabled: product.saleEnabled,
+                saleStartsAt: product.saleStartsAt?.toISOString() ?? null,
+                saleEndsAt: product.saleEndsAt?.toISOString() ?? null,
               }}
-              variants={variants}
+              variants={variants.map((variant) => ({
+                id: variant.id,
+                name: variant.name,
+                sku: variant.sku,
+                attributes: variant.attributes,
+                price: variant.price,
+                salePrice: variant.salePrice,
+                saleEnabled: variant.saleEnabled,
+                saleStartsAt: variant.saleStartsAt?.toISOString() ?? null,
+                saleEndsAt: variant.saleEndsAt?.toISOString() ?? null,
+                priceAdjustment: variant.priceAdjustment,
+                stock: variant.stock,
+              }))}
               displayCurrency={currencyPresentation.displayCurrency}
               ronToEurRate={currencyPresentation.ronToEurRate}
             />

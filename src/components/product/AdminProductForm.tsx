@@ -18,14 +18,23 @@ type Product = {
   title: { en: string; ro: string };
   description?: { en: string; ro: string } | null;
   basePrice: number;
+  salePrice?: number | null;
+  saleEnabled?: boolean;
+  saleStartsAt?: Date | string | null;
+  saleEndsAt?: Date | string | null;
   isPrivate?: boolean;
 };
 
 type Variant = {
+  dbId?: string;
   name: string;
   sku: string;
   attributes: Record<string, string>;
   price: number;
+  salePrice?: number | null;
+  saleEnabled?: boolean;
+  saleStartsAt?: Date | string | null;
+  saleEndsAt?: Date | string | null;
   stock: number;
 };
 
@@ -78,6 +87,22 @@ function getVariantSlug(productSlug: string, variantName: string, index: number)
   }
 
   return `${cleanProductSlug}-${cleanVariantName}-${index + 1}`;
+}
+
+function toDateTimeInputValue(value?: Date | string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+
+  return offsetDate.toISOString().slice(0, 16);
 }
 
 function deriveOptions(variants: Variant[]) {
@@ -147,6 +172,16 @@ export function AdminProductForm({
   const [basePrice, setBasePrice] = useState(
     product ? (product.basePrice / 100).toFixed(2) : "",
   );
+  const [saleEnabled, setSaleEnabled] = useState(product?.saleEnabled ?? false);
+  const [salePrice, setSalePrice] = useState(
+    product?.salePrice ? (product.salePrice / 100).toFixed(2) : "",
+  );
+  const [saleStartsAt, setSaleStartsAt] = useState(
+    toDateTimeInputValue(product?.saleStartsAt),
+  );
+  const [saleEndsAt, setSaleEndsAt] = useState(
+    toDateTimeInputValue(product?.saleEndsAt),
+  );
   const [existingImages, setExistingImages] = useState(imagePaths);
   const [selectedCategories, setSelectedCategories] = useState(categories);
   const [variantsEnabled, setVariantsEnabled] = useState(variants.length > 0);
@@ -168,10 +203,15 @@ export function AdminProductForm({
 
     return JSON.stringify(
       variantRows.map((variant) => ({
+        id: variant.dbId ?? null,
         name: variant.name,
         sku: variant.sku,
         attributes: variant.attributes,
         price: variant.price,
+        salePrice: variant.salePrice ?? null,
+        saleEnabled: variant.saleEnabled ?? false,
+        saleStartsAt: toDateTimeInputValue(variant.saleStartsAt),
+        saleEndsAt: toDateTimeInputValue(variant.saleEndsAt),
         stock: variant.stock,
       })),
     );
@@ -209,7 +249,7 @@ export function AdminProductForm({
 
   function updateVariant(
     id: string,
-    field: keyof Omit<VariantRow, "id" | "attributes" | "skuWasEdited">,
+    field: "name" | "sku" | "price" | "stock",
     value: string,
   ) {
     setVariantRows((current) =>
@@ -273,6 +313,10 @@ export function AdminProductForm({
         skuWasEdited: false,
         attributes,
         price: product ? product.basePrice / 100 : 0,
+        salePrice: null,
+        saleEnabled: false,
+        saleStartsAt: "",
+        saleEndsAt: "",
         stock: 0,
       },
     ]);
@@ -339,6 +383,10 @@ export function AdminProductForm({
           skuWasEdited: false,
           attributes,
           price: defaultPrice,
+          salePrice: null,
+          saleEnabled: false,
+          saleStartsAt: "",
+          saleEndsAt: "",
           stock: 0,
         };
       }),
@@ -430,6 +478,10 @@ export function AdminProductForm({
         setSlug("");
         setSlugWasEdited(false);
         setBasePrice("");
+        setSaleEnabled(false);
+        setSalePrice("");
+        setSaleStartsAt("");
+        setSaleEndsAt("");
         setVariantsEnabled(false);
         setOptions([]);
         setVariantRows([]);
@@ -502,6 +554,41 @@ export function AdminProductForm({
               <Input id="price" name="price" type="number" step="0.01" required value={basePrice} onChange={(event) => setBasePrice(event.target.value)} className="rounded-none border-black h-11" />
             </div>
           </div>
+
+          <section className="space-y-4 border border-black p-4">
+            <label className="flex items-center gap-3 text-sm font-black uppercase tracking-widest">
+              <input
+                type="checkbox"
+                name="saleEnabled"
+                checked={saleEnabled}
+                onChange={(event) => setSaleEnabled(event.target.checked)}
+                className="size-4"
+              />
+              Enable product sale price
+            </label>
+            {saleEnabled && (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="salePrice" className="uppercase text-xs font-bold tracking-widest">
+                    Sale Price (RON)
+                  </Label>
+                  <Input id="salePrice" name="salePrice" type="number" step="0.01" value={salePrice} onChange={(event) => setSalePrice(event.target.value)} className="rounded-none border-black h-11" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="saleStartsAt" className="uppercase text-xs font-bold tracking-widest">
+                    Starts At
+                  </Label>
+                  <Input id="saleStartsAt" name="saleStartsAt" type="datetime-local" value={saleStartsAt} onChange={(event) => setSaleStartsAt(event.target.value)} className="rounded-none border-black h-11" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="saleEndsAt" className="uppercase text-xs font-bold tracking-widest">
+                    Ends At
+                  </Label>
+                  <Input id="saleEndsAt" name="saleEndsAt" type="datetime-local" value={saleEndsAt} onChange={(event) => setSaleEndsAt(event.target.value)} className="rounded-none border-black h-11" />
+                </div>
+              </div>
+            )}
+          </section>
 
           <div className="space-y-2">
             <Label className="uppercase text-xs font-bold tracking-widest">
@@ -663,6 +750,79 @@ export function AdminProductForm({
                         <Input value={variant.sku} onChange={(event) => updateVariant(variant.id, "sku", event.target.value)} placeholder="SKU (optional)" className="rounded-none border-black h-10" />
                         <Input value={variant.price} onChange={(event) => updateVariant(variant.id, "price", event.target.value)} type="number" step="0.01" placeholder="Price RON" className="rounded-none border-black h-10" />
                         <Input value={variant.stock} onChange={(event) => updateVariant(variant.id, "stock", event.target.value)} type="number" placeholder="Stock" className="rounded-none border-black h-10" />
+                      </div>
+                      <div className="space-y-3 border border-slate-200 p-3">
+                        <label className="flex items-center gap-3 text-xs font-black uppercase tracking-widest">
+                          <input
+                            type="checkbox"
+                            checked={variant.saleEnabled ?? false}
+                            onChange={(event) =>
+                              setVariantRows((current) =>
+                                current.map((item) =>
+                                  item.id === variant.id
+                                    ? { ...item, saleEnabled: event.target.checked }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className="size-4"
+                          />
+                          Override sale price for this variant
+                        </label>
+                        {variant.saleEnabled && (
+                          <div className="grid gap-2 md:grid-cols-3">
+                            <Input
+                              value={variant.salePrice ?? ""}
+                              onChange={(event) =>
+                                setVariantRows((current) =>
+                                  current.map((item) =>
+                                    item.id === variant.id
+                                      ? {
+                                          ...item,
+                                          salePrice:
+                                            event.target.value === ""
+                                              ? null
+                                              : Number(event.target.value),
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                              type="number"
+                              step="0.01"
+                              placeholder="Sale RON"
+                              className="rounded-none border-black h-10"
+                            />
+                            <Input
+                              value={variant.saleStartsAt ? String(variant.saleStartsAt) : ""}
+                              onChange={(event) =>
+                                setVariantRows((current) =>
+                                  current.map((item) =>
+                                    item.id === variant.id
+                                      ? { ...item, saleStartsAt: event.target.value }
+                                      : item,
+                                  ),
+                                )
+                              }
+                              type="datetime-local"
+                              className="rounded-none border-black h-10"
+                            />
+                            <Input
+                              value={variant.saleEndsAt ? String(variant.saleEndsAt) : ""}
+                              onChange={(event) =>
+                                setVariantRows((current) =>
+                                  current.map((item) =>
+                                    item.id === variant.id
+                                      ? { ...item, saleEndsAt: event.target.value }
+                                      : item,
+                                  ),
+                                )
+                              }
+                              type="datetime-local"
+                              className="rounded-none border-black h-10"
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="grid gap-2 md:grid-cols-2">
                         {options

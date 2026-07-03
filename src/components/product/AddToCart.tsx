@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { formatEur, formatRon } from "@/lib/currency/format";
 import {
+  getProductPricePresentation,
+  getVariantPricePresentation,
+} from "@/lib/product-pricing";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -20,12 +24,25 @@ interface Variant {
   sku: string;
   attributes: Record<string, string>;
   price?: number | null;
+  salePrice?: number | null;
+  saleEnabled?: boolean | null;
+  saleStartsAt?: Date | string | null;
+  saleEndsAt?: Date | string | null;
   priceAdjustment: number;
   stock: number;
 }
 
 interface AddToCartProps {
-  product: { id: string; slug: string; title: string; basePrice: number };
+  product: {
+    id: string;
+    slug: string;
+    title: string;
+    basePrice: number;
+    salePrice?: number | null;
+    saleEnabled?: boolean | null;
+    saleStartsAt?: Date | string | null;
+    saleEndsAt?: Date | string | null;
+  };
   variants: Variant[];
   displayCurrency?: "RON" | "EUR";
   ronToEurRate?: number;
@@ -56,13 +73,18 @@ export function AddToCart({
       )
     : undefined;
 
-  const finalPrice =
-    selectedVariant?.price ??
-    product.basePrice + (selectedVariant?.priceAdjustment || 0);
+  const pricePresentation = selectedVariant
+    ? getVariantPricePresentation(product, selectedVariant)
+    : getProductPricePresentation(product);
+  const finalPrice = pricePresentation.effectivePrice;
   const displayPrice =
     displayCurrency === "EUR"
       ? formatEur(finalPrice, ronToEurRate)
       : formatRon(finalPrice);
+  const regularDisplayPrice =
+    displayCurrency === "EUR"
+      ? formatEur(pricePresentation.regularPrice, ronToEurRate)
+      : formatRon(pricePresentation.regularPrice);
 
   const handleAdd = () => {
     if (isSimpleProduct) {
@@ -70,7 +92,7 @@ export function AddToCart({
         productId: product.id,
         variantId: product.id,
         title: product.title,
-        price: product.basePrice,
+        price: finalPrice,
         sku: product.slug,
         quantity: 1,
       });
@@ -78,7 +100,7 @@ export function AddToCart({
         product_id: product.id,
         product_title: product.title,
         product_slug: product.slug,
-        price: product.basePrice,
+        price: finalPrice,
         currency: "RON",
       });
       setWasAdded(true);
@@ -148,7 +170,20 @@ export function AddToCart({
         </div>
       )}
 
-      <div className="text-2xl font-black tracking-tighter">{displayPrice}</div>
+      <div className="flex items-baseline gap-3">
+        {pricePresentation.isOnSale && (
+          <span className="text-base font-bold text-slate-400 line-through">
+            {regularDisplayPrice}
+          </span>
+        )}
+        <span
+          className={`text-2xl font-black tracking-tighter ${
+            pricePresentation.isOnSale ? "text-destructive" : ""
+          }`}
+        >
+          {displayPrice}
+        </span>
+      </div>
 
       <Button
         onClick={handleAdd}

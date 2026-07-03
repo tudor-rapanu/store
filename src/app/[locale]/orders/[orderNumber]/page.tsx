@@ -181,6 +181,11 @@ export default async function PublicOrderPage({
           </InfoBox>
 
           <InfoBox title="Summary">
+            <p>Subtotal: {(order.subtotalAmount / 100).toFixed(2)} RON</p>
+            {order.discountAmount > 0 && (
+              <p>Discount: -{(order.discountAmount / 100).toFixed(2)} RON</p>
+            )}
+            <p>Shipping: {(order.shippingAmount / 100).toFixed(2)} RON</p>
             <p>Total: {(order.totalAmount / 100).toFixed(2)} RON</p>
             <p>
               Payment: {((order.paymentAmount ?? order.totalAmount) / 100).toFixed(2)}{" "}

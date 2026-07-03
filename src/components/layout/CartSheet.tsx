@@ -18,6 +18,12 @@ import { formatEur, formatRon } from "@/lib/currency/format";
 export function CartSheet({ locale }: { locale: "en" | "ro" }) {
   const { items, removeItem, total } = useCart();
   const [isOpen, setIsOpen] = useState(false);
+  const [discountPreview, setDiscountPreview] = useState<{
+    discountAmount: number;
+    discountName?: string;
+  }>({
+    discountAmount: 0,
+  });
   const [currencyPresentation, setCurrencyPresentation] = useState<{
     displayCurrency: "RON" | "EUR";
     ronToEurRate: number;
@@ -54,6 +60,46 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
     void loadCurrencyPresentation();
   }, []);
 
+  useEffect(() => {
+    async function previewDiscount() {
+      if (items.length === 0) {
+        setDiscountPreview({ discountAmount: 0 });
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/discounts/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items }),
+        });
+        const data = (await response.json()) as {
+          discountAmount?: number;
+          discount?: {
+            name?: string;
+          } | null;
+        };
+
+        if (!response.ok) {
+          throw new Error("Could not preview discount.");
+        }
+
+        setDiscountPreview({
+          discountAmount: data.discountAmount ?? 0,
+          discountName: data.discount?.name,
+        });
+      } catch {
+        setDiscountPreview({ discountAmount: 0 });
+      }
+    }
+
+    const timeout = window.setTimeout(() => {
+      void previewDiscount();
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [items]);
+
   function formatCartAmount(value: number) {
     if (currencyPresentation.displayCurrency === "EUR") {
       return formatEur(value, currencyPresentation.ronToEurRate);
@@ -61,6 +107,10 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
 
     return formatRon(value);
   }
+
+  const subtotal = total();
+  const discountAmount = Math.min(discountPreview.discountAmount, subtotal);
+  const discountedTotal = Math.max(subtotal - discountAmount, 0);
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -95,7 +145,7 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
                 <div>
                   <p className="font-bold text-sm uppercase">{item.title}</p>
                   <p className="text-xs text-slate-500">
-                    {formatCartAmount(item.price)}
+                    {item.quantity} x {formatCartAmount(item.price)}
                   </p>
                 </div>
                 <Button
@@ -119,13 +169,31 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
             ))
           )}
           <div className="mt-auto pt-6 border-t border-black">
-            <div className="flex justify-between items-center mb-6">
-              <span className="uppercase tracking-tighter font-bold">
-                Total
-              </span>
-              <span className="text-lg font-bold">
-                {formatCartAmount(total())}
-              </span>
+            <div className="mb-6 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-bold uppercase tracking-tighter">
+                  Subtotal
+                </span>
+                <span className="font-bold">{formatCartAmount(subtotal)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex items-center justify-between text-sm text-destructive">
+                  <span className="font-bold uppercase tracking-tighter">
+                    {discountPreview.discountName ?? "Discount"}
+                  </span>
+                  <span className="font-bold">
+                    -{formatCartAmount(discountAmount)}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t border-slate-200 pt-2">
+                <span className="font-bold uppercase tracking-tighter">
+                  Total
+                </span>
+                <span className="text-lg font-bold">
+                  {formatCartAmount(discountedTotal)}
+                </span>
+              </div>
             </div>
             <Link
               href={`/${locale}/checkout`}

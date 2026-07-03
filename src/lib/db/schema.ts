@@ -32,6 +32,9 @@ export type FulfillmentStatus =
   | "refunded";
 export type ShippingMethod = "address" | "easybox" | "international";
 export type InvoiceStatus = "not_generated" | "generated" | "failed";
+export type DiscountKind = "automatic" | "voucher";
+export type DiscountType = "percentage" | "fixed";
+export type DiscountScope = "storewide" | "category" | "product";
 
 // -------------------------------------------------------------------------
 // 1. PRODUCTS TABLE
@@ -43,6 +46,10 @@ export const products = pgTable("products", {
   title: jsonb("title").$type<TranslatedText>().notNull(),
   description: jsonb("description").$type<TranslatedText>(),
   basePrice: integer("base_price").notNull(), // Stored in Bani (e.g., 4500 = 45.00 RON)
+  salePrice: integer("sale_price"),
+  saleEnabled: boolean("sale_enabled").default(false).notNull(),
+  saleStartsAt: timestamp("sale_starts_at"),
+  saleEndsAt: timestamp("sale_ends_at"),
   imageUrl: text("image_url"),
   isSimple: boolean("is_simple").default(true).notNull(),
   isPrivate: boolean("is_private").default(false).notNull(),
@@ -51,6 +58,7 @@ export const products = pgTable("products", {
 }, (table) => [
   index("products_is_private_idx").on(table.isPrivate),
   index("products_created_at_idx").on(table.createdAt),
+  index("products_sale_enabled_idx").on(table.saleEnabled),
 ]);
 
 // -------------------------------------------------------------------------
@@ -66,12 +74,17 @@ export const productVariants = pgTable("product_variants", {
   // Attributes store configurations like: { size: "M", color: "Black" }
   attributes: jsonb("attributes").$type<Record<string, string>>().notNull(),
   price: integer("price"),
+  salePrice: integer("sale_price"),
+  saleEnabled: boolean("sale_enabled").default(false).notNull(),
+  saleStartsAt: timestamp("sale_starts_at"),
+  saleEndsAt: timestamp("sale_ends_at"),
   priceAdjustment: integer("price_adjustment").default(0).notNull(), // Added to basePrice
   stock: integer("stock").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
   index("product_variants_product_id_idx").on(table.productId),
+  index("product_variants_sale_enabled_idx").on(table.saleEnabled),
 ]);
 
 // -------------------------------------------------------------------------
@@ -129,6 +142,8 @@ export const orders = pgTable("orders", {
   samedayAwbCost: integer("sameday_awb_cost"),
   samedayRawResponse: jsonb("sameday_raw_response"),
   subtotalAmount: integer("subtotal_amount").default(0).notNull(),
+  discountAmount: integer("discount_amount").default(0).notNull(),
+  discountSnapshot: jsonb("discount_snapshot"),
   shippingAmount: integer("shipping_amount").default(0).notNull(),
   totalAmount: integer("total_amount").notNull(), // Stored in Bani
   paymentAmount: integer("payment_amount"),
@@ -173,6 +188,48 @@ export const orders = pgTable("orders", {
   index("orders_payment_method_idx").on(table.paymentMethod),
   index("orders_customer_email_idx").on(table.customerEmail),
   index("orders_awb_number_idx").on(table.awbNumber),
+]);
+
+export const discounts = pgTable("discounts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  code: text("code").unique(),
+  kind: text("kind").$type<DiscountKind>().default("automatic").notNull(),
+  type: text("type").$type<DiscountType>().notNull(),
+  scope: text("scope").$type<DiscountScope>().default("storewide").notNull(),
+  value: integer("value").notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  startsAt: timestamp("starts_at"),
+  expiresAt: timestamp("expires_at"),
+  productId: uuid("product_id").references(() => products.id, {
+    onDelete: "cascade",
+  }),
+  categoryId: uuid("category_id").references(() => categories.id, {
+    onDelete: "cascade",
+  }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("discounts_kind_enabled_idx").on(table.kind, table.enabled),
+  index("discounts_code_idx").on(table.code),
+  index("discounts_product_id_idx").on(table.productId),
+  index("discounts_category_id_idx").on(table.categoryId),
+]);
+
+export const discountUsages = pgTable("discount_usages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  discountId: uuid("discount_id")
+    .references(() => discounts.id, { onDelete: "cascade" })
+    .notNull(),
+  orderId: uuid("order_id").references(() => orders.id, {
+    onDelete: "cascade",
+  }),
+  userId: text("user_id"),
+  email: text("email").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("discount_usages_discount_email_idx").on(table.discountId, table.email),
+  index("discount_usages_discount_user_idx").on(table.discountId, table.userId),
 ]);
 
 export const shippingProfiles = pgTable("shipping_profiles", {

@@ -2,6 +2,7 @@ import { searchCatalog } from "@/lib/actions/search";
 import { ProductCard } from "@/components/product/ProductCard";
 import type { Metadata } from "next";
 import { getCurrencyPresentation } from "@/lib/currency/display";
+import { getCatalogAutomaticDiscountPrices } from "@/lib/discounts";
 
 interface SearchPageProps {
   params: Promise<{ locale: "en" | "ro" }>;
@@ -29,6 +30,7 @@ export default async function SearchPage({
     searchCatalog(query, locale),
     getCurrencyPresentation(),
   ]);
+  const catalogDiscounts = await getCatalogAutomaticDiscountPrices(results);
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 min-h-[calc(100vh-8rem)]">
@@ -53,6 +55,7 @@ export default async function SearchPage({
               eager={index === 0}
               displayCurrency={currencyPresentation.displayCurrency}
               ronToEurRate={currencyPresentation.ronToEurRate}
+              catalogDiscount={catalogDiscounts.get(product.id)}
             />
           ))}
         </div>

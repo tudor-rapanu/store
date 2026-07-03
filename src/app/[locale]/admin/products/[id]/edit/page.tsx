@@ -54,10 +54,15 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
 
   const variants = await db
     .select({
+      id: productVariants.id,
       name: productVariants.name,
       sku: productVariants.sku,
       attributes: productVariants.attributes,
       price: productVariants.price,
+      salePrice: productVariants.salePrice,
+      saleEnabled: productVariants.saleEnabled,
+      saleStartsAt: productVariants.saleStartsAt,
+      saleEndsAt: productVariants.saleEndsAt,
       stock: productVariants.stock,
     })
     .from(productVariants)
@@ -102,10 +107,15 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
         locale={activeLocale}
         product={product}
         variants={variants.map((variant) => ({
+          dbId: variant.id,
           name: variant.name ?? "",
           sku: variant.sku,
           attributes: variant.attributes,
           price: (variant.price ?? product.basePrice) / 100,
+          salePrice: variant.salePrice ? variant.salePrice / 100 : null,
+          saleEnabled: variant.saleEnabled,
+          saleStartsAt: variant.saleStartsAt,
+          saleEndsAt: variant.saleEndsAt,
           stock: variant.stock,
         }))}
         imagePaths={imagePaths}

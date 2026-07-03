@@ -5,6 +5,7 @@ import posthog from "posthog-js";
 import { useCart } from "@/lib/store/useCart";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { formatEur, formatRon } from "@/lib/currency/format";
 import {
   Select,
   SelectContent,
@@ -26,9 +27,16 @@ interface Variant {
 interface AddToCartProps {
   product: { id: string; slug: string; title: string; basePrice: number };
   variants: Variant[];
+  displayCurrency?: "RON" | "EUR";
+  ronToEurRate?: number;
 }
 
-export function AddToCart({ product, variants }: AddToCartProps) {
+export function AddToCart({
+  product,
+  variants,
+  displayCurrency = "RON",
+  ronToEurRate = 0.2,
+}: AddToCartProps) {
   const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string>>(
     {},
   );
@@ -51,6 +59,10 @@ export function AddToCart({ product, variants }: AddToCartProps) {
   const finalPrice =
     selectedVariant?.price ??
     product.basePrice + (selectedVariant?.priceAdjustment || 0);
+  const displayPrice =
+    displayCurrency === "EUR"
+      ? formatEur(finalPrice, ronToEurRate)
+      : formatRon(finalPrice);
 
   const handleAdd = () => {
     if (isSimpleProduct) {
@@ -136,9 +148,7 @@ export function AddToCart({ product, variants }: AddToCartProps) {
         </div>
       )}
 
-      <div className="text-2xl font-black tracking-tighter">
-        {(finalPrice / 100).toFixed(2)} RON
-      </div>
+      <div className="text-2xl font-black tracking-tighter">{displayPrice}</div>
 
       <Button
         onClick={handleAdd}

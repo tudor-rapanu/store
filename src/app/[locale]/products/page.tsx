@@ -10,6 +10,7 @@ import {
   getCachedPublicProducts,
   PUBLIC_PRODUCTS_PER_PAGE,
 } from "@/lib/catalog/cache";
+import { getCurrencyPresentation } from "@/lib/currency/display";
 
 export const metadata: Metadata = {
   title: "Products",
@@ -78,12 +79,11 @@ async function ProductGrid({
   locale: "en" | "ro";
   page: number;
 }) {
-  const {
-    items,
-    total,
-    page: resolvedPage,
-    perPage,
-  } = await getCachedPublicProducts(page, PUBLIC_PRODUCTS_PER_PAGE);
+  const [catalog, currencyPresentation] = await Promise.all([
+    getCachedPublicProducts(page, PUBLIC_PRODUCTS_PER_PAGE),
+    getCurrencyPresentation(),
+  ]);
+  const { items, total, page: resolvedPage, perPage } = catalog;
   const totalPages = Math.max(Math.ceil(total / perPage), 1);
 
   if (items.length === 0) {
@@ -103,6 +103,8 @@ async function ProductGrid({
             product={product}
             locale={locale}
             eager={index === 0}
+            displayCurrency={currencyPresentation.displayCurrency}
+            ronToEurRate={currencyPresentation.ronToEurRate}
           />
         ))}
       </div>

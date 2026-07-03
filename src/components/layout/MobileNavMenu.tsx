@@ -12,6 +12,9 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { logoutFromLocale } from "@/lib/actions/auth";
+import { type DisplayCurrency } from "@/lib/currency/preference";
+import { CurrencySelector } from "./CurrencySelector";
+import { LanguageSelector } from "./LanguageSelector";
 
 type CategoryLink = {
   slug: string;
@@ -23,6 +26,7 @@ type MobileNavMenuProps = {
   categories: CategoryLink[];
   isLoggedIn: boolean;
   isAdmin: boolean;
+  initialCurrency: DisplayCurrency;
 };
 
 export function MobileNavMenu({
@@ -30,6 +34,7 @@ export function MobileNavMenu({
   categories,
   isLoggedIn,
   isAdmin,
+  initialCurrency,
 }: MobileNavMenuProps) {
   const linkClass =
     "block border-b border-slate-200 py-4 text-sm font-bold uppercase tracking-widest transition-colors hover:text-slate-500";
@@ -152,18 +157,9 @@ export function MobileNavMenu({
           </nav>
 
           <div className="mt-auto space-y-6 border-t border-black pt-6">
-            <div className="flex gap-3 text-xs font-bold uppercase tracking-widest">
-              <SheetClose asChild>
-                <Link href="/en" className="hover:text-slate-500">
-                  EN
-                </Link>
-              </SheetClose>
-              <span>/</span>
-              <SheetClose asChild>
-                <Link href="/ro" className="hover:text-slate-500">
-                  RO
-                </Link>
-              </SheetClose>
+            <div className="flex items-center gap-5">
+              <LanguageSelector locale={locale} />
+              <CurrencySelector initialCurrency={initialCurrency} compact />
             </div>
 
             {isLoggedIn && (

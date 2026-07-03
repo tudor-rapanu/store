@@ -42,7 +42,7 @@ const fulfillmentStatuses: FulfillmentStatus[] = [
   "cancelled",
   "refunded",
 ];
-const shippingMethods: ShippingMethod[] = ["address", "easybox"];
+const shippingMethods: ShippingMethod[] = ["address", "easybox", "international"];
 const invoiceStatuses: InvoiceStatus[] = [
   "not_generated",
   "generated",
@@ -54,6 +54,7 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
   const [draft, setDraft] = useState(order);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const isInternational = draft.shippingMethod === "international";
 
   async function saveOrder() {
     setMessage(null);
@@ -125,14 +126,14 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <TextField
-          label="AWB number"
+          label={isInternational ? "Posta Romana tracking number" : "AWB number"}
           value={draft.awbNumber ?? ""}
           onChange={(value) =>
             setDraft((current) => ({ ...current, awbNumber: value }))
           }
         />
         <TextField
-          label="Tracking URL"
+          label={isInternational ? "Tracking URL" : "AWB tracking URL"}
           value={draft.trackingUrl ?? ""}
           onChange={(value) =>
             setDraft((current) => ({ ...current, trackingUrl: value }))

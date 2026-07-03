@@ -29,6 +29,14 @@ export const DEFAULT_SHIPPING_PROFILES: ShippingProfile[] = [
     freeShippingThreshold: 15000,
     enabled: true,
   },
+  {
+    id: "international_posta_romana",
+    name: "Posta Romana International",
+    method: "international",
+    price: 7500,
+    freeShippingThreshold: 999999999,
+    enabled: true,
+  },
 ];
 
 function normalizeProfile(profile: typeof shippingProfiles.$inferSelect) {
@@ -83,16 +91,22 @@ export async function calculateShippingAmount(
     throw new Error("Shipping method is not available.");
   }
 
+  if (method === "international") {
+    return profile.price;
+  }
+
   return subtotalAmount >= profile.freeShippingThreshold ? 0 : profile.price;
 }
 
 export async function updateLocalShippingProfiles({
   easyboxPrice,
   addressPrice,
+  internationalPrice,
   freeShippingThreshold,
 }: {
   easyboxPrice: number;
   addressPrice: number;
+  internationalPrice: number;
   freeShippingThreshold: number;
 }) {
   await ensureShippingProfiles();
@@ -114,6 +128,14 @@ export async function updateLocalShippingProfiles({
         updatedAt: new Date(),
       })
       .where(eq(shippingProfiles.id, "local_address")),
+    db
+      .update(shippingProfiles)
+      .set({
+        price: internationalPrice,
+        freeShippingThreshold: 999999999,
+        updatedAt: new Date(),
+      })
+      .where(eq(shippingProfiles.id, "international_posta_romana")),
   ]);
 
   return getShippingProfiles();

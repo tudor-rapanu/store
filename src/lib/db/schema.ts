@@ -22,6 +22,7 @@ export type TranslatedText = {
 
 export type PaymentMethod = "card" | "bank_transfer";
 export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
+export type PaymentCurrency = "RON" | "EUR";
 export type FulfillmentStatus =
   | "new"
   | "processing"
@@ -29,7 +30,7 @@ export type FulfillmentStatus =
   | "delivered"
   | "cancelled"
   | "refunded";
-export type ShippingMethod = "address" | "easybox";
+export type ShippingMethod = "address" | "easybox" | "international";
 export type InvoiceStatus = "not_generated" | "generated" | "failed";
 
 // -------------------------------------------------------------------------
@@ -130,6 +131,12 @@ export const orders = pgTable("orders", {
   subtotalAmount: integer("subtotal_amount").default(0).notNull(),
   shippingAmount: integer("shipping_amount").default(0).notNull(),
   totalAmount: integer("total_amount").notNull(), // Stored in Bani
+  paymentAmount: integer("payment_amount"),
+  paymentCurrency: text("payment_currency")
+    .$type<PaymentCurrency>()
+    .default("RON")
+    .notNull(),
+  currencyExchangeRate: integer("currency_exchange_rate"),
   status: text("status", { enum: ["pending", "paid", "failed"] })
     .default("pending")
     .notNull(),
@@ -181,6 +188,12 @@ export const shippingProfiles = pgTable("shipping_profiles", {
 }, (table) => [
   index("shipping_profiles_method_enabled_idx").on(table.method, table.enabled),
 ]);
+
+export const storeSettings = pgTable("store_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").$type<Record<string, unknown>>().default({}).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
 export const customerProfiles = pgTable("customer_profiles", {
   userId: text("user_id").primaryKey(),

@@ -9,13 +9,16 @@ import { Label } from "@/components/ui/label";
 
 type ShippingProfile = {
   id: string;
-  method: "address" | "easybox";
+  method: "address" | "easybox" | "international";
   price: number;
   freeShippingThreshold: number;
 };
 
 type ShippingProfilesSettingsProps = {
   profiles: ShippingProfile[];
+  currencySettings: {
+    ronToEurRate: number;
+  };
 };
 
 function baniToRon(value: number) {
@@ -28,22 +31,32 @@ function ronToBani(value: string) {
 
 export function ShippingProfilesSettings({
   profiles,
+  currencySettings,
 }: ShippingProfilesSettingsProps) {
   const router = useRouter();
   const easyboxProfile = profiles.find((profile) => profile.method === "easybox");
   const addressProfile = profiles.find((profile) => profile.method === "address");
+  const internationalProfile = profiles.find(
+    (profile) => profile.method === "international",
+  );
   const [easyboxPrice, setEasyboxPrice] = useState(
     baniToRon(easyboxProfile?.price ?? 1500),
   );
   const [addressPrice, setAddressPrice] = useState(
     baniToRon(addressProfile?.price ?? 2500),
   );
+  const [internationalPrice, setInternationalPrice] = useState(
+    baniToRon(internationalProfile?.price ?? 7500),
+  );
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(
     baniToRon(
       easyboxProfile?.freeShippingThreshold ??
         addressProfile?.freeShippingThreshold ??
         15000,
-    ),
+      ),
+  );
+  const [ronToEurRate, setRonToEurRate] = useState(
+    String(currencySettings.ronToEurRate),
   );
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -59,7 +72,9 @@ export function ShippingProfilesSettings({
         body: JSON.stringify({
           easyboxPrice: ronToBani(easyboxPrice),
           addressPrice: ronToBani(addressPrice),
+          internationalPrice: ronToBani(internationalPrice),
           freeShippingThreshold: ronToBani(freeShippingThreshold),
+          ronToEurRate: Number(ronToEurRate),
         }),
       });
       const data = (await response.json()) as {
@@ -91,11 +106,11 @@ export function ShippingProfilesSettings({
           Shipping Profiles
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Configure local shipping prices used during checkout.
+          Configure checkout shipping prices and the manual EUR conversion rate.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <AmountField
           label="Easybox / PUDO"
           value={easyboxPrice}
@@ -107,10 +122,35 @@ export function ShippingProfilesSettings({
           onChange={setAddressPrice}
         />
         <AmountField
+          label="Posta Romana International"
+          value={internationalPrice}
+          onChange={setInternationalPrice}
+        />
+        <AmountField
           label="Free Over"
           value={freeShippingThreshold}
           onChange={setFreeShippingThreshold}
         />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase tracking-widest">
+            RON to EUR Rate
+          </Label>
+          <Input
+            type="number"
+            min="0"
+            max="1"
+            step="0.0001"
+            value={ronToEurRate}
+            onChange={(event) => setRonToEurRate(event.target.value)}
+            className="h-11 rounded-none border-black"
+          />
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Example: 0.20 means 100 RON displays as about 20 EUR.
+          </p>
+        </div>
       </div>
 
       <Button

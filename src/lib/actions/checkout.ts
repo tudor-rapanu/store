@@ -7,11 +7,17 @@ import { db } from "@/lib/db";
 import { orderItems, orders, products, productVariants } from "@/lib/db/schema";
 import { createNetopiaClient } from "@/lib/payments/netopia";
 import { sendAdminOrderEmail, sendOrderEmail } from "@/lib/email";
+import {
+  isRomaniaCountry,
+  normalizeCheckoutCountry,
+} from "@/lib/geo/checkout-countries";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { calculateShippingAmount } from "@/lib/shipping/profiles";
 import { createClient } from "@/lib/supabase/server";
 import { upsertCustomerProfile } from "@/lib/customer-profile";
 import { checkServerActionRateLimit } from "@/lib/rate-limit";
+import { formatEur, formatRon, normalizePaymentCurrency } from "@/lib/currency/format";
+import { getCurrencySettings } from "@/lib/currency/settings";
 
 // 1. Define strict types for the incoming customer data
 export interface CheckoutAddress {
@@ -19,6 +25,8 @@ export interface CheckoutAddress {
   city: string;
   county: string;
   zip: string;
+  countryCode?: string;
+  countryName?: string;
   samedayCityId?: string;
   samedayCountyId?: string;
   samedayLockerId?: string;
@@ -38,7 +46,8 @@ export interface CheckoutCustomerData {
   lastName: string;
   phone: string;
   address: CheckoutAddress;
-  shippingMethod: "address" | "easybox";
+  shippingMethod: "address" | "easybox" | "international";
+  paymentCurrency?: "RON" | "EUR";
 }
 
 export interface CheckoutCartItem {
@@ -125,8 +134,24 @@ function validateCheckoutCustomerData(
 
   const shippingMethod = customerData.shippingMethod;
 
-  if (shippingMethod !== "address" && shippingMethod !== "easybox") {
+  if (
+    shippingMethod !== "address" &&
+    shippingMethod !== "easybox" &&
+    shippingMethod !== "international"
+  ) {
     throw new Error("Select a valid shipping method.");
+  }
+  const countryCode = normalizeCheckoutCountry(customerData.address.countryCode);
+  const paymentCurrency = normalizePaymentCurrency(
+    customerData.paymentCurrency,
+  );
+
+  if (countryCode === "RO" && shippingMethod === "international") {
+    throw new Error("Select a valid Romanian shipping method.");
+  }
+
+  if (countryCode !== "RO" && shippingMethod !== "international") {
+    throw new Error("International orders must use international shipping.");
   }
 
   const firstName = getValidatedString(customerData.firstName, "First name", {
@@ -157,19 +182,28 @@ function validateCheckoutCustomerData(
     lastName,
     phone,
     shippingMethod,
+    paymentCurrency,
     address: {
       street,
       city,
       county,
       zip,
-      samedayCityId: getOptionalNumericId(
-        customerData.address.samedayCityId,
-        "Sameday city",
-      ),
-      samedayCountyId: getOptionalNumericId(
-        customerData.address.samedayCountyId,
-        "Sameday county",
-      ),
+      countryCode,
+      countryName:
+        getOptionalValidatedString(
+          customerData.address.countryName,
+          "Country",
+          120,
+        ) ?? (countryCode === "RO" ? "Romania" : countryCode),
+      samedayCityId: isRomaniaCountry(countryCode)
+        ? getOptionalNumericId(customerData.address.samedayCityId, "Sameday city")
+        : undefined,
+      samedayCountyId: isRomaniaCountry(countryCode)
+        ? getOptionalNumericId(
+            customerData.address.samedayCountyId,
+            "Sameday county",
+          )
+        : undefined,
       samedayLockerId: getOptionalNumericId(
         customerData.address.samedayLockerId,
         "Sameday locker",
@@ -214,6 +248,28 @@ function validateCheckoutCustomerData(
           : undefined,
     },
   };
+}
+
+function resolvePaymentAmount(orderTotalRonBani: number) {
+  return {
+    paymentAmount: orderTotalRonBani,
+    paymentCurrency: "RON" as const,
+    currencyExchangeRate: null,
+  };
+}
+
+async function getNetopiaDescription(
+  orderNumber: number,
+  orderTotalRonBani: number,
+  displayCurrency: "RON" | "EUR",
+) {
+  if (displayCurrency !== "EUR") {
+    return `Todd's Threads - Order TT-${orderNumber} - ${formatRon(orderTotalRonBani)}`;
+  }
+
+  const { ronToEurRate } = await getCurrencySettings();
+
+  return `Todd's Threads - Order TT-${orderNumber} - ${formatEur(orderTotalRonBani, ronToEurRate)} / ${formatRon(orderTotalRonBani)}`;
 }
 
 // 2. Define a custom interface to patch the missing Netopia types
@@ -440,6 +496,8 @@ async function saveCheckoutProfile(
       city: customerData.address.city,
       county: customerData.address.county,
       zip: customerData.address.zip,
+      countryCode: customerData.address.countryCode,
+      countryName: customerData.address.countryName,
       samedayCityId: customerData.address.samedayCityId,
       samedayCountyId: customerData.address.samedayCountyId,
     },
@@ -473,6 +531,7 @@ export async function initiateCheckout(
       resolvedCart.subtotal,
     );
     const orderTotal = resolvedCart.subtotal + shippingAmount;
+    const payment = resolvePaymentAmount(orderTotal);
     const [newOrder] = await db
       .insert(orders)
       .values({
@@ -487,6 +546,9 @@ export async function initiateCheckout(
         subtotalAmount: resolvedCart.subtotal,
         shippingAmount,
         totalAmount: orderTotal,
+        paymentAmount: payment.paymentAmount,
+        paymentCurrency: payment.paymentCurrency,
+        currencyExchangeRate: payment.currencyExchangeRate,
         status: "pending",
         paymentMethod: "card",
         paymentStatus: "pending",
@@ -511,9 +573,14 @@ export async function initiateCheckout(
         `/${locale}`,
         newOrder.id,
       ) as NetopiaClientWorkaround;
+      const netopiaDescription = await getNetopiaDescription(
+        newOrder.orderNumber,
+        orderTotal,
+        customerData.paymentCurrency ?? "RON",
+      );
 
       client.setOrderData({
-        amount: orderTotal / 100,
+        amount: payment.paymentAmount / 100,
         billing: {
           city: customerData.address.city,
           details: customerData.address.street,
@@ -524,8 +591,8 @@ export async function initiateCheckout(
           postalCode: customerData.address.zip,
           state: customerData.address.county,
         },
-        currency: "RON",
-        description: `Todd's Threads - Order TT-${newOrder.orderNumber}`,
+        currency: payment.paymentCurrency,
+        description: netopiaDescription,
         orderID: newOrder.id,
       });
 
@@ -543,7 +610,9 @@ export async function initiateCheckout(
             cart_total: resolvedCart.subtotal,
             shipping_amount: shippingAmount,
             order_total: orderTotal,
-            currency: "RON",
+            payment_amount: payment.paymentAmount,
+            currency: payment.paymentCurrency,
+            order_currency: "RON",
             customer_email: customerData.email,
             locale,
           },
@@ -597,6 +666,7 @@ export async function createBankTransferOrder(
       resolvedCart.subtotal,
     );
     const orderTotal = resolvedCart.subtotal + shippingAmount;
+    const payment = resolvePaymentAmount(orderTotal);
     const [newOrder] = await db
       .insert(orders)
       .values({
@@ -612,6 +682,9 @@ export async function createBankTransferOrder(
         subtotalAmount: resolvedCart.subtotal,
         shippingAmount,
         totalAmount: orderTotal,
+        paymentAmount: payment.paymentAmount,
+        paymentCurrency: payment.paymentCurrency,
+        currencyExchangeRate: payment.currencyExchangeRate,
         status: "pending", // You can track this manually until the wire hits your bank
         paymentMethod: "bank_transfer",
         paymentStatus: "pending",
@@ -650,7 +723,9 @@ export async function createBankTransferOrder(
         cart_total: resolvedCart.subtotal,
         shipping_amount: shippingAmount,
         order_total: orderTotal,
-        currency: "RON",
+        payment_amount: payment.paymentAmount,
+        currency: payment.paymentCurrency,
+        order_currency: "RON",
         customer_email: customerData.email,
       },
     });

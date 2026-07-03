@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { orders } from "@/lib/db/schema";
+import { orders, type PaymentCurrency } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { sendOrderEmail } from "@/lib/email";
 import { getPostHogClient } from "@/lib/posthog-server";
@@ -224,7 +224,7 @@ function getPaymentCurrency(payment: Record<string, unknown>) {
 
 function paymentAmountMatchesOrder(
   payment: Record<string, unknown>,
-  orderTotalAmount: number,
+  expectedPaymentAmount: number,
 ) {
   const amount = getPaymentAmountInCents(payment);
 
@@ -233,9 +233,67 @@ function paymentAmountMatchesOrder(
   }
 
   return (
-    amount.centsFromMajorUnits === orderTotalAmount ||
-    amount.centsFromMinorUnits === orderTotalAmount
+    amount.centsFromMajorUnits === expectedPaymentAmount ||
+    amount.centsFromMinorUnits === expectedPaymentAmount
   );
+}
+
+function resolveAcceptedPayment({
+  payment,
+  paymentCurrency,
+  expectedPaymentCurrency,
+  expectedPaymentAmount,
+  orderTotalAmount,
+  orderId,
+}: {
+  payment: Record<string, unknown>;
+  paymentCurrency: string | null;
+  expectedPaymentCurrency: PaymentCurrency;
+  expectedPaymentAmount: number;
+  orderTotalAmount: number;
+  orderId: string;
+}): {
+  accepted: boolean;
+  paymentAmount: number;
+  paymentCurrency: PaymentCurrency;
+} {
+  if (!paymentCurrency || paymentCurrency === expectedPaymentCurrency) {
+    return {
+      accepted: true,
+      paymentAmount: expectedPaymentAmount,
+      paymentCurrency: expectedPaymentCurrency,
+    };
+  }
+
+  if (
+    expectedPaymentCurrency === "EUR" &&
+    paymentCurrency === "RON" &&
+    paymentAmountMatchesOrder(payment, orderTotalAmount)
+  ) {
+    console.warn(
+      "Netopia returned RON for an EUR order; accepting exact RON match.",
+      {
+        orderId,
+        expectedPaymentCurrency,
+        paymentCurrency,
+        expectedPaymentAmount,
+        orderTotalAmount,
+        receivedAmount: payment.amount,
+      },
+    );
+
+    return {
+      accepted: true,
+      paymentAmount: orderTotalAmount,
+      paymentCurrency: "RON",
+    };
+  }
+
+  return {
+    accepted: false,
+    paymentAmount: expectedPaymentAmount,
+    paymentCurrency: expectedPaymentCurrency,
+  };
 }
 
 export async function POST(request: Request) {
@@ -317,10 +375,24 @@ export async function POST(request: Request) {
 
       const paymentCurrency = getPaymentCurrency(payment);
 
-      if (paymentCurrency && paymentCurrency !== "RON") {
+      const expectedPaymentCurrency: PaymentCurrency =
+        existingOrder.paymentCurrency ?? "RON";
+      const expectedPaymentAmount =
+        existingOrder.paymentAmount ?? existingOrder.totalAmount;
+      const acceptedPayment = resolveAcceptedPayment({
+        payment,
+        paymentCurrency,
+        expectedPaymentCurrency,
+        expectedPaymentAmount,
+        orderTotalAmount: existingOrder.totalAmount,
+        orderId,
+      });
+
+      if (!acceptedPayment.accepted) {
         console.warn("Netopia webhook currency mismatch.", {
           orderId,
           paymentCurrency,
+          expectedPaymentCurrency,
         });
         return NextResponse.json(
           { error: "Payment currency mismatch" },
@@ -328,10 +400,10 @@ export async function POST(request: Request) {
         );
       }
 
-      if (!paymentAmountMatchesOrder(payment, existingOrder.totalAmount)) {
+      if (!paymentAmountMatchesOrder(payment, acceptedPayment.paymentAmount)) {
         console.warn("Netopia webhook amount mismatch.", {
           orderId,
-          expectedAmount: existingOrder.totalAmount,
+          expectedAmount: acceptedPayment.paymentAmount,
           receivedAmount: payment.amount,
         });
         return NextResponse.json(
@@ -353,6 +425,8 @@ export async function POST(request: Request) {
               ? "processing"
               : existingOrder.fulfillmentStatus,
           netopiaTxId: netopiaTxId ?? existingOrder.netopiaTxId,
+          paymentAmount: acceptedPayment.paymentAmount,
+          paymentCurrency: acceptedPayment.paymentCurrency,
           updatedAt: new Date(),
         })
         .where(eq(orders.id, orderId))
@@ -378,8 +452,9 @@ export async function POST(request: Request) {
           order_id: updatedOrder.id,
           order_number: updatedOrder.orderNumber,
           netopia_transaction_id: netopiaTxId,
-          amount: updatedOrder.totalAmount,
-          currency: "RON",
+          amount: updatedOrder.paymentAmount ?? updatedOrder.totalAmount,
+          currency: updatedOrder.paymentCurrency,
+          order_total_ron: updatedOrder.totalAmount,
           payment_status: status,
         },
       });
@@ -411,8 +486,9 @@ export async function POST(request: Request) {
           order_id: failedOrder.id,
           order_number: failedOrder.orderNumber,
           netopia_transaction_id: netopiaTxId,
-          amount: failedOrder.totalAmount,
-          currency: "RON",
+          amount: failedOrder.paymentAmount ?? failedOrder.totalAmount,
+          currency: failedOrder.paymentCurrency,
+          order_total_ron: failedOrder.totalAmount,
           payment_status: status,
         },
       });

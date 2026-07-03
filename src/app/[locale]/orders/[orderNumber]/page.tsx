@@ -74,6 +74,7 @@ export default async function PublicOrderPage({
     city?: string;
     county?: string;
     zip?: string;
+    countryName?: string;
   };
   const canCancel = ![
     "shipped",
@@ -162,8 +163,16 @@ export default async function PublicOrderPage({
             <p>
               {address.city}, {address.county}
             </p>
+            {address.countryName && <p>{address.countryName}</p>}
             <p>{address.zip}</p>
-            {order.awbNumber && <p>AWB: {order.awbNumber}</p>}
+            {order.awbNumber && (
+              <p>
+                {order.shippingMethod === "international"
+                  ? "Tracking"
+                  : "AWB"}
+                : {order.awbNumber}
+              </p>
+            )}
             {order.trackingUrl && (
               <a href={order.trackingUrl} className="underline">
                 Tracking link
@@ -173,6 +182,10 @@ export default async function PublicOrderPage({
 
           <InfoBox title="Summary">
             <p>Total: {(order.totalAmount / 100).toFixed(2)} RON</p>
+            <p>
+              Payment: {((order.paymentAmount ?? order.totalAmount) / 100).toFixed(2)}{" "}
+              {order.paymentCurrency}
+            </p>
             <p>Payment method: {order.paymentMethod.replaceAll("_", " ")}</p>
             {order.customerNotes && <p>{order.customerNotes}</p>}
           </InfoBox>

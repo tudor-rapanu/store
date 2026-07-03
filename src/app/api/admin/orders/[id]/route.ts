@@ -26,7 +26,11 @@ const fulfillmentStatuses = new Set<FulfillmentStatus>([
   "cancelled",
   "refunded",
 ]);
-const shippingMethods = new Set<ShippingMethod>(["address", "easybox"]);
+const shippingMethods = new Set<ShippingMethod>([
+  "address",
+  "easybox",
+  "international",
+]);
 const invoiceStatuses = new Set<InvoiceStatus>([
   "not_generated",
   "generated",

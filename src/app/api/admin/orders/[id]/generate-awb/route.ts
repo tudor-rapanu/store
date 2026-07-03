@@ -99,6 +99,12 @@ export async function POST(
     return errorResponse("AWB can only be generated for paid orders.");
   }
 
+  if (order.shippingMethod === "international") {
+    return errorResponse(
+      "Sameday AWB generation is not available for international orders.",
+    );
+  }
+
   if (order.awbNumber) {
     return errorResponse("This order already has an AWB.");
   }

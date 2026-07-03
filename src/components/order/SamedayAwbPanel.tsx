@@ -39,7 +39,7 @@ type City = {
 type SamedayAwbPanelProps = {
   orderId: string;
   paymentStatus: string;
-  shippingMethod: "address" | "easybox";
+  shippingMethod: "address" | "easybox" | "international";
   awbNumber: string | null;
   trackingUrl: string | null;
   labelUrl: string | null;
@@ -63,6 +63,7 @@ export function SamedayAwbPanel({
   trackingUrl,
   address,
 }: SamedayAwbPanelProps) {
+  const isInternational = shippingMethod === "international";
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -126,7 +127,12 @@ export function SamedayAwbPanel({
   );
 
   useEffect(() => {
-    if (!isOpen || pickupPoints.length > 0 || counties.length > 0) {
+    if (
+      isInternational ||
+      !isOpen ||
+      pickupPoints.length > 0 ||
+      counties.length > 0
+    ) {
       return;
     }
 
@@ -190,19 +196,20 @@ export function SamedayAwbPanel({
     address.county,
     counties.length,
     countyId,
+    isInternational,
     isOpen,
     pickupPoints.length,
     selectPickupPoint,
   ]);
 
   useEffect(() => {
-    if (!countyId) {
+    if (isInternational || !countyId) {
       return;
     }
 
     void loadCities();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countyId]);
+  }, [countyId, isInternational]);
 
   async function loadCities() {
     if (!countyId) {
@@ -283,6 +290,20 @@ export function SamedayAwbPanel({
     } finally {
       setIsGenerating(false);
     }
+  }
+
+  if (isInternational) {
+    return (
+      <section className="space-y-3 border border-black p-4">
+        <h2 className="text-sm font-black uppercase tracking-widest">
+          Shipping Label
+        </h2>
+        <p className="text-sm font-bold uppercase tracking-wider text-slate-500">
+          Posta Romana international shipping is selected. Sameday AWB
+          generation is not available for this order.
+        </p>
+      </section>
+    );
   }
 
   return (

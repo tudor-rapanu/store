@@ -6,6 +6,7 @@ import { SamedayLocationSync } from "@/components/settings/SamedayLocationSync";
 import { ShippingProfilesSettings } from "@/components/settings/ShippingProfilesSettings";
 import { Button } from "@/components/ui/button";
 import { isAdminUser } from "@/lib/admin-auth";
+import { getCurrencySettings } from "@/lib/currency/settings";
 import { db } from "@/lib/db";
 import { samedayCities, samedayCounties } from "@/lib/db/schema";
 import { getShippingProfiles } from "@/lib/shipping/profiles";
@@ -28,12 +29,13 @@ export default async function AdminSettingsPage({
     redirect(`/${activeLocale}`);
   }
 
-  const [counties, cities, shippingProfiles] = await Promise.all([
+  const [counties, cities, shippingProfiles, currencySettings] = await Promise.all([
     db
       .select({ id: samedayCounties.id, name: samedayCounties.name })
       .from(samedayCounties),
     db.select({ id: samedayCities.id }).from(samedayCities),
     getShippingProfiles(),
+    getCurrencySettings(),
   ]);
 
   return (
@@ -57,7 +59,10 @@ export default async function AdminSettingsPage({
       </div>
 
       <div className="space-y-6">
-        <ShippingProfilesSettings profiles={shippingProfiles} />
+        <ShippingProfilesSettings
+          profiles={shippingProfiles}
+          currencySettings={currencySettings}
+        />
         <SamedayLocationSync
           countyCount={counties.length}
           cityCount={cities.length}

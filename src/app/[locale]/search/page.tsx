@@ -1,6 +1,7 @@
 import { searchCatalog } from "@/lib/actions/search";
 import { ProductCard } from "@/components/product/ProductCard";
 import type { Metadata } from "next";
+import { getCurrencyPresentation } from "@/lib/currency/display";
 
 interface SearchPageProps {
   params: Promise<{ locale: "en" | "ro" }>;
@@ -24,7 +25,10 @@ export default async function SearchPage({
   const { locale } = await params;
   const { q } = await searchParams;
   const query = q || "";
-  const results = await searchCatalog(query, locale);
+  const [results, currencyPresentation] = await Promise.all([
+    searchCatalog(query, locale),
+    getCurrencyPresentation(),
+  ]);
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 min-h-[calc(100vh-8rem)]">
@@ -47,6 +51,8 @@ export default async function SearchPage({
               product={product}
               locale={locale}
               eager={index === 0}
+              displayCurrency={currencyPresentation.displayCurrency}
+              ronToEurRate={currencyPresentation.ronToEurRate}
             />
           ))}
         </div>

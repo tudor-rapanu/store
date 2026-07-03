@@ -6,6 +6,7 @@ import {
   getCachedHomepageProducts,
   getCachedPublicCategories,
 } from "@/lib/catalog/cache";
+import { getCurrencyPresentation } from "@/lib/currency/display";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
@@ -45,9 +46,10 @@ export default async function HomePage({ params }: PageProps) {
   const { locale } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
   const copy = homeCopy[activeLocale];
-  const [products, categories] = await Promise.all([
+  const [products, categories, currencyPresentation] = await Promise.all([
     getCachedHomepageProducts(4),
     getCachedPublicCategories(),
+    getCurrencyPresentation(),
   ]);
 
   return (
@@ -99,6 +101,8 @@ export default async function HomePage({ params }: PageProps) {
                 product={product}
                 locale={activeLocale}
                 eager={index === 0}
+                displayCurrency={currencyPresentation.displayCurrency}
+                ronToEurRate={currencyPresentation.ronToEurRate}
               />
             ))}
           </div>

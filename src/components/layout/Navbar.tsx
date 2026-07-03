@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { CartSheet } from "./CartSheet";
+import { CurrencySelector } from "./CurrencySelector";
+import { LanguageSelector } from "./LanguageSelector";
 import { MobileNavMenu } from "./MobileNavMenu";
 import { PostHogIdentifier } from "./PostHogIdentifier";
 import { db } from "@/lib/db";
 import { categories } from "@/lib/db/schema";
 import { logoutFromLocale } from "@/lib/actions/auth";
 import { isAdminUserRecord } from "@/lib/auth/roles";
+import { getCurrencyPresentation } from "@/lib/currency/display";
 import { readEnvValue } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,7 +19,10 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
   } = await supabase.auth.getUser();
   const adminEmail = readEnvValue(process.env.ADMIN_EMAIL, "ADMIN_EMAIL");
   const isAdmin = isAdminUserRecord(user, adminEmail);
-  const categoryLinks = await getCategoryLinks(locale);
+  const [categoryLinks, currencyPresentation] = await Promise.all([
+    getCategoryLinks(locale),
+    getCurrencyPresentation(),
+  ]);
 
   return (
     <>
@@ -129,20 +135,14 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
                 </>
               )}
             </div>
-            <div className="hidden gap-2 text-xs font-bold uppercase tracking-widest sm:flex">
-              <Link
-                href="/en"
-                className="hover:text-slate-500 transition-colors"
-              >
-                EN
-              </Link>
-              <span>/</span>
-              <Link
-                href="/ro"
-                className="hover:text-slate-500 transition-colors"
-              >
-                RO
-              </Link>
+            <div className="hidden sm:block">
+              <LanguageSelector locale={locale} />
+            </div>
+            <div className="hidden sm:block">
+              <CurrencySelector
+                initialCurrency={currencyPresentation.displayCurrency}
+                compact
+              />
             </div>
             <CartSheet locale={locale} />
             <MobileNavMenu
@@ -150,6 +150,7 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
               categories={categoryLinks}
               isLoggedIn={Boolean(user)}
               isAdmin={isAdmin}
+              initialCurrency={currencyPresentation.displayCurrency}
             />
           </div>
         </div>

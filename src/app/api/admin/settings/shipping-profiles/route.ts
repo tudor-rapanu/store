@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
+import { updateCurrencySettings } from "@/lib/currency/settings";
 import { updateLocalShippingProfiles } from "@/lib/shipping/profiles";
 
 function parseAmount(value: unknown, label: string) {
@@ -22,18 +23,27 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       easyboxPrice?: unknown;
       addressPrice?: unknown;
+      internationalPrice?: unknown;
       freeShippingThreshold?: unknown;
+      ronToEurRate?: unknown;
     };
     const profiles = await updateLocalShippingProfiles({
       easyboxPrice: parseAmount(body.easyboxPrice, "Easybox shipping"),
       addressPrice: parseAmount(body.addressPrice, "Address shipping"),
+      internationalPrice: parseAmount(
+        body.internationalPrice,
+        "International shipping",
+      ),
       freeShippingThreshold: parseAmount(
         body.freeShippingThreshold,
         "Free shipping threshold",
       ),
     });
+    const currencySettings = await updateCurrencySettings({
+      ronToEurRate: Number(body.ronToEurRate),
+    });
 
-    return NextResponse.json({ ok: true, profiles });
+    return NextResponse.json({ ok: true, profiles, currencySettings });
   } catch (error) {
     return NextResponse.json(
       {

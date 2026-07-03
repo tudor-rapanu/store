@@ -108,6 +108,8 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
     city?: string;
     county?: string;
     zip?: string;
+    countryCode?: string;
+    countryName?: string;
     samedayCountyId?: string;
     samedayCityId?: string;
     samedayLockerId?: string;
@@ -181,8 +183,16 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
             <p>
               {address.city}, {address.county}
             </p>
+            {address.countryName && <p>{address.countryName}</p>}
             <p>{address.zip}</p>
-            {order.awbNumber && <p>AWB: {order.awbNumber}</p>}
+            {order.awbNumber && (
+              <p>
+                {order.shippingMethod === "international"
+                  ? "Tracking"
+                  : "AWB"}
+                : {order.awbNumber}
+              </p>
+            )}
             {order.trackingUrl && (
               <a href={order.trackingUrl} className="underline">
                 Tracking link
@@ -194,6 +204,10 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
             <p>Method: {order.paymentMethod.replaceAll("_", " ")}</p>
             <p>Status: {order.paymentStatus}</p>
             <p>Total: {(order.totalAmount / 100).toFixed(2)} RON</p>
+            <p>
+              Payment: {((order.paymentAmount ?? order.totalAmount) / 100).toFixed(2)}{" "}
+              {order.paymentCurrency}
+            </p>
             {order.netopiaTxId && <p>Netopia: {order.netopiaTxId}</p>}
           </InfoBox>
 

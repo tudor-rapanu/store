@@ -10,6 +10,7 @@ import {
   getCachedProductVariants,
   getCachedPublicProductBySlug,
 } from "@/lib/catalog/cache";
+import { getCurrencyPresentation } from "@/lib/currency/display";
 import { getProductImageSrcs } from "@/lib/product-images";
 
 type ProductPageProps = {
@@ -46,7 +47,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const description =
     product.description?.[activeLocale] || product.description?.en;
   const imageSrcs = getProductImageSrcs(product.imageUrl);
-  const variants = await getCachedProductVariants(product.id);
+  const [variants, currencyPresentation] = await Promise.all([
+    getCachedProductVariants(product.id),
+    getCurrencyPresentation(),
+  ]);
 
   return (
     <main className="max-w-7xl mx-auto px-8 py-16">
@@ -82,6 +86,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 basePrice: product.basePrice,
               }}
               variants={variants}
+              displayCurrency={currencyPresentation.displayCurrency}
+              ronToEurRate={currencyPresentation.ronToEurRate}
             />
             <Button
               asChild

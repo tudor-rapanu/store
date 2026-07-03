@@ -24,6 +24,13 @@ import {
   type SamedayLocationSelection,
 } from "@/components/shipping/SamedayLocationPicker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatRon, normalizePaymentCurrency } from "@/lib/currency/format";
+import { getDefaultCurrencyForCountry } from "@/lib/currency/preference";
+import {
+  CHECKOUT_COUNTRIES,
+  isRomaniaCountry,
+  normalizeCheckoutCountry,
+} from "@/lib/geo/checkout-countries";
 
 declare global {
   interface Window {
@@ -73,7 +80,7 @@ type SamedayLockerRuntimeConfig = {
 type ShippingProfile = {
   id: string;
   name: string;
-  method: "address" | "easybox";
+  method: "address" | "easybox" | "international";
   price: number;
   freeShippingThreshold: number;
   enabled: boolean;
@@ -90,6 +97,8 @@ export type CheckoutInitialCustomer = {
     city?: string;
     county?: string;
     zip?: string;
+    countryCode?: string;
+    countryName?: string;
     samedayCityId?: string;
     samedayCountyId?: string;
   };
@@ -97,16 +106,36 @@ export type CheckoutInitialCustomer = {
 
 type CheckoutFormProps = {
   initialCustomer?: CheckoutInitialCustomer;
+  detectedCountry: string;
+  currencySettings: {
+    ronToEurRate: number;
+  };
+  initialPaymentCurrency: "RON" | "EUR";
 };
 
-export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
+export function CheckoutForm({
+  initialCustomer,
+  detectedCountry,
+  currencySettings,
+  initialPaymentCurrency,
+}: CheckoutFormProps) {
   const { items, total, clearCart } = useCart();
   const lockerPluginSubscribedRef = useRef(false);
-  const [shippingMethod, setShippingMethod] = useState<"address" | "easybox">(
-    initialCustomer?.preferredShippingMethod ?? "address",
+  const [countryCode, setCountryCode] = useState(
+    normalizeCheckoutCountry(
+      initialCustomer?.address?.countryCode ?? detectedCountry,
+    ),
   );
+  const isRomania = isRomaniaCountry(countryCode);
+  const [localShippingMethod, setLocalShippingMethod] = useState<
+    "address" | "easybox"
+  >(initialCustomer?.preferredShippingMethod ?? "address");
+  const shippingMethod = isRomania ? localShippingMethod : "international";
   const [paymentMethod, setPaymentMethod] = useState<"netopia" | "transfer">(
     "netopia",
+  );
+  const [paymentCurrency, setPaymentCurrency] = useState<"RON" | "EUR">(
+    initialPaymentCurrency,
   );
   const [selectedLocation, setSelectedLocation] =
     useState<SamedayLocationSelection>({
@@ -144,14 +173,34 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
     (profile) => profile.method === shippingMethod && profile.enabled,
   );
   const shippingAmount = activeShippingProfile
-    ? cartSubtotal >= activeShippingProfile.freeShippingThreshold
+    ? shippingMethod !== "international" &&
+      cartSubtotal >= activeShippingProfile.freeShippingThreshold
       ? 0
       : activeShippingProfile.price
     : 0;
   const orderTotal = cartSubtotal + shippingAmount;
   const freeShippingRemainder = activeShippingProfile
-    ? Math.max(activeShippingProfile.freeShippingThreshold - cartSubtotal, 0)
+    ? shippingMethod === "international"
+      ? 0
+      : Math.max(activeShippingProfile.freeShippingThreshold - cartSubtotal, 0)
     : 0;
+  const selectedCountry =
+    CHECKOUT_COUNTRIES.find((country) => country.code === countryCode) ??
+    CHECKOUT_COUNTRIES.find((country) => country.code === "RO");
+
+  function formatCheckoutAmount(value: number, currency = paymentCurrency) {
+    if (currency === "RON") {
+      return formatRon(value);
+    }
+
+    return `${((value / 100) * currencySettings.ronToEurRate).toFixed(2)} EUR`;
+  }
+
+  useEffect(() => {
+    if (paymentMethod === "transfer") {
+      setPaymentCurrency("RON");
+    }
+  }, [paymentMethod]);
 
   useEffect(() => {
     async function loadShippingProfiles() {
@@ -187,6 +236,13 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
 
   useEffect(() => {
     async function loadLockerConfig() {
+      if (!isRomania) {
+        setLockerConfig(null);
+        setLocker(null);
+        setIsLoadingLockerConfig(false);
+        return;
+      }
+
       setIsLoadingLockerConfig(true);
 
       try {
@@ -220,7 +276,7 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
     }
 
     void loadLockerConfig();
-  }, []);
+  }, [isRomania]);
 
   const openEasyboxMap = useCallback(() => {
     setErrorMessage(null);
@@ -311,12 +367,12 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
         return null;
       }
 
-      if (!selectedLocation.countyName || !selectedLocation.countyId) {
+      if (isRomania && (!selectedLocation.countyName || !selectedLocation.countyId)) {
         setErrorMessage("Please select a county.");
         return null;
       }
 
-      if (!selectedLocation.cityName || !selectedLocation.cityId) {
+      if (isRomania && (!selectedLocation.cityName || !selectedLocation.cityId)) {
         setErrorMessage("Please select a city.");
         return null;
       }
@@ -331,11 +387,17 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
             shippingMethod === "easybox" && locker
               ? `Easybox: ${locker.name} (ID: ${locker.id}) - ${locker.address}`
               : (formData.get("street") as string),
-          city: selectedLocation.cityName,
-          county: selectedLocation.countyName,
+          city: isRomania
+            ? selectedLocation.cityName
+            : (formData.get("internationalCity") as string),
+          county: isRomania
+            ? selectedLocation.countyName
+            : (formData.get("internationalRegion") as string),
           zip: formData.get("zip") as string,
-          samedayCityId: selectedLocation.cityId,
-          samedayCountyId: selectedLocation.countyId,
+          countryCode,
+          countryName: selectedCountry?.name ?? "Romania",
+          samedayCityId: isRomania ? selectedLocation.cityId : undefined,
+          samedayCountyId: isRomania ? selectedLocation.countyId : undefined,
           samedayLockerId:
             shippingMethod === "easybox" && locker ? locker.id : undefined,
           samedayLockerName:
@@ -360,6 +422,7 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
             shippingMethod === "easybox" && locker ? locker.oohType : undefined,
         },
         shippingMethod,
+        paymentCurrency: normalizePaymentCurrency(paymentCurrency),
       };
       const locale =
         window.location.pathname.split("/")[1] === "ro" ? "ro" : "en";
@@ -370,8 +433,12 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
         cart_total: total(),
         item_count: items.length,
         currency: "RON",
+        display_currency: paymentCurrency,
+        payment_currency: "RON",
+        country: countryCode,
         shipping_amount: shippingAmount,
         order_total: orderTotal,
+        payment_amount: orderTotal,
       });
 
       if (paymentMethod === "netopia") {
@@ -514,34 +581,71 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
             <h2 className="text-xl font-black uppercase tracking-tighter border-b border-black pb-2">
               2. Delivery Option
             </h2>
-            <div className="flex gap-4">
-              <Button
-                type="button"
-                variant={shippingMethod === "address" ? "default" : "outline"}
-                className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
-                onClick={() => {
-                  setShippingMethod("address");
-                  posthog.capture("shipping_method_selected", {
-                    method: "address",
+            <div className="space-y-2">
+              <Label
+                htmlFor="country"
+                className="uppercase text-xs font-bold tracking-widest"
+              >
+                Country
+              </Label>
+              <select
+                id="country"
+                name="country"
+                value={countryCode}
+                onChange={(event) => {
+                  const nextCountry = normalizeCheckoutCountry(
+                    event.target.value,
+                  );
+                  setCountryCode(nextCountry);
+                  setLocker(null);
+                  setPaymentCurrency(getDefaultCurrencyForCountry(nextCountry));
+                  posthog.capture("checkout_country_selected", {
+                    country: nextCountry,
                   });
                 }}
+                className="h-11 w-full rounded-none border border-black bg-white px-3 text-sm font-bold"
               >
-                Home Address
-              </Button>
-              <Button
-                type="button"
-                variant={shippingMethod === "easybox" ? "default" : "outline"}
-                className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
-                onClick={() => {
-                  setShippingMethod("easybox");
-                  posthog.capture("shipping_method_selected", {
-                    method: "easybox",
-                  });
-                }}
-              >
-                Sameday Easybox
-              </Button>
+                {CHECKOUT_COUNTRIES.map((country) => (
+                  <option key={country.code} value={country.code}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
             </div>
+            {isRomania ? (
+              <div className="flex gap-4">
+                <Button
+                  type="button"
+                  variant={shippingMethod === "address" ? "default" : "outline"}
+                  className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
+                  onClick={() => {
+                    setLocalShippingMethod("address");
+                    posthog.capture("shipping_method_selected", {
+                      method: "address",
+                    });
+                  }}
+                >
+                  Home Address
+                </Button>
+                <Button
+                  type="button"
+                  variant={shippingMethod === "easybox" ? "default" : "outline"}
+                  className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
+                  onClick={() => {
+                    setLocalShippingMethod("easybox");
+                    posthog.capture("shipping_method_selected", {
+                      method: "easybox",
+                    });
+                  }}
+                >
+                  Sameday Easybox
+                </Button>
+              </div>
+            ) : (
+              <div className="border border-black bg-slate-50 p-4 text-xs font-bold uppercase tracking-wider text-slate-600">
+                International delivery is handled by Posta Romana.
+              </div>
+            )}
 
             {shippingMethod === "easybox" && (
               <div className="p-6 border border-black bg-slate-50 space-y-4">
@@ -586,7 +690,7 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 {shippingAmount === 0
                   ? "Shipping is free for this order."
-                  : `${(shippingAmount / 100).toFixed(2)} RON shipping. ${freeShippingRemainder > 0 ? `Add ${(freeShippingRemainder / 100).toFixed(2)} RON for free shipping.` : ""}`}
+                  : `${formatCheckoutAmount(shippingAmount)} shipping. ${freeShippingRemainder > 0 ? `Add ${formatRon(freeShippingRemainder)} for free shipping.` : ""}`}
               </p>
             )}
           </section>
@@ -617,13 +721,48 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
               />
             </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_160px]">
-              <SamedayLocationPicker
-                initialCountyId={initialCustomer?.address?.samedayCountyId}
-                initialCountyName={initialCustomer?.address?.county}
-                initialCityId={initialCustomer?.address?.samedayCityId}
-                initialCityName={initialCustomer?.address?.city}
-                onSelectionChange={setSelectedLocation}
-              />
+              {isRomania ? (
+                <SamedayLocationPicker
+                  initialCountyId={initialCustomer?.address?.samedayCountyId}
+                  initialCountyName={initialCustomer?.address?.county}
+                  initialCityId={initialCustomer?.address?.samedayCityId}
+                  initialCityName={initialCustomer?.address?.city}
+                  onSelectionChange={setSelectedLocation}
+                />
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="internationalRegion"
+                      className="uppercase text-xs font-bold tracking-widest"
+                    >
+                      Region / State
+                    </Label>
+                    <Input
+                      id="internationalRegion"
+                      name="internationalRegion"
+                      required
+                      defaultValue={initialCustomer?.address?.county ?? ""}
+                      className="rounded-none border-black h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="internationalCity"
+                      className="uppercase text-xs font-bold tracking-widest"
+                    >
+                      City
+                    </Label>
+                    <Input
+                      id="internationalCity"
+                      name="internationalCity"
+                      required
+                      defaultValue={initialCustomer?.address?.city ?? ""}
+                      className="rounded-none border-black h-11"
+                    />
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label
                   htmlFor="zip"
@@ -717,19 +856,46 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
                       </span>
                     </div>
                     <span className="font-bold whitespace-nowrap text-xs">
-                      {((item.price * item.quantity) / 100).toFixed(2)} RON
+                      {formatCheckoutAmount(item.price * item.quantity)}
                     </span>
                   </div>
                 ))}
               </div>
 
               <div className="space-y-3 border-t border-black pt-4">
-                <SummaryRow label="Subtotal" value={cartSubtotal} />
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="paymentCurrency"
+                    className="text-xs font-bold uppercase tracking-widest text-slate-500"
+                  >
+                    Display currency
+                  </Label>
+                  <select
+                    id="paymentCurrency"
+                    value={paymentCurrency}
+                    disabled={paymentMethod === "transfer"}
+                    onChange={(event) =>
+                      setPaymentCurrency(
+                        normalizePaymentCurrency(event.target.value),
+                      )
+                    }
+                    className="h-10 w-full rounded-none border border-black bg-white px-3 text-sm font-bold disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                  >
+                    <option value="RON">RON</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+                <SummaryRow
+                  label="Subtotal"
+                  value={cartSubtotal}
+                  formatAmount={formatCheckoutAmount}
+                />
                 <SummaryRow
                   label={
                     isLoadingShippingProfiles ? "Shipping" : "Shipping"
                   }
                   value={shippingAmount}
+                  formatAmount={formatCheckoutAmount}
                   valueLabel={
                     isLoadingShippingProfiles
                       ? "Loading"
@@ -743,9 +909,21 @@ export function CheckoutForm({ initialCustomer }: CheckoutFormProps) {
                     Total
                   </span>
                   <span className="text-3xl font-black tracking-tighter">
-                    {(orderTotal / 100).toFixed(2)} RON
+                    {formatCheckoutAmount(orderTotal)}
                   </span>
                 </div>
+                {paymentCurrency === "EUR" && (
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Card payments are processed in RON. Netopia will receive
+                    the RON total and include the EUR display value in the
+                    order description.
+                  </p>
+                )}
+                {paymentMethod === "transfer" && (
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Bank transfer orders are created in RON.
+                  </p>
+                )}
               </div>
 
               <Button
@@ -772,10 +950,12 @@ function SummaryRow({
   label,
   value,
   valueLabel,
+  formatAmount,
 }: {
   label: string;
   value: number;
   valueLabel?: string;
+  formatAmount: (value: number) => string;
 }) {
   return (
     <div className="flex items-center justify-between text-sm">
@@ -783,7 +963,7 @@ function SummaryRow({
         {label}
       </span>
       <span className="font-black tracking-tight">
-        {valueLabel ?? `${(value / 100).toFixed(2)} RON`}
+        {valueLabel ?? formatAmount(value)}
       </span>
     </div>
   );

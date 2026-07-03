@@ -8,6 +8,7 @@ import {
   getCachedPublicCategoryProducts,
   PUBLIC_PRODUCTS_PER_PAGE,
 } from "@/lib/catalog/cache";
+import { getCurrencyPresentation } from "@/lib/currency/display";
 
 type CategoryPageProps = {
   params: Promise<{
@@ -56,16 +57,11 @@ export default async function CategoryPage({
     notFound();
   }
 
-  const {
-    items,
-    total,
-    page: resolvedPage,
-    perPage,
-  } = await getCachedPublicCategoryProducts(
-    slug,
-    currentPage,
-    PUBLIC_PRODUCTS_PER_PAGE,
-  );
+  const [catalog, currencyPresentation] = await Promise.all([
+    getCachedPublicCategoryProducts(slug, currentPage, PUBLIC_PRODUCTS_PER_PAGE),
+    getCurrencyPresentation(),
+  ]);
+  const { items, total, page: resolvedPage, perPage } = catalog;
   const totalPages = Math.max(Math.ceil(total / perPage), 1);
   const title = category?.name[activeLocale] || category?.name.en || slug;
 
@@ -93,6 +89,8 @@ export default async function CategoryPage({
                 product={product}
                 locale={activeLocale}
                 eager={index === 0}
+                displayCurrency={currencyPresentation.displayCurrency}
+                ronToEurRate={currencyPresentation.ronToEurRate}
               />
             ))}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import posthog from "posthog-js";
 import {
   Sheet,
@@ -13,10 +13,54 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/store/useCart";
 import { ShoppingBag, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { formatEur, formatRon } from "@/lib/currency/format";
 
 export function CartSheet({ locale }: { locale: "en" | "ro" }) {
   const { items, removeItem, total } = useCart();
   const [isOpen, setIsOpen] = useState(false);
+  const [currencyPresentation, setCurrencyPresentation] = useState<{
+    displayCurrency: "RON" | "EUR";
+    ronToEurRate: number;
+  }>({
+    displayCurrency: "RON",
+    ronToEurRate: 0.2,
+  });
+
+  useEffect(() => {
+    async function loadCurrencyPresentation() {
+      try {
+        const response = await fetch("/api/currency/presentation", {
+          cache: "no-store",
+        });
+        const data = (await response.json()) as {
+          displayCurrency?: "RON" | "EUR";
+          ronToEurRate?: number;
+        };
+
+        if (response.ok && data.displayCurrency && data.ronToEurRate) {
+          setCurrencyPresentation({
+            displayCurrency: data.displayCurrency,
+            ronToEurRate: data.ronToEurRate,
+          });
+        }
+      } catch {
+        setCurrencyPresentation({
+          displayCurrency: "RON",
+          ronToEurRate: 0.2,
+        });
+      }
+    }
+
+    void loadCurrencyPresentation();
+  }, []);
+
+  function formatCartAmount(value: number) {
+    if (currencyPresentation.displayCurrency === "EUR") {
+      return formatEur(value, currencyPresentation.ronToEurRate);
+    }
+
+    return formatRon(value);
+  }
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -51,7 +95,7 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
                 <div>
                   <p className="font-bold text-sm uppercase">{item.title}</p>
                   <p className="text-xs text-slate-500">
-                    {(item.price / 100).toFixed(2)} RON
+                    {formatCartAmount(item.price)}
                   </p>
                 </div>
                 <Button
@@ -80,7 +124,7 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
                 Total
               </span>
               <span className="text-lg font-bold">
-                {(total() / 100).toFixed(2)} RON
+                {formatCartAmount(total())}
               </span>
             </div>
             <Link

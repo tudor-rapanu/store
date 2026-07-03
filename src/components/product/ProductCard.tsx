@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { formatEur, formatRon } from "@/lib/currency/format";
 import { getProductImageSrc } from "@/lib/product-images";
 
 interface TranslatedText {
@@ -19,13 +20,21 @@ export function ProductCard({
   product,
   locale,
   eager = false,
+  displayCurrency = "RON",
+  ronToEurRate = 0.2,
 }: {
   product: Product;
   locale: "en" | "ro";
   eager?: boolean;
+  displayCurrency?: "RON" | "EUR";
+  ronToEurRate?: number;
 }) {
   const displayTitle = product.title[locale] || product.title.en;
   const imageSrc = getProductImageSrc(product.imageUrl, "card");
+  const displayPrice =
+    displayCurrency === "EUR"
+      ? formatEur(product.basePrice, ronToEurRate)
+      : formatRon(product.basePrice);
 
   return (
     <Link
@@ -54,9 +63,7 @@ export function ProductCard({
         <h3 className="font-bold uppercase tracking-tight text-sm">
           {displayTitle}
         </h3>
-        <p className="text-sm text-slate-500">
-          {(product.basePrice / 100).toFixed(2)} RON
-        </p>
+        <p className="text-sm text-slate-500">{displayPrice}</p>
       </div>
     </Link>
   );

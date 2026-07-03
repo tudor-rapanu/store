@@ -8,6 +8,8 @@ export type CustomerProfileAddress = {
   city?: string;
   county?: string;
   zip?: string;
+  countryCode?: string;
+  countryName?: string;
   samedayCityId?: string;
   samedayCountyId?: string;
 };

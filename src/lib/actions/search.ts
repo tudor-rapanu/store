@@ -9,6 +9,7 @@ export async function searchCatalog(searchTerm: string, locale: "en" | "ro") {
 
   // Postgres has built-in language dictionaries for stemming (e.g., matching "running" to "run")
   const dict = locale === "en" ? "english" : "romanian";
+  const trimmedTerm = searchTerm.trim();
 
   const results = await db
     .select()
@@ -17,10 +18,20 @@ export async function searchCatalog(searchTerm: string, locale: "en" | "ro") {
       and(
         eq(products.isPrivate, false),
         sql`(
-          to_tsvector(${sql.raw(`'${dict}'`)}, ${products.title}->>${locale}) || 
-          to_tsvector(${sql.raw(`'${dict}'`)}, coalesce(${products.description}->>${locale}, ''))
-        ) @@ websearch_to_tsquery(${sql.raw(`'${dict}'`)}, ${searchTerm})`,
+          (
+            to_tsvector(${sql.raw(`'${dict}'`)}, ${products.title}->>${locale}) ||
+            to_tsvector(${sql.raw(`'${dict}'`)}, coalesce(${products.description}->>${locale}, ''))
+          ) @@ websearch_to_tsquery(${sql.raw(`'${dict}'`)}, ${trimmedTerm})
+          or ${products.title}->>${locale} ilike ${`%${trimmedTerm}%`}
+        )`,
       ),
+    )
+    .orderBy(
+      sql`ts_rank_cd(
+        to_tsvector(${sql.raw(`'${dict}'`)}, ${products.title}->>${locale}) ||
+        to_tsvector(${sql.raw(`'${dict}'`)}, coalesce(${products.description}->>${locale}, '')),
+        websearch_to_tsquery(${sql.raw(`'${dict}'`)}, ${trimmedTerm})
+      ) desc`,
     )
     // Optional: Limit results so a broad search doesn't crash the frontend
     .limit(20);

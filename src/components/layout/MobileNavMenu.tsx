@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { logoutFromLocale } from "@/lib/actions/auth";
 import { type DisplayCurrency } from "@/lib/currency/preference";
 import { CurrencySelector } from "./CurrencySelector";
 import { LanguageSelector } from "./LanguageSelector";
+import { SearchBar } from "@/components/search/SearchBar";
 
 type CategoryLink = {
   slug: string;
@@ -36,15 +38,16 @@ export function MobileNavMenu({
   isAdmin,
   initialCurrency,
 }: MobileNavMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const linkClass =
     "block border-b border-slate-200 py-4 text-sm font-bold uppercase tracking-widest transition-colors hover:text-slate-500";
 
   return (
-    <Sheet>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button
           variant="ghost"
-          className="h-10 w-10 rounded-none hover:bg-black hover:text-white transition-colors sm:hidden"
+          className="h-10 w-10 rounded-none hover:bg-black hover:text-white transition-colors xl:hidden"
           aria-label="Open navigation menu"
         >
           <Menu size={20} strokeWidth={1.5} />
@@ -58,6 +61,14 @@ export function MobileNavMenu({
         </SheetHeader>
 
         <div className="mt-6 flex flex-1 flex-col">
+          <div className="border-b border-black pb-5">
+            <SearchBar
+              locale={locale}
+              compact
+              onSearch={() => setIsOpen(false)}
+            />
+          </div>
+
           <nav aria-label="Mobile navigation">
             {!isAdmin && (
               <SheetClose asChild>

@@ -4,6 +4,7 @@ import { CurrencySelector } from "./CurrencySelector";
 import { LanguageSelector } from "./LanguageSelector";
 import { MobileNavMenu } from "./MobileNavMenu";
 import { PostHogIdentifier } from "./PostHogIdentifier";
+import { SearchBar } from "@/components/search/SearchBar";
 import { db } from "@/lib/db";
 import { categories } from "@/lib/db/schema";
 import { logoutFromLocale } from "@/lib/actions/auth";
@@ -45,7 +46,7 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
           </Link>
           <div className="flex items-center gap-2 sm:gap-4">
             {!isAdmin && (
-              <div className="hidden lg:flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
+              <div className="hidden xl:flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
                 <Link
                   href={`/${locale}/products`}
                   className="hover:text-slate-500 transition-colors"
@@ -63,7 +64,10 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
                 ))}
               </div>
             )}
-            <div className="hidden sm:flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
+            <div className="hidden md:block">
+              <SearchBar locale={locale} compact />
+            </div>
+            <div className="hidden xl:flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
               {user ? (
                 <>
                   {isAdmin && (

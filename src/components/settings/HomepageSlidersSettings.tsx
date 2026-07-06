@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -51,7 +50,6 @@ export function HomepageSlidersSettings({
   sections,
   productsPerSlider,
 }: HomepageSlidersSettingsProps) {
-  const router = useRouter();
   const categoryLabels = useMemo(
     () => new Map(categories.map((category) => [category.id, category.label])),
     [categories],
@@ -75,7 +73,9 @@ export function HomepageSlidersSettings({
 
   function moveSection(categoryId: string, direction: -1 | 1) {
     setDraftSections((current) => {
-      const index = current.findIndex((section) => section.categoryId === categoryId);
+      const index = current.findIndex(
+        (section) => section.categoryId === categoryId,
+      );
       const nextIndex = index + direction;
 
       if (index < 0 || nextIndex < 0 || nextIndex >= current.length) {
@@ -112,10 +112,11 @@ export function HomepageSlidersSettings({
       }
 
       setMessage("Homepage sliders saved.");
-      router.refresh();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Could not save homepage sliders.",
+        error instanceof Error
+          ? error.message
+          : "Could not save homepage sliders.",
       );
     } finally {
       setIsSaving(false);

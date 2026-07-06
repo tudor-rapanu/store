@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,9 +32,12 @@ export function ShippingProfilesSettings({
   profiles,
   currencySettings,
 }: ShippingProfilesSettingsProps) {
-  const router = useRouter();
-  const easyboxProfile = profiles.find((profile) => profile.method === "easybox");
-  const addressProfile = profiles.find((profile) => profile.method === "address");
+  const easyboxProfile = profiles.find(
+    (profile) => profile.method === "easybox",
+  );
+  const addressProfile = profiles.find(
+    (profile) => profile.method === "address",
+  );
   const internationalProfile = profiles.find(
     (profile) => profile.method === "international",
   );
@@ -53,7 +55,7 @@ export function ShippingProfilesSettings({
       easyboxProfile?.freeShippingThreshold ??
         addressProfile?.freeShippingThreshold ??
         15000,
-      ),
+    ),
   );
   const [ronToEurRate, setRonToEurRate] = useState(
     String(currencySettings.ronToEurRate),
@@ -87,7 +89,6 @@ export function ShippingProfilesSettings({
       }
 
       setMessage("Shipping profiles saved.");
-      router.refresh();
     } catch (error) {
       setMessage(
         error instanceof Error

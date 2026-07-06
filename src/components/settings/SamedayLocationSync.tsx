@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 
@@ -19,7 +18,6 @@ export function SamedayLocationSync({
   cityCount,
   counties,
 }: SamedayLocationSyncProps) {
-  const router = useRouter();
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -66,7 +64,6 @@ export function SamedayLocationSync({
           ? `${force ? "Refreshed" : "Synced"} ${countiesToSync.length} counties and ${syncedCities} new cities. Skipped ${skippedCounties} complete counties with ${skippedCachedCities} cached cities. First skipped: ${skippedDetails[0] ?? "none"}. ${failures.length} counties failed. First failure: ${failures[0]}`
           : `${force ? "Refreshed" : "Synced"} ${countiesToSync.length} counties and ${syncedCities} new cities. Skipped ${skippedCounties} complete counties with ${skippedCachedCities} cached cities. First skipped: ${skippedDetails[0] ?? "none"}.`,
       );
-      router.refresh();
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -79,14 +76,11 @@ export function SamedayLocationSync({
   }
 
   async function syncCounties() {
-    const response = await fetch(
-      "/api/admin/settings/sameday/sync-locations",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      },
-    );
+    const response = await fetch("/api/admin/settings/sameday/sync-locations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
     const responseText = await response.text();
     const data = parseJsonResponse(responseText) as {
       ok?: boolean;
@@ -106,23 +100,20 @@ export function SamedayLocationSync({
   }
 
   async function syncCountyCities(countyId: number, force: boolean) {
-    const response = await fetch(
-      "/api/admin/settings/sameday/sync-locations",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ countyId, force }),
-      },
-    );
+    const response = await fetch("/api/admin/settings/sameday/sync-locations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ countyId, force }),
+    });
     const responseText = await response.text();
-      const data = parseJsonResponse(responseText) as {
-        ok?: boolean;
-        cities?: number;
-        skipped?: boolean;
-        cached?: number;
-        remoteTotal?: number | null;
-        error?: string;
-      };
+    const data = parseJsonResponse(responseText) as {
+      ok?: boolean;
+      cities?: number;
+      skipped?: boolean;
+      cached?: number;
+      remoteTotal?: number | null;
+      error?: string;
+    };
 
     if (!response.ok || !data.ok) {
       throw new Error(

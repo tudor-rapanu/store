@@ -1,7 +1,10 @@
 import { eq } from "drizzle-orm";
+import { revalidateTag, unstable_cache } from "next/cache";
 
 import { db } from "@/lib/db";
 import { shippingProfiles, type ShippingMethod } from "@/lib/db/schema";
+
+const SHIPPING_PROFILES_CACHE_TAG = "settings:shipping-profiles";
 
 export type ShippingProfile = {
   id: string;
@@ -51,7 +54,16 @@ function normalizeProfile(profile: typeof shippingProfiles.$inferSelect) {
 }
 
 export async function ensureShippingProfiles() {
+  const existingRows = await db
+    .select({ id: shippingProfiles.id })
+    .from(shippingProfiles);
+  const existingIds = new Set(existingRows.map((row) => row.id));
+
   for (const profile of DEFAULT_SHIPPING_PROFILES) {
+    if (existingIds.has(profile.id)) {
+      continue;
+    }
+
     await db
       .insert(shippingProfiles)
       .values({
@@ -62,23 +74,32 @@ export async function ensureShippingProfiles() {
   }
 }
 
-export async function getShippingProfiles() {
-  await ensureShippingProfiles();
+export const getShippingProfiles = unstable_cache(
+  async (): Promise<ShippingProfile[]> => {
+    await ensureShippingProfiles();
 
-  const rows = await db.select().from(shippingProfiles);
-  const profiles = rows.map(normalizeProfile);
+    const rows = await db.select().from(shippingProfiles);
+    const profiles = rows.map(normalizeProfile);
 
-  return DEFAULT_SHIPPING_PROFILES.map(
-    (defaultProfile) =>
-      profiles.find((profile) => profile.id === defaultProfile.id) ??
-      defaultProfile,
-  );
-}
+    return DEFAULT_SHIPPING_PROFILES.map(
+      (defaultProfile) =>
+        profiles.find((profile) => profile.id === defaultProfile.id) ??
+        defaultProfile,
+    );
+  },
+  ["settings:shipping-profiles"],
+  {
+    revalidate: 300,
+    tags: [SHIPPING_PROFILES_CACHE_TAG],
+  },
+);
 
 export async function getShippingProfileForMethod(method: ShippingMethod) {
   const profiles = await getShippingProfiles();
 
-  return profiles.find((profile) => profile.method === method && profile.enabled);
+  return profiles.find(
+    (profile) => profile.method === method && profile.enabled,
+  );
 }
 
 export async function calculateShippingAmount(
@@ -137,6 +158,8 @@ export async function updateLocalShippingProfiles({
       })
       .where(eq(shippingProfiles.id, "international_posta_romana")),
   ]);
+
+  revalidateTag(SHIPPING_PROFILES_CACHE_TAG, { expire: 0 });
 
   return getShippingProfiles();
 }

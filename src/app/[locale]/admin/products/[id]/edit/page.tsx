@@ -12,6 +12,7 @@ import {
   productVariants,
   products,
 } from "@/lib/db/schema";
+import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImagePaths, getProductImageSrc } from "@/lib/product-images";
 
 type EditProductPageProps = {
@@ -34,7 +35,7 @@ export async function generateMetadata({
 
   return {
     title: product
-      ? `Edit ${product.title[activeLocale] || product.title.en}`
+      ? `Edit ${getTranslatedText(product.title, activeLocale, "Product")}`
       : "Edit Product",
   };
 }
@@ -120,11 +121,13 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
         }))}
         imagePaths={imagePaths}
         imageSources={imageSources}
-        categories={linkedCategories.map((category) => category.name.en)}
+        categories={linkedCategories.map((category) =>
+          getTranslatedText(category.name, "en"),
+        )}
         availableCategories={allCategories.map((category) => ({
           id: category.id,
-          name: category.name[activeLocale] || category.name.en,
-          value: category.name.en,
+          name: getTranslatedText(category.name, activeLocale, category.slug),
+          value: getTranslatedText(category.name, "en", category.slug),
         }))}
       />
     </main>

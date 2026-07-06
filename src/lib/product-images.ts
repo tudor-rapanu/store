@@ -34,11 +34,15 @@ export function getProductImagePaths(imageUrl?: string | null) {
         .map((path) => path.trim())
         .filter(Boolean);
     }
+
+    if (typeof parsed === "string") {
+      return parsed.trim() ? [parsed.trim()] : [];
+    }
   } catch {
     // Older products store one plain image path.
   }
 
-  return [imagePath];
+  return [imagePath.replace(/^["']|["']$/g, "")].filter(Boolean);
 }
 
 export function getProductImageStorageKeys(imagePath: string) {
@@ -90,11 +94,22 @@ function getSingleProductImageSrc(imagePath: string) {
   try {
     return new URL(trimmedPath).toString();
   } catch {
-    const baseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.trim()
+    const baseUrl = (
+      process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
+      process.env.R2_PUBLIC_URL ||
+      (typeof window !== "undefined" ? window.location.origin : "")
+    )
+      ?.trim()
       .replace(/^["']|["']$/g, "")
       .replace(/\/+$/, "");
 
     if (!baseUrl) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "Product image path is relative, but no public base URL is configured.",
+        );
+      }
+
       return null;
     }
 

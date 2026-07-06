@@ -5,12 +5,12 @@ import { LanguageSelector } from "./LanguageSelector";
 import { MobileNavMenu } from "./MobileNavMenu";
 import { PostHogIdentifier } from "./PostHogIdentifier";
 import { SearchBar } from "@/components/search/SearchBar";
-import { db } from "@/lib/db";
-import { categories } from "@/lib/db/schema";
 import { logoutFromLocale } from "@/lib/actions/auth";
 import { isAdminUserRecord } from "@/lib/auth/roles";
+import { getCachedPublicCategories } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
 import { readEnvValue } from "@/lib/env";
+import { getTranslatedText } from "@/lib/i18n/text";
 import { createClient } from "@/lib/supabase/server";
 
 export async function Navbar({ locale }: { locale: "en" | "ro" }) {
@@ -171,11 +171,11 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
 
 async function getCategoryLinks(locale: "en" | "ro") {
   try {
-    const items = await db.select().from(categories);
+    const items = await getCachedPublicCategories();
 
     return items.map((category) => ({
       slug: category.slug,
-      name: category.name[locale] || category.name.en,
+      name: getTranslatedText(category.name, locale, category.slug),
     }));
   } catch {
     return [];

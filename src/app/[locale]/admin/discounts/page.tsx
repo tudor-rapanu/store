@@ -9,6 +9,7 @@ import { isAdminUser } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { discounts } from "@/lib/db/schema";
 import { getDiscountAdminOptions } from "@/lib/discounts";
+import { getTranslatedText } from "@/lib/i18n/text";
 
 export const metadata: Metadata = {
   title: "Admin Discounts",
@@ -83,11 +84,11 @@ export default async function AdminDiscountsPage({
         }))}
         products={options.products.map((product) => ({
           id: product.id,
-          label: product.title[activeLocale] || product.title.en,
+          label: getTranslatedText(product.title, activeLocale, product.id),
         }))}
         categories={options.categories.map((category) => ({
           id: category.id,
-          label: category.name[activeLocale] || category.name.en,
+          label: getTranslatedText(category.name, activeLocale, category.id),
         }))}
       />
     </main>

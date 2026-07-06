@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/product/ProductCard";
+import { ProductCategorySlider } from "@/components/product/ProductCategorySlider";
 import { PaymentReturnNotice } from "@/components/checkout/PaymentReturnNotice";
 import type { Metadata } from "next";
 import {
+  getCachedHomepageCategorySliders,
   getCachedHomepageProducts,
   getCachedPublicCategories,
 } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
 import { getCatalogAutomaticDiscountPrices } from "@/lib/discounts";
+import { getTranslatedText } from "@/lib/i18n/text";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
@@ -47,12 +50,20 @@ export default async function HomePage({ params }: PageProps) {
   const { locale } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
   const copy = homeCopy[activeLocale];
-  const [products, categories, currencyPresentation] = await Promise.all([
-    getCachedHomepageProducts(4),
-    getCachedPublicCategories(),
-    getCurrencyPresentation(),
-  ]);
-  const catalogDiscounts = await getCatalogAutomaticDiscountPrices(products);
+  const [products, homepageSliders, categories, currencyPresentation] =
+    await Promise.all([
+      getCachedHomepageProducts(4),
+      getCachedHomepageCategorySliders(),
+      getCachedPublicCategories(),
+      getCurrencyPresentation(),
+    ]);
+  const sliderProducts = homepageSliders.flatMap((section) => section.products);
+  const catalogProductsById = new Map(
+    [...products, ...sliderProducts].map((product) => [product.id, product]),
+  );
+  const catalogDiscounts = await getCatalogAutomaticDiscountPrices(
+    Array.from(catalogProductsById.values()),
+  );
 
   return (
     <main className="mx-auto max-w-7xl px-8 py-16">
@@ -60,9 +71,9 @@ export default async function HomePage({ params }: PageProps) {
 
       <section className="grid gap-8 border-b border-black pb-12 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
         <div>
-          <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-500">
+          {/* <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-500">
             {copy.eyebrow}
-          </p>
+          </p> */}
           <h1 className="max-w-4xl text-4xl font-black uppercase tracking-tighter sm:text-5xl lg:text-6xl">
             {copy.title}
           </h1>
@@ -78,39 +89,56 @@ export default async function HomePage({ params }: PageProps) {
         </div>
       </section>
 
-      <section className="py-12">
-        <div className="mb-8 flex items-end justify-between gap-4">
-          <h2 className="text-2xl font-black uppercase tracking-tight">
-            {copy.latest}
-          </h2>
-          <Link
-            href={`/${activeLocale}/products`}
-            className="text-xs font-bold uppercase tracking-widest text-slate-500 transition-colors hover:text-black"
-          >
-            {copy.allProducts}
-          </Link>
+      {homepageSliders.length > 0 ? (
+        <div>
+          {homepageSliders.map((section) => (
+            <ProductCategorySlider
+              key={section.category.id}
+              title={getTranslatedText(section.category.name, activeLocale)}
+              href={`/${activeLocale}/category/${section.category.slug}`}
+              products={section.products}
+              locale={activeLocale}
+              displayCurrency={currencyPresentation.displayCurrency}
+              ronToEurRate={currencyPresentation.ronToEurRate}
+              catalogDiscounts={catalogDiscounts}
+            />
+          ))}
         </div>
+      ) : (
+        <section className="py-12">
+          <div className="mb-8 flex items-end justify-between gap-4">
+            <h2 className="text-2xl font-black uppercase tracking-tight">
+              {copy.latest}
+            </h2>
+            <Link
+              href={`/${activeLocale}/products`}
+              className="text-xs font-bold uppercase tracking-widest text-slate-500 transition-colors hover:text-black"
+            >
+              {copy.allProducts}
+            </Link>
+          </div>
 
-        {products.length === 0 ? (
-          <div className="text-sm uppercase tracking-widest text-slate-500">
-            {copy.empty}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-3 lg:grid-cols-4">
-            {products.map((product, index) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                locale={activeLocale}
-                eager={index === 0}
-                displayCurrency={currencyPresentation.displayCurrency}
-                ronToEurRate={currencyPresentation.ronToEurRate}
-                catalogDiscount={catalogDiscounts.get(product.id)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+          {products.length === 0 ? (
+            <div className="text-sm uppercase tracking-widest text-slate-500">
+              {copy.empty}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-3 lg:grid-cols-4">
+              {products.map((product, index) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  locale={activeLocale}
+                  eager={index === 0}
+                  displayCurrency={currencyPresentation.displayCurrency}
+                  ronToEurRate={currencyPresentation.ronToEurRate}
+                  catalogDiscount={catalogDiscounts.get(product.id)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {categories.length > 0 && (
         <section className="border-t border-black py-12">
@@ -124,7 +152,7 @@ export default async function HomePage({ params }: PageProps) {
                 href={`/${activeLocale}/category/${category.slug}`}
                 className="border border-black p-4 text-sm font-black uppercase tracking-widest transition-colors hover:bg-black hover:text-white"
               >
-                {category.name[activeLocale] || category.name.en}
+                {getTranslatedText(category.name, activeLocale, category.slug)}
               </Link>
             ))}
           </div>

@@ -1,9 +1,11 @@
 import { eq } from "drizzle-orm";
+import { revalidateTag, unstable_cache } from "next/cache";
 
 import { db } from "@/lib/db";
 import { storeSettings } from "@/lib/db/schema";
 
 const CURRENCY_SETTINGS_KEY = "currency";
+const CURRENCY_SETTINGS_CACHE_TAG = "settings:currency";
 const DEFAULT_RON_TO_EUR_RATE = 0.2;
 
 export type CurrencySettings = {
@@ -20,7 +22,8 @@ function normalizeRate(value: unknown) {
   return rate;
 }
 
-export async function getCurrencySettings(): Promise<CurrencySettings> {
+export const getCurrencySettings = unstable_cache(
+  async (): Promise<CurrencySettings> => {
   const [row] = await db
     .select()
     .from(storeSettings)
@@ -30,7 +33,13 @@ export async function getCurrencySettings(): Promise<CurrencySettings> {
   return {
     ronToEurRate: normalizeRate(row?.value?.ronToEurRate),
   };
-}
+  },
+  ["settings:currency"],
+  {
+    revalidate: 300,
+    tags: [CURRENCY_SETTINGS_CACHE_TAG],
+  },
+);
 
 export async function updateCurrencySettings({
   ronToEurRate,
@@ -53,6 +62,8 @@ export async function updateCurrencySettings({
         updatedAt: new Date(),
       },
     });
+
+  revalidateTag(CURRENCY_SETTINGS_CACHE_TAG, { expire: 0 });
 
   return settings;
 }

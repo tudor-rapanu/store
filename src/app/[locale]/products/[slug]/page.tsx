@@ -15,6 +15,7 @@ import {
   formatFulfillmentDate,
   normalizeProductionRange,
 } from "@/lib/fulfillment/estimate";
+import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImageSrcs } from "@/lib/product-images";
 
 type ProductPageProps = {
@@ -47,7 +48,7 @@ export async function generateMetadata({
 
   return {
     title: product
-      ? product.title[activeLocale] || product.title.en
+      ? getTranslatedText(product.title, activeLocale, "Product")
       : "Product",
   };
 }
@@ -61,9 +62,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   const activeLocale = locale === "ro" ? "ro" : "en";
-  const title = product.title[activeLocale] || product.title.en;
-  const description =
-    product.description?.[activeLocale] || product.description?.en;
+  const title = getTranslatedText(product.title, activeLocale, product.slug);
+  const description = getTranslatedText(product.description, activeLocale);
   const imageSrcs = getProductImageSrcs(product.imageUrl);
   const productionRange = normalizeProductionRange(product);
   const preorderShipDate =

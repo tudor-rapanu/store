@@ -6,6 +6,7 @@ import { AdminCategoryManager } from "@/components/category/AdminCategoryManager
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { categories, productCategories, products } from "@/lib/db/schema";
+import { getTranslatedText } from "@/lib/i18n/text";
 
 export const metadata: Metadata = {
   title: "Admin Categories",
@@ -76,8 +77,8 @@ export default async function AdminCategoriesPage({
       categoryMap.set(category.id, {
         id: category.id,
         slug: category.slug,
-        nameEn: category.name.en,
-        nameRo: category.name.ro,
+        nameEn: getTranslatedText(category.name, "en", category.slug),
+        nameRo: getTranslatedText(category.name, "ro", category.slug),
         products: [],
       });
     }
@@ -85,7 +86,7 @@ export default async function AdminCategoriesPage({
     if (row.product) {
       categoryMap.get(category.id)?.products.push({
         id: row.product.id,
-        title: row.product.title[activeLocale] || row.product.title.en,
+        title: getTranslatedText(row.product.title, activeLocale, row.product.slug),
         slug: row.product.slug,
         imageUrl: row.product.imageUrl,
       });
@@ -117,7 +118,7 @@ export default async function AdminCategoriesPage({
         categories={Array.from(categoryMap.values())}
         products={allProducts.map((product) => ({
           id: product.id,
-          title: product.title[activeLocale] || product.title.en,
+          title: getTranslatedText(product.title, activeLocale, product.slug),
           slug: product.slug,
           imageUrl: product.imageUrl,
         }))}

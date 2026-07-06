@@ -10,6 +10,7 @@ import { ImportProductsCsv } from "@/components/product/ImportProductsCsv";
 import { db } from "@/lib/db";
 import { products } from "@/lib/db/schema";
 import { formatFulfillmentDate } from "@/lib/fulfillment/estimate";
+import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImageSrc } from "@/lib/product-images";
 import { getProductPricePresentation } from "@/lib/product-pricing";
 
@@ -90,7 +91,11 @@ export default async function AdminProductsPage({
         ) : (
           items.map((product) => {
             const imageSrc = getProductImageSrc(product.imageUrl, "thumb");
-            const title = product.title[activeLocale] || product.title.en;
+            const title = getTranslatedText(
+              product.title,
+              activeLocale,
+              product.slug,
+            );
             const price = getProductPricePresentation(product);
             const isScheduled =
               product.publishAt && product.publishAt > new Date();

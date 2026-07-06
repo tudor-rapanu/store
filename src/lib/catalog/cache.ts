@@ -1,5 +1,5 @@
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
-import { and, count, desc, eq, isNull, lte, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
@@ -8,6 +8,7 @@ import {
   products,
   productVariants,
 } from "@/lib/db/schema";
+import { getHomepageSettings } from "@/lib/homepage/settings";
 
 const CATALOG_REVALIDATE_SECONDS = 60;
 export const PUBLIC_PRODUCTS_PER_PAGE = 12;
@@ -146,6 +147,83 @@ export const getCachedHomepageProducts = unstable_cache(
   {
     revalidate: CATALOG_REVALIDATE_SECONDS,
     tags: [CATALOG_CACHE_TAGS.products],
+  },
+);
+
+export const getCachedHomepageCategorySliders = unstable_cache(
+  async () => {
+    const settings = await getHomepageSettings();
+    const enabledSections = settings.categorySections.filter(
+      (section) => section.enabled,
+    );
+
+    if (enabledSections.length === 0) {
+      return [];
+    }
+
+    const categoryIds = enabledSections.map((section) => section.categoryId);
+    const [categoryRows, productRows] = await Promise.all([
+      db
+        .select({
+          id: categories.id,
+          slug: categories.slug,
+          name: categories.name,
+        })
+        .from(categories)
+        .where(inArray(categories.id, categoryIds)),
+      db
+        .select({
+          categoryId: productCategories.categoryId,
+          product: products,
+        })
+        .from(productCategories)
+        .innerJoin(products, eq(products.id, productCategories.productId))
+        .where(
+          and(
+            inArray(productCategories.categoryId, categoryIds),
+            publicProductWhere(),
+          ),
+        )
+        .orderBy(desc(products.createdAt)),
+    ]);
+    const categoriesById = new Map(
+      categoryRows.map((category) => [category.id, category]),
+    );
+    const productsByCategoryId = new Map<string, typeof products.$inferSelect[]>();
+
+    for (const row of productRows) {
+      const current = productsByCategoryId.get(row.categoryId) ?? [];
+
+      if (current.length < settings.productsPerSlider) {
+        productsByCategoryId.set(row.categoryId, [...current, row.product]);
+      }
+    }
+
+    const sections = enabledSections.map((section) => {
+      const category = categoriesById.get(section.categoryId);
+      const sectionProducts = productsByCategoryId.get(section.categoryId) ?? [];
+
+      if (!category || sectionProducts.length === 0) {
+        return null;
+      }
+
+      return {
+        category,
+        products: sectionProducts,
+      };
+    });
+
+    return sections.filter(
+      (
+        section,
+      ): section is NonNullable<(typeof sections)[number]> =>
+        Boolean(section && section.products.length > 0),
+    );
+  },
+  ["catalog:homepage-category-sliders"],
+  {
+    revalidate: CATALOG_REVALIDATE_SECONDS,
+    tags: [CATALOG_CACHE_TAGS.categories, CATALOG_CACHE_TAGS.products],
   },
 );
 

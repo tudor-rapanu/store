@@ -1,6 +1,7 @@
 import { AdminProductForm } from "@/components/product/AdminProductForm";
 import { db } from "@/lib/db";
 import { categories } from "@/lib/db/schema";
+import { getTranslatedText } from "@/lib/i18n/text";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -33,8 +34,8 @@ export default async function NewProductPage({ params }: NewProductPageProps) {
         locale={activeLocale}
         availableCategories={allCategories.map((category) => ({
           id: category.id,
-          name: category.name[activeLocale] || category.name.en,
-          value: category.name.en,
+          name: getTranslatedText(category.name, activeLocale, category.slug),
+          value: getTranslatedText(category.name, "en", category.slug),
         }))}
       />
     </main>

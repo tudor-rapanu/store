@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatEur, formatRon } from "@/lib/currency/format";
+import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImageSrc } from "@/lib/product-images";
 import { getProductPricePresentation } from "@/lib/product-pricing";
 
@@ -12,7 +13,7 @@ interface TranslatedText {
 interface Product {
   id: string;
   slug: string;
-  title: TranslatedText;
+  title?: TranslatedText | null;
   basePrice: number;
   salePrice?: number | null;
   saleEnabled?: boolean | null;
@@ -39,7 +40,7 @@ export function ProductCard({
     discountedPrice: number;
   };
 }) {
-  const displayTitle = product.title[locale] || product.title.en;
+  const displayTitle = getTranslatedText(product.title, locale, product.slug);
   const imageSrc = getProductImageSrc(product.imageUrl, "card");
   const price = getProductPricePresentation(product);
   const finalPrice = catalogDiscount?.discountedPrice ?? price.effectivePrice;

@@ -12,6 +12,7 @@ import { markStaleNetopiaOrdersFailed } from "@/lib/actions/orders";
 import { db } from "@/lib/db";
 import { orderItems, orders, products, productVariants } from "@/lib/db/schema";
 import { formatFulfillmentEstimate } from "@/lib/fulfillment/estimate";
+import { getTranslatedText } from "@/lib/i18n/text";
 import {
   getEffectiveProductPrice,
   getEffectiveVariantPrice,
@@ -106,7 +107,7 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
     .orderBy(desc(productVariants.createdAt));
   const productOptions = productRows.map((product) => ({
     id: product.id,
-    title: product.title[activeLocale] || product.title.en,
+    title: getTranslatedText(product.title, activeLocale, product.id),
     basePrice: getEffectiveProductPrice(product),
     variants: variantRows
       .filter((variant) => variant.productId === product.id)

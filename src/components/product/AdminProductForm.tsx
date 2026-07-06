@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatRomaniaDateTimeLocal } from "@/lib/dates/romania";
+import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImageSrc } from "@/lib/product-images";
 
 type Product = {
@@ -529,13 +530,13 @@ export function AdminProductForm({
               <Label htmlFor="titleEn" className="uppercase text-xs font-bold tracking-widest">
                 Title (English)
               </Label>
-              <Input id="titleEn" name="titleEn" required defaultValue={product?.title.en} onChange={(event) => handleTitleChange(event.target.value)} className="rounded-none border-black h-11" />
+              <Input id="titleEn" name="titleEn" required defaultValue={getTranslatedText(product?.title, "en")} onChange={(event) => handleTitleChange(event.target.value)} className="rounded-none border-black h-11" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="titleRo" className="uppercase text-xs font-bold tracking-widest">
                 Title (Romanian)
               </Label>
-              <Input id="titleRo" name="titleRo" required defaultValue={product?.title.ro} className="rounded-none border-black h-11" />
+              <Input id="titleRo" name="titleRo" required defaultValue={getTranslatedText(product?.title, "ro")} className="rounded-none border-black h-11" />
             </div>
           </div>
 

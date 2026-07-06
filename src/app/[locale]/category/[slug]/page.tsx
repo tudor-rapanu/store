@@ -10,6 +10,7 @@ import {
 } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
 import { getCatalogAutomaticDiscountPrices } from "@/lib/discounts";
+import { getTranslatedText } from "@/lib/i18n/text";
 
 type CategoryPageProps = {
   params: Promise<{
@@ -32,7 +33,7 @@ export async function generateMetadata({
 
     return {
       title: category
-        ? category.name[activeLocale] || category.name.en
+        ? getTranslatedText(category.name, activeLocale, "Category")
         : "Category",
     };
   } catch {
@@ -64,7 +65,7 @@ export default async function CategoryPage({
   ]);
   const { items, total, page: resolvedPage, perPage } = catalog;
   const totalPages = Math.max(Math.ceil(total / perPage), 1);
-  const title = category?.name[activeLocale] || category?.name.en || slug;
+  const title = getTranslatedText(category?.name, activeLocale, slug);
   const catalogDiscounts = await getCatalogAutomaticDiscountPrices(items);
 
   return (

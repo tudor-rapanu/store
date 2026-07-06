@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/schema";
 import { isAdminUser } from "@/lib/admin-auth";
 import { revalidateCatalogViews } from "@/lib/catalog/cache";
+import { getTranslatedText } from "@/lib/i18n/text";
 
 function errorResponse(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -94,13 +95,23 @@ export async function POST(
   ]);
 
   const duplicateSlug = await getUniqueProductSlug(`${sourceProduct.slug}-copy`);
+  const sourceTitleEn = getTranslatedText(
+    sourceProduct.title,
+    "en",
+    sourceProduct.slug,
+  );
+  const sourceTitleRo = getTranslatedText(
+    sourceProduct.title,
+    "ro",
+    sourceTitleEn,
+  );
   const [duplicatedProduct] = await db
     .insert(products)
     .values({
       slug: duplicateSlug,
       title: {
-        en: `${sourceProduct.title.en} Copy`,
-        ro: `${sourceProduct.title.ro || sourceProduct.title.en} Copy`,
+        en: `${sourceTitleEn} Copy`,
+        ro: `${sourceTitleRo} Copy`,
       },
       description: sourceProduct.description,
       basePrice: sourceProduct.basePrice,

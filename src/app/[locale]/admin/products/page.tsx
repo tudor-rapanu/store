@@ -9,6 +9,7 @@ import { DuplicateProductButton } from "@/components/product/DuplicateProductBut
 import { ImportProductsCsv } from "@/components/product/ImportProductsCsv";
 import { db } from "@/lib/db";
 import { products } from "@/lib/db/schema";
+import { formatFulfillmentDate } from "@/lib/fulfillment/estimate";
 import { getProductImageSrc } from "@/lib/product-images";
 import { getProductPricePresentation } from "@/lib/product-pricing";
 
@@ -50,6 +51,7 @@ export default async function AdminProductsPage({
       saleEnabled: products.saleEnabled,
       saleStartsAt: products.saleStartsAt,
       saleEndsAt: products.saleEndsAt,
+      publishAt: products.publishAt,
       imageUrl: products.imageUrl,
       isPrivate: products.isPrivate,
       createdAt: products.createdAt,
@@ -90,6 +92,8 @@ export default async function AdminProductsPage({
             const imageSrc = getProductImageSrc(product.imageUrl, "thumb");
             const title = product.title[activeLocale] || product.title.en;
             const price = getProductPricePresentation(product);
+            const isScheduled =
+              product.publishAt && product.publishAt > new Date();
 
             return (
               <div
@@ -124,6 +128,12 @@ export default async function AdminProductsPage({
                     {product.isPrivate && (
                       <p className="mt-1 text-xs font-black uppercase tracking-widest text-destructive">
                         Private
+                      </p>
+                    )}
+                    {isScheduled && product.publishAt && (
+                      <p className="mt-1 text-xs font-black uppercase tracking-widest text-amber-700">
+                        Scheduled for{" "}
+                        {formatFulfillmentDate(product.publishAt, activeLocale)}
                       </p>
                     )}
                   </div>

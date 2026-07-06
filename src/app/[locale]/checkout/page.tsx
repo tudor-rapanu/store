@@ -11,7 +11,13 @@ export const metadata: Metadata = {
   title: "Checkout",
 };
 
-export default async function CheckoutPage() {
+export default async function CheckoutPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const activeLocale = locale === "ro" ? "ro" : "en";
   const supabase = await createClient();
   const {
     data: { user },
@@ -39,6 +45,7 @@ export default async function CheckoutPage() {
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full space-y-8">
         <CheckoutForm
+          locale={activeLocale}
           initialCustomer={initialCustomer}
           detectedCountry={currencyPresentation.countryCode}
           currencySettings={{

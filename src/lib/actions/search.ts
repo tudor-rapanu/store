@@ -2,7 +2,8 @@
 
 import { db } from "@/lib/db";
 import { products } from "@/lib/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { publicProductWhere } from "@/lib/catalog/cache";
+import { and, sql } from "drizzle-orm";
 
 export async function searchCatalog(searchTerm: string, locale: "en" | "ro") {
   if (!searchTerm || searchTerm.trim() === "") return [];
@@ -16,7 +17,7 @@ export async function searchCatalog(searchTerm: string, locale: "en" | "ro") {
     .from(products)
     .where(
       and(
-        eq(products.isPrivate, false),
+        publicProductWhere(),
         sql`(
           (
             to_tsvector(${sql.raw(`'${dict}'`)}, ${products.title}->>${locale}) ||

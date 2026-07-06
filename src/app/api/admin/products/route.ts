@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { isAdminUser } from "@/lib/admin-auth";
 import { revalidateCatalogViews } from "@/lib/catalog/cache";
+import { parseRomaniaDateTimeLocal } from "@/lib/dates/romania";
 import { uploadProductImage } from "@/lib/storage/product-images";
 
 export const runtime = "nodejs";
@@ -54,13 +55,19 @@ function parseOptionalDate(value: string) {
     return null;
   }
 
-  const parsed = new Date(value);
+  const parsed = parseRomaniaDateTimeLocal(value);
 
-  if (Number.isNaN(parsed.getTime())) {
+  if (!parsed) {
     throw new Error("Enter a valid sale date.");
   }
 
   return parsed;
+}
+
+function parseProductionDays(value: string, fallback: number) {
+  const parsed = Number.parseInt(value, 10);
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function slugify(value: string) {
@@ -230,6 +237,17 @@ export async function POST(request: Request) {
   const salePriceInput = getString(formData, "salePrice");
   const saleStartsAtInput = getString(formData, "saleStartsAt");
   const saleEndsAtInput = getString(formData, "saleEndsAt");
+  const productionMinDays = parseProductionDays(
+    getString(formData, "productionMinDays"),
+    1,
+  );
+  const productionMaxDays = parseProductionDays(
+    getString(formData, "productionMaxDays"),
+    3,
+  );
+  const preorderEnabled = formData.get("preorderEnabled") === "on";
+  const preorderShipDateInput = getString(formData, "preorderShipDate");
+  const publishAtInput = getString(formData, "publishAt");
   const isPrivate = formData.get("isPrivate") === "on";
   const categoryNames = parseCategoryNames(getString(formData, "categories"));
   const images = formData
@@ -266,11 +284,17 @@ export async function POST(request: Request) {
   let salePrice: number | null = null;
   let saleStartsAt: Date | null = null;
   let saleEndsAt: Date | null = null;
+  let preorderShipDate: Date | null = null;
+  let publishAt: Date | null = null;
 
   try {
     salePrice = parseOptionalPriceBani(salePriceInput);
     saleStartsAt = parseOptionalDate(saleStartsAtInput);
     saleEndsAt = parseOptionalDate(saleEndsAtInput);
+    preorderShipDate = parseOptionalDate(preorderShipDateInput);
+    publishAt = publishAtInput
+      ? parseRomaniaDateTimeLocal(publishAtInput)
+      : null;
   } catch (error) {
     return errorResponse(
       error instanceof Error ? error.message : "Invalid sale settings.",
@@ -284,6 +308,20 @@ export async function POST(request: Request) {
   if (saleStartsAt && saleEndsAt && saleStartsAt >= saleEndsAt) {
     return errorResponse("Sale end date must be after the start date.");
   }
+
+  if (productionMinDays > productionMaxDays) {
+    return errorResponse("Maximum business days must be greater than or equal to minimum business days.");
+  }
+
+  if (preorderEnabled && !preorderShipDate) {
+    return errorResponse("Choose a preorder shipping start date or disable preorder.");
+  }
+
+  if (publishAtInput && !publishAt) {
+    return errorResponse("Enter a valid publish date.");
+  }
+
+  const shouldWaitForPublishRevalidation = publishAt && publishAt > new Date();
 
   const uploadedImages = await Promise.all(
     images.map((image) => uploadProductImage(image, slug)),
@@ -303,6 +341,12 @@ export async function POST(request: Request) {
     saleEnabled,
     saleStartsAt: saleEnabled ? saleStartsAt : null,
     saleEndsAt: saleEnabled ? saleEndsAt : null,
+    productionMinDays,
+    productionMaxDays,
+    preorderEnabled,
+    preorderShipDate: preorderEnabled ? preorderShipDate : null,
+    publishAt,
+    publishRevalidatedAt: shouldWaitForPublishRevalidation ? null : new Date(),
     imageUrl,
     isSimple: variants.length === 0,
     isPrivate,

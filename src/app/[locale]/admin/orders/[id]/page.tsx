@@ -11,6 +11,7 @@ import { isAdminUser } from "@/lib/admin-auth";
 import { markStaleNetopiaOrdersFailed } from "@/lib/actions/orders";
 import { db } from "@/lib/db";
 import { orderItems, orders, products, productVariants } from "@/lib/db/schema";
+import { formatFulfillmentEstimate } from "@/lib/fulfillment/estimate";
 import {
   getEffectiveProductPrice,
   getEffectiveVariantPrice,
@@ -128,6 +129,15 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
     samedayLockerId?: string;
     samedayLockerOohType?: number | string;
   };
+  const estimatedShippingWindow = formatFulfillmentEstimate(
+    order.estimatedShippingStart && order.estimatedShippingEnd
+      ? {
+          start: order.estimatedShippingStart,
+          end: order.estimatedShippingEnd,
+        }
+      : null,
+    activeLocale,
+  );
 
   return (
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-5xl px-4 py-16">
@@ -226,6 +236,9 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
               Payment: {((order.paymentAmount ?? order.totalAmount) / 100).toFixed(2)}{" "}
               {order.paymentCurrency}
             </p>
+            {estimatedShippingWindow && (
+              <p>Estimated shipping: {estimatedShippingWindow}</p>
+            )}
             {order.netopiaTxId && <p>Netopia: {order.netopiaTxId}</p>}
           </InfoBox>
 

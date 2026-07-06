@@ -1,10 +1,15 @@
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, isNull, lte, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { categories, productCategories, products, productVariants } from "@/lib/db/schema";
+import {
+  categories,
+  productCategories,
+  products,
+  productVariants,
+} from "@/lib/db/schema";
 
-const CATALOG_REVALIDATE_SECONDS = 300;
+const CATALOG_REVALIDATE_SECONDS = 60;
 export const PUBLIC_PRODUCTS_PER_PAGE = 12;
 
 export const CATALOG_CACHE_TAGS = {
@@ -13,6 +18,13 @@ export const CATALOG_CACHE_TAGS = {
 } as const;
 
 const CATALOG_LOCALES = ["en", "ro"] as const;
+
+export function publicProductWhere(now = new Date()) {
+  return and(
+    eq(products.isPrivate, false),
+    or(isNull(products.publishAt), lte(products.publishAt, now)),
+  );
+}
 
 export function revalidateCatalogCache() {
   revalidateTag(CATALOG_CACHE_TAGS.categories, { expire: 0 });
@@ -54,7 +66,7 @@ export const getCachedPublicProducts = unstable_cache(
     const [totalResult] = await db
       .select({ value: count() })
       .from(products)
-      .where(eq(products.isPrivate, false));
+      .where(publicProductWhere());
     const total = totalResult?.value ?? 0;
     const totalPages = Math.max(Math.ceil(total / safePerPage), 1);
     const currentPage = Math.min(safePage, totalPages);
@@ -62,7 +74,7 @@ export const getCachedPublicProducts = unstable_cache(
     const items = await db
       .select()
       .from(products)
-      .where(eq(products.isPrivate, false))
+      .where(publicProductWhere())
       .orderBy(desc(products.createdAt))
       .limit(safePerPage)
       .offset(offset);
@@ -126,7 +138,7 @@ export const getCachedHomepageProducts = unstable_cache(
     return db
       .select()
       .from(products)
-      .where(eq(products.isPrivate, false))
+      .where(publicProductWhere())
       .orderBy(desc(products.createdAt))
       .limit(safeLimit);
   },
@@ -141,11 +153,14 @@ export const getCachedPublicCategoryProducts = unstable_cache(
   async (slug: string, page = 1, perPage = PUBLIC_PRODUCTS_PER_PAGE) => {
     const safePage = Math.max(Math.floor(page), 1);
     const safePerPage = Math.min(Math.max(Math.floor(perPage), 1), 48);
-    const where = and(eq(categories.slug, slug), eq(products.isPrivate, false));
+    const where = and(eq(categories.slug, slug), publicProductWhere());
     const [totalResult] = await db
       .select({ value: count() })
       .from(products)
-      .innerJoin(productCategories, eq(productCategories.productId, products.id))
+      .innerJoin(
+        productCategories,
+        eq(productCategories.productId, products.id),
+      )
       .innerJoin(categories, eq(categories.id, productCategories.categoryId))
       .where(where);
     const total = totalResult?.value ?? 0;
@@ -155,7 +170,10 @@ export const getCachedPublicCategoryProducts = unstable_cache(
     const rows = await db
       .select({ product: products })
       .from(products)
-      .innerJoin(productCategories, eq(productCategories.productId, products.id))
+      .innerJoin(
+        productCategories,
+        eq(productCategories.productId, products.id),
+      )
       .innerJoin(categories, eq(categories.id, productCategories.categoryId))
       .where(where)
       .orderBy(desc(products.createdAt))
@@ -181,7 +199,7 @@ export const getCachedPublicProductBySlug = unstable_cache(
     const [product] = await db
       .select()
       .from(products)
-      .where(and(eq(products.slug, slug), eq(products.isPrivate, false)))
+      .where(and(eq(products.slug, slug), publicProductWhere()))
       .limit(1);
 
     return product ?? null;

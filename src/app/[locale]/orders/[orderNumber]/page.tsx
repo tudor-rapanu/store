@@ -7,6 +7,7 @@ import { CancelOrderButton } from "@/components/order/CancelOrderButton";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { orderItems, orders, products, productVariants } from "@/lib/db/schema";
+import { formatFulfillmentEstimate } from "@/lib/fulfillment/estimate";
 import { createClient } from "@/lib/supabase/server";
 
 type PublicOrderPageProps = {
@@ -82,6 +83,17 @@ export default async function PublicOrderPage({
     "cancelled",
     "refunded",
   ].includes(order.fulfillmentStatus);
+  const fulfillmentEstimate =
+    order.estimatedShippingStart && order.estimatedShippingEnd
+      ? {
+          start: order.estimatedShippingStart,
+          end: order.estimatedShippingEnd,
+        }
+      : null;
+  const estimatedShippingWindow = formatFulfillmentEstimate(
+    fulfillmentEstimate,
+    activeLocale,
+  );
 
   return (
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-5xl px-4 py-16">
@@ -192,6 +204,9 @@ export default async function PublicOrderPage({
               {order.paymentCurrency}
             </p>
             <p>Payment method: {order.paymentMethod.replaceAll("_", " ")}</p>
+            {estimatedShippingWindow && (
+              <p>Estimated shipping: {estimatedShippingWindow}</p>
+            )}
             {order.customerNotes && <p>{order.customerNotes}</p>}
           </InfoBox>
 

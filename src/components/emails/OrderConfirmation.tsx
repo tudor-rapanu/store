@@ -14,6 +14,7 @@ interface OrderConfirmationProps {
   totalAmount: number;
   isBankTransfer: boolean;
   orderUrl?: string;
+  estimatedShippingWindow?: string | null;
 }
 
 export default function OrderConfirmationEmail({
@@ -22,6 +23,7 @@ export default function OrderConfirmationEmail({
   totalAmount,
   isBankTransfer,
   orderUrl,
+  estimatedShippingWindow,
 }: OrderConfirmationProps) {
   const formattedTotal = (totalAmount / 100).toFixed(2);
 
@@ -55,6 +57,13 @@ export default function OrderConfirmationEmail({
           <Hr style={hr} />
 
           <Text style={footer}>TOTAL: {formattedTotal} RON</Text>
+
+          {estimatedShippingWindow && (
+            <Text style={text}>
+              Estimated shipping window:{" "}
+              <strong>{estimatedShippingWindow}</strong>
+            </Text>
+          )}
 
           {orderUrl && (
             <Text style={text}>

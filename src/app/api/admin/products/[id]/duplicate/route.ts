@@ -108,6 +108,15 @@ export async function POST(
       saleEnabled: sourceProduct.saleEnabled,
       saleStartsAt: sourceProduct.saleStartsAt,
       saleEndsAt: sourceProduct.saleEndsAt,
+      productionMinDays: sourceProduct.productionMinDays,
+      productionMaxDays: sourceProduct.productionMaxDays,
+      preorderEnabled: sourceProduct.preorderEnabled,
+      preorderShipDate: sourceProduct.preorderShipDate,
+      publishAt: sourceProduct.publishAt,
+      publishRevalidatedAt:
+        sourceProduct.publishAt && sourceProduct.publishAt > new Date()
+          ? null
+          : new Date(),
       imageUrl: sourceProduct.imageUrl,
       isSimple: sourceProduct.isSimple,
       isPrivate: sourceProduct.isPrivate,

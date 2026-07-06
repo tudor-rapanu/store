@@ -18,6 +18,20 @@ type AdminDiscountsPageProps = {
   params: Promise<{ locale: string }>;
 };
 
+function toIsoString(value?: Date | string | null) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 export default async function AdminDiscountsPage({
   params,
 }: AdminDiscountsPageProps) {
@@ -63,7 +77,7 @@ export default async function AdminDiscountsPage({
           scope: discount.scope,
           value: discount.value,
           enabled: discount.enabled,
-          expiresAt: discount.expiresAt?.toISOString() ?? null,
+          expiresAt: toIsoString(discount.expiresAt),
           productId: discount.productId,
           categoryId: discount.categoryId,
         }))}

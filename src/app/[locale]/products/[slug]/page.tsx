@@ -11,6 +11,10 @@ import {
   getCachedPublicProductBySlug,
 } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
+import {
+  formatFulfillmentDate,
+  normalizeProductionRange,
+} from "@/lib/fulfillment/estimate";
 import { getProductImageSrcs } from "@/lib/product-images";
 
 type ProductPageProps = {
@@ -19,6 +23,20 @@ type ProductPageProps = {
     slug: string;
   }>;
 };
+
+function toIsoString(value?: Date | string | null) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
 
 export async function generateMetadata({
   params,
@@ -47,6 +65,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const description =
     product.description?.[activeLocale] || product.description?.en;
   const imageSrcs = getProductImageSrcs(product.imageUrl);
+  const productionRange = normalizeProductionRange(product);
+  const preorderShipDate =
+    product.preorderEnabled && product.preorderShipDate
+      ? formatFulfillmentDate(product.preorderShipDate, activeLocale)
+      : null;
   const [variants, currencyPresentation] = await Promise.all([
     getCachedProductVariants(product.id),
     getCurrencyPresentation(),
@@ -77,6 +100,22 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <p className="text-sm leading-7 text-slate-600">{description}</p>
           )}
 
+          <div className="border border-black p-4 text-sm">
+            {preorderShipDate ? (
+              <p className="font-black uppercase tracking-widest">
+                {activeLocale === "ro"
+                  ? `Livrarea incepe din ${preorderShipDate}`
+                  : `Shipping starts from ${preorderShipDate}`}
+              </p>
+            ) : (
+              <p className="font-black uppercase tracking-widest">
+                {activeLocale === "ro"
+                  ? `Estimare expediere: ${productionRange.minDays}-${productionRange.maxDays} zile lucratoare`
+                  : `Estimated dispatch: ${productionRange.minDays}-${productionRange.maxDays} business days`}
+              </p>
+            )}
+          </div>
+
           <div className="grid gap-3">
             <AddToCart
               product={{
@@ -86,8 +125,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 basePrice: product.basePrice,
                 salePrice: product.salePrice,
                 saleEnabled: product.saleEnabled,
-                saleStartsAt: product.saleStartsAt?.toISOString() ?? null,
-                saleEndsAt: product.saleEndsAt?.toISOString() ?? null,
+                saleStartsAt: toIsoString(product.saleStartsAt),
+                saleEndsAt: toIsoString(product.saleEndsAt),
               }}
               variants={variants.map((variant) => ({
                 id: variant.id,
@@ -97,8 +136,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 price: variant.price,
                 salePrice: variant.salePrice,
                 saleEnabled: variant.saleEnabled,
-                saleStartsAt: variant.saleStartsAt?.toISOString() ?? null,
-                saleEndsAt: variant.saleEndsAt?.toISOString() ?? null,
+                saleStartsAt: toIsoString(variant.saleStartsAt),
+                saleEndsAt: toIsoString(variant.saleEndsAt),
                 priceAdjustment: variant.priceAdjustment,
                 stock: variant.stock,
               }))}

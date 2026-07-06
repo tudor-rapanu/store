@@ -2,7 +2,7 @@
 
 import crypto from "crypto";
 
-import { inArray } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { orderItems, orders, products, productVariants } from "@/lib/db/schema";
 import { createNetopiaClient } from "@/lib/payments/netopia";
@@ -19,10 +19,12 @@ import { checkServerActionRateLimit } from "@/lib/rate-limit";
 import { formatEur, formatRon, normalizePaymentCurrency } from "@/lib/currency/format";
 import { getCurrencySettings } from "@/lib/currency/settings";
 import { recordVoucherUsage, resolveBestDiscount } from "@/lib/discounts";
+import { publicProductWhere } from "@/lib/catalog/cache";
 import {
   getEffectiveProductPrice,
   getEffectiveVariantPrice,
 } from "@/lib/product-pricing";
+import { getCartFulfillmentEstimate } from "@/lib/fulfillment/estimate";
 
 // 1. Define strict types for the incoming customer data
 export interface CheckoutAddress {
@@ -420,7 +422,7 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
   const productRows = await db
     .select()
     .from(products)
-    .where(inArray(products.id, productIds));
+    .where(and(inArray(products.id, productIds), publicProductWhere()));
   const productById = new Map(productRows.map((product) => [product.id, product]));
 
   const variantRows =
@@ -438,7 +440,7 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
   for (const item of normalizedItems) {
     const product = productById.get(item.productId);
 
-    if (!product || product.isPrivate) {
+    if (!product) {
       throw new Error("One of the products in your cart is no longer available.");
     }
 
@@ -484,8 +486,16 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
     (sum, item) => sum + item.unitPrice * item.quantity,
     0,
   );
+  const fulfillmentProducts = Array.from(
+    new Set(items.map((item) => item.productId)),
+  ).flatMap((productId) => {
+    const product = productById.get(productId);
 
-  return { items, subtotal };
+    return product ? [product] : [];
+  });
+  const fulfillmentEstimate = getCartFulfillmentEstimate(fulfillmentProducts);
+
+  return { items, subtotal, fulfillmentEstimate };
 }
 
 async function saveCheckoutProfile(
@@ -569,6 +579,8 @@ export async function initiateCheckout(
         discountSnapshot: discount.discountSnapshot,
         shippingAmount,
         totalAmount: orderTotal,
+        estimatedShippingStart: resolvedCart.fulfillmentEstimate?.start ?? null,
+        estimatedShippingEnd: resolvedCart.fulfillmentEstimate?.end ?? null,
         paymentAmount: payment.paymentAmount,
         paymentCurrency: payment.paymentCurrency,
         currencyExchangeRate: payment.currencyExchangeRate,
@@ -725,6 +737,8 @@ export async function createBankTransferOrder(
         discountSnapshot: discount.discountSnapshot,
         shippingAmount,
         totalAmount: orderTotal,
+        estimatedShippingStart: resolvedCart.fulfillmentEstimate?.start ?? null,
+        estimatedShippingEnd: resolvedCart.fulfillmentEstimate?.end ?? null,
         paymentAmount: payment.paymentAmount,
         paymentCurrency: payment.paymentCurrency,
         currencyExchangeRate: payment.currencyExchangeRate,
@@ -759,6 +773,8 @@ export async function createBankTransferOrder(
       orderTotal,
       true, // isBankTransfer = true
       getOrderAccessUrl(locale, newOrder.orderNumber, newOrder.accessToken),
+      resolvedCart.fulfillmentEstimate,
+      locale,
     );
 
     const posthog = getPostHogClient();

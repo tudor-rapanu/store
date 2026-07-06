@@ -11,6 +11,7 @@ import {
 import { isAdminUser } from "@/lib/admin-auth";
 import { getProductImagePaths } from "@/lib/product-images";
 import { revalidateCatalogViews } from "@/lib/catalog/cache";
+import { parseRomaniaDateTimeLocal } from "@/lib/dates/romania";
 import {
   deleteProductImages,
   uploadProductImage,
@@ -50,13 +51,19 @@ function parseOptionalDate(value: string) {
     return null;
   }
 
-  const parsed = new Date(value);
+  const parsed = parseRomaniaDateTimeLocal(value);
 
-  if (Number.isNaN(parsed.getTime())) {
+  if (!parsed) {
     throw new Error("Enter a valid sale date.");
   }
 
   return parsed;
+}
+
+function parseProductionDays(value: string, fallback: number) {
+  const parsed = Number.parseInt(value, 10);
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function slugify(value: string) {
@@ -275,6 +282,17 @@ export async function PATCH(
     const salePriceInput = getString(formData, "salePrice");
     const saleStartsAtInput = getString(formData, "saleStartsAt");
     const saleEndsAtInput = getString(formData, "saleEndsAt");
+    const productionMinDays = parseProductionDays(
+      getString(formData, "productionMinDays"),
+      1,
+    );
+    const productionMaxDays = parseProductionDays(
+      getString(formData, "productionMaxDays"),
+      3,
+    );
+    const preorderEnabled = formData.get("preorderEnabled") === "on";
+    const preorderShipDateInput = getString(formData, "preorderShipDate");
+    const publishAtInput = getString(formData, "publishAt");
     const isPrivate = formData.get("isPrivate") === "on";
     const categoryNames = parseCategoryNames(getString(formData, "categories"));
     const existingImages = parseExistingImages(getString(formData, "existingImages"));
@@ -307,11 +325,17 @@ export async function PATCH(
     let salePrice: number | null = null;
     let saleStartsAt: Date | null = null;
     let saleEndsAt: Date | null = null;
+    let preorderShipDate: Date | null = null;
+    let publishAt: Date | null = null;
 
     try {
       salePrice = parseOptionalPriceBani(salePriceInput);
       saleStartsAt = parseOptionalDate(saleStartsAtInput);
       saleEndsAt = parseOptionalDate(saleEndsAtInput);
+      preorderShipDate = parseOptionalDate(preorderShipDateInput);
+      publishAt = publishAtInput
+        ? parseRomaniaDateTimeLocal(publishAtInput)
+        : null;
     } catch (error) {
       return errorResponse(
         error instanceof Error ? error.message : "Invalid sale settings.",
@@ -325,6 +349,21 @@ export async function PATCH(
     if (saleStartsAt && saleEndsAt && saleStartsAt >= saleEndsAt) {
       return errorResponse("Sale end date must be after the start date.");
     }
+
+    if (productionMinDays > productionMaxDays) {
+      return errorResponse("Maximum business days must be greater than or equal to minimum business days.");
+    }
+
+    if (preorderEnabled && !preorderShipDate) {
+      return errorResponse("Choose a preorder shipping start date or disable preorder.");
+    }
+
+    if (publishAtInput && !publishAt) {
+      return errorResponse("Enter a valid publish date.");
+    }
+
+    const shouldWaitForPublishRevalidation =
+      publishAt && publishAt > new Date();
 
     const [existingProduct] = await db
       .select({ imageUrl: products.imageUrl, slug: products.slug })
@@ -361,6 +400,14 @@ export async function PATCH(
         saleEnabled,
         saleStartsAt: saleEnabled ? saleStartsAt : null,
         saleEndsAt: saleEnabled ? saleEndsAt : null,
+        productionMinDays,
+        productionMaxDays,
+        preorderEnabled,
+        preorderShipDate: preorderEnabled ? preorderShipDate : null,
+        publishAt,
+        publishRevalidatedAt: shouldWaitForPublishRevalidation
+          ? null
+          : new Date(),
         isSimple: variants.length === 0,
         isPrivate,
         updatedAt: new Date(),

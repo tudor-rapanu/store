@@ -1,8 +1,9 @@
-import { inArray } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 import { products, productVariants } from "@/lib/db/schema";
+import { publicProductWhere } from "@/lib/catalog/cache";
 import { resolveBestDiscount, type DiscountCartItem } from "@/lib/discounts";
 import {
   getEffectiveProductPrice,
@@ -70,7 +71,10 @@ async function resolvePreviewItems(cartItems: PreviewCartItem[]) {
     ),
   ];
   const [productRows, variantRows] = await Promise.all([
-    db.select().from(products).where(inArray(products.id, productIds)),
+    db
+      .select()
+      .from(products)
+      .where(and(inArray(products.id, productIds), publicProductWhere())),
     variantIds.length > 0
       ? db
           .select()
@@ -87,7 +91,7 @@ async function resolvePreviewItems(cartItems: PreviewCartItem[]) {
   for (const item of normalized) {
     const product = productById.get(item.productId);
 
-    if (!product || product.isPrivate) {
+    if (!product) {
       continue;
     }
 

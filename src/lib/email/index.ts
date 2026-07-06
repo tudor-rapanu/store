@@ -1,5 +1,9 @@
 import { Resend } from "resend";
 import OrderConfirmationEmail from "@/components/emails/OrderConfirmation";
+import {
+  formatFulfillmentEstimate,
+  type FulfillmentEstimate,
+} from "@/lib/fulfillment/estimate";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -12,6 +16,8 @@ export async function sendOrderEmail(
   totalAmount: number,
   isBankTransfer: boolean,
   orderUrl?: string,
+  fulfillmentEstimate?: FulfillmentEstimate | null,
+  locale: "en" | "ro" = "en",
 ) {
   try {
     if (!resend) {
@@ -31,6 +37,10 @@ export async function sendOrderEmail(
         totalAmount,
         isBankTransfer,
         orderUrl,
+        estimatedShippingWindow: formatFulfillmentEstimate(
+          fulfillmentEstimate,
+          locale,
+        ),
       }),
     });
 

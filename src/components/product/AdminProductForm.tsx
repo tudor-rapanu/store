@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatRomaniaDateTimeLocal } from "@/lib/dates/romania";
 import { getProductImageSrc } from "@/lib/product-images";
 
 type Product = {
@@ -22,6 +23,11 @@ type Product = {
   saleEnabled?: boolean;
   saleStartsAt?: Date | string | null;
   saleEndsAt?: Date | string | null;
+  productionMinDays?: number | null;
+  productionMaxDays?: number | null;
+  preorderEnabled?: boolean;
+  preorderShipDate?: Date | string | null;
+  publishAt?: Date | string | null;
   isPrivate?: boolean;
 };
 
@@ -90,19 +96,7 @@ function getVariantSlug(productSlug: string, variantName: string, index: number)
 }
 
 function toDateTimeInputValue(value?: Date | string | null) {
-  if (!value) {
-    return "";
-  }
-
-  const date = value instanceof Date ? value : new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-
-  return offsetDate.toISOString().slice(0, 16);
+  return formatRomaniaDateTimeLocal(value);
 }
 
 function deriveOptions(variants: Variant[]) {
@@ -181,6 +175,21 @@ export function AdminProductForm({
   );
   const [saleEndsAt, setSaleEndsAt] = useState(
     toDateTimeInputValue(product?.saleEndsAt),
+  );
+  const [productionMinDays, setProductionMinDays] = useState(
+    String(product?.productionMinDays ?? 1),
+  );
+  const [productionMaxDays, setProductionMaxDays] = useState(
+    String(product?.productionMaxDays ?? 3),
+  );
+  const [preorderEnabled, setPreorderEnabled] = useState(
+    product?.preorderEnabled ?? false,
+  );
+  const [preorderShipDate, setPreorderShipDate] = useState(
+    toDateTimeInputValue(product?.preorderShipDate),
+  );
+  const [publishAt, setPublishAt] = useState(
+    toDateTimeInputValue(product?.publishAt),
   );
   const [existingImages, setExistingImages] = useState(imagePaths);
   const [selectedCategories, setSelectedCategories] = useState(categories);
@@ -482,6 +491,11 @@ export function AdminProductForm({
         setSalePrice("");
         setSaleStartsAt("");
         setSaleEndsAt("");
+        setProductionMinDays("1");
+        setProductionMaxDays("3");
+      setPreorderEnabled(false);
+      setPreorderShipDate("");
+      setPublishAt("");
         setVariantsEnabled(false);
         setOptions([]);
         setVariantRows([]);
@@ -590,6 +604,49 @@ export function AdminProductForm({
             )}
           </section>
 
+          <section className="space-y-4 border border-black p-4">
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-widest">
+                Fulfillment Estimate
+              </h2>
+              <p className="text-xs uppercase tracking-widest text-slate-500">
+                Used to estimate shipping dates in checkout and order emails.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="productionMinDays" className="uppercase text-xs font-bold tracking-widest">
+                  Minimum Business Days
+                </Label>
+                <Input id="productionMinDays" name="productionMinDays" type="number" min={1} step={1} value={productionMinDays} onChange={(event) => setProductionMinDays(event.target.value)} className="rounded-none border-black h-11" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="productionMaxDays" className="uppercase text-xs font-bold tracking-widest">
+                  Maximum Business Days
+                </Label>
+                <Input id="productionMaxDays" name="productionMaxDays" type="number" min={1} step={1} value={productionMaxDays} onChange={(event) => setProductionMaxDays(event.target.value)} className="rounded-none border-black h-11" />
+              </div>
+            </div>
+            <label className="flex items-center gap-3 text-sm font-black uppercase tracking-widest">
+              <input
+                type="checkbox"
+                name="preorderEnabled"
+                checked={preorderEnabled}
+                onChange={(event) => setPreorderEnabled(event.target.checked)}
+                className="size-4"
+              />
+              Enable preorder
+            </label>
+            {preorderEnabled && (
+              <div className="space-y-2">
+                <Label htmlFor="preorderShipDate" className="uppercase text-xs font-bold tracking-widest">
+                  Shipping Starts From
+                </Label>
+                <Input id="preorderShipDate" name="preorderShipDate" type="datetime-local" value={preorderShipDate} onChange={(event) => setPreorderShipDate(event.target.value)} className="rounded-none border-black h-11" />
+              </div>
+            )}
+          </section>
+
           <div className="space-y-2">
             <Label className="uppercase text-xs font-bold tracking-widest">
               Categories
@@ -652,6 +709,25 @@ export function AdminProductForm({
             />
             Private product
           </label>
+
+          <section className="space-y-3 border border-black p-4">
+            <div>
+              <Label htmlFor="publishAt" className="uppercase text-xs font-bold tracking-widest">
+                Publish Date
+              </Label>
+              <p className="mt-1 text-xs uppercase tracking-widest text-slate-500">
+                Romanian time. Leave empty to publish immediately unless private.
+              </p>
+            </div>
+            <Input
+              id="publishAt"
+              name="publishAt"
+              type="datetime-local"
+              value={publishAt}
+              onChange={(event) => setPublishAt(event.target.value)}
+              className="rounded-none border-black h-11"
+            />
+          </section>
 
           <section className="space-y-4 border border-black p-4">
             <div>

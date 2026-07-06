@@ -441,6 +441,12 @@ export async function POST(request: Request) {
           updatedOrder.totalAmount,
           false, // isBankTransfer = false
           undefined,
+          updatedOrder.estimatedShippingStart && updatedOrder.estimatedShippingEnd
+            ? {
+                start: updatedOrder.estimatedShippingStart,
+                end: updatedOrder.estimatedShippingEnd,
+              }
+            : null,
         );
       }
 

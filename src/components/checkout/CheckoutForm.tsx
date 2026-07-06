@@ -105,6 +105,7 @@ export type CheckoutInitialCustomer = {
 };
 
 type CheckoutFormProps = {
+  locale: "en" | "ro";
   initialCustomer?: CheckoutInitialCustomer;
   detectedCountry: string;
   currencySettings: {
@@ -114,6 +115,7 @@ type CheckoutFormProps = {
 };
 
 export function CheckoutForm({
+  locale,
   initialCustomer,
   detectedCountry,
   currencySettings,
@@ -170,6 +172,9 @@ export function CheckoutForm({
     discountAmount: 0,
     discount: null,
   });
+  const [fulfillmentEstimate, setFulfillmentEstimate] = useState<{
+    label: string;
+  } | null>(null);
 
   // Sameday Locker State
   const [locker, setLocker] = useState<{
@@ -314,6 +319,40 @@ export function CheckoutForm({
     return () => window.clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, email, voucherCode]);
+
+  useEffect(() => {
+    async function loadFulfillmentEstimate() {
+      if (items.length === 0) {
+        setFulfillmentEstimate(null);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/fulfillment/estimate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items, locale }),
+        });
+        const data = (await response.json()) as {
+          estimate?: { label?: string } | null;
+        };
+
+        setFulfillmentEstimate(
+          response.ok && data.estimate?.label
+            ? { label: data.estimate.label }
+            : null,
+        );
+      } catch {
+        setFulfillmentEstimate(null);
+      }
+    }
+
+    const timeout = window.setTimeout(() => {
+      void loadFulfillmentEstimate();
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [items, locale]);
 
   useEffect(() => {
     async function loadLockerConfig() {
@@ -1033,6 +1072,14 @@ export function CheckoutForm({
                         : undefined
                   }
                 />
+                {fulfillmentEstimate && (
+                  <div className="border border-slate-200 p-3 text-xs font-bold uppercase tracking-wider text-slate-600">
+                    {locale === "ro"
+                      ? "Estimare livrare"
+                      : "Estimated shipping window"}
+                    : {fulfillmentEstimate.label}
+                  </div>
+                )}
                 <div className="flex justify-between items-end pt-2">
                   <span className="uppercase tracking-widest text-xs font-black">
                     Total

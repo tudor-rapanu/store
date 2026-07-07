@@ -6,6 +6,10 @@ import {
   syncSamedayCities,
   syncSamedayCounties,
 } from "@/lib/shipping/sameday";
+import {
+  updateSamedayCountyCitySummary,
+  updateSamedayCountySummary,
+} from "@/lib/shipping/sameday-location-summary";
 
 export async function POST(request: Request) {
   if (!(await isAdminUser())) {
@@ -22,6 +26,11 @@ export async function POST(request: Request) {
       const cacheStatus = await getSamedayCityCacheStatus(body.countyId);
 
       if (!body.force && cacheStatus.isComplete) {
+        const summary = await updateSamedayCountyCitySummary(
+          body.countyId,
+          cacheStatus.cached,
+        );
+
         return NextResponse.json({
           ok: true,
           countyId: body.countyId,
@@ -29,10 +38,15 @@ export async function POST(request: Request) {
           skipped: true,
           cached: cacheStatus.cached,
           remoteTotal: cacheStatus.remoteTotal,
+          summary,
         });
       }
 
       const cities = await syncSamedayCities(body.countyId);
+      const summary = await updateSamedayCountyCitySummary(
+        body.countyId,
+        cities.length,
+      );
 
       return NextResponse.json({
         ok: true,
@@ -41,15 +55,18 @@ export async function POST(request: Request) {
         skipped: false,
         cached: cacheStatus.cached,
         remoteTotal: cacheStatus.remoteTotal,
+        summary,
       });
     }
 
     const counties = await syncSamedayCounties();
+    const summary = await updateSamedayCountySummary(counties.length);
 
     return NextResponse.json({
       ok: true,
       counties: counties.length,
       countyList: counties,
+      summary,
     });
   } catch (error) {
     console.error("Sameday location sync failed:", error);

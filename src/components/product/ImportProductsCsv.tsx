@@ -18,6 +18,8 @@ type ImportProductRow = {
   imageUrls?: string;
   categories?: string;
   isDigital?: string;
+  trackStock?: string;
+  stock?: string;
   digitalFileUrl?: string;
   digitalFileUrls?: string;
   isPrivate?: string;
@@ -29,6 +31,7 @@ type ImportProductRow = {
   variantType3?: string;
   variantValues3?: string;
   variantPrice?: string;
+  variantTrackStock?: string;
   variantStock?: string;
 };
 
@@ -43,6 +46,8 @@ const sampleCsv = Papa.unparse([
     imageUrls: "https://example.com/image.webp",
     categories: "Patches > F1|Patches > Embroidered",
     isDigital: "false",
+    trackStock: "false",
+    stock: "",
     digitalFileUrls: "",
     isPrivate: "true",
     variants: "",
@@ -53,6 +58,7 @@ const sampleCsv = Papa.unparse([
     variantType3: "",
     variantValues3: "",
     variantPrice: "25",
+    variantTrackStock: "true",
     variantStock: "10",
   },
 ]);
@@ -185,12 +191,13 @@ export function ImportProductsCsv() {
           <code>titleRo</code>, <code>descriptionEn</code>,{" "}
           <code>descriptionRo</code>, <code>slug</code>,{" "}
           <code>categories</code>, <code>isDigital</code>,{" "}
+          <code>trackStock</code>, <code>stock</code>,{" "}
           <code>digitalFileUrl</code>, <code>digitalFileUrls</code>,{" "}
           <code>isPrivate</code>, <code>variants</code>, <code>variantType1</code>,{" "}
           <code>variantValues1</code>, <code>variantType2</code>,{" "}
           <code>variantValues2</code>, <code>variantType3</code>,{" "}
           <code>variantValues3</code>, <code>variantPrice</code>,{" "}
-          <code>variantStock</code>. Use <code>|</code> between multiple image
+          <code>variantTrackStock</code>, <code>variantStock</code>. Use <code>|</code> between multiple image
           URLs, categories, or variant values. Use <code>&gt;</code> inside a
           category value to create a subcategory path, for example{" "}
           <code>Patches &gt; F1</code>. For digital products, set{" "}

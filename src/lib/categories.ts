@@ -45,7 +45,7 @@ export function parseCategoryPath(value: string): CategoryPathInput[] {
 }
 
 export async function getAllCategories() {
-  return db.select().from(categories).orderBy(asc(categories.createdAt));
+  return db.select().from(categories).orderBy(asc(categories.slug));
 }
 
 export function buildCategoryTree(rows: CategoryRow[]) {

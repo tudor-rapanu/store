@@ -11,6 +11,7 @@ import {
   type PaymentStatus,
   type ShippingMethod,
 } from "@/lib/db/schema";
+import { reduceTrackedStockForPaidOrder } from "@/lib/inventory";
 
 const paymentStatuses = new Set<PaymentStatus>([
   "pending",
@@ -83,6 +84,33 @@ export async function PATCH(
     return errorResponse("Invalid invoice status.");
   }
 
+  const [existingOrder] = await db
+    .select({
+      id: orders.id,
+      paymentStatus: orders.paymentStatus,
+    })
+    .from(orders)
+    .where(eq(orders.id, id))
+    .limit(1);
+
+  if (!existingOrder) {
+    return errorResponse("Order was not found.", 404);
+  }
+
+  if (
+    body.paymentStatus === "paid" &&
+    existingOrder.paymentStatus !== "paid"
+  ) {
+    try {
+      await reduceTrackedStockForPaidOrder(existingOrder.id);
+    } catch {
+      return errorResponse(
+        "This order cannot be marked as paid because one or more tracked-stock items are no longer available.",
+        409,
+      );
+    }
+  }
+
   const [updatedOrder] = await db
     .update(orders)
     .set({
@@ -109,10 +137,6 @@ export async function PATCH(
     })
     .where(eq(orders.id, id))
     .returning();
-
-  if (!updatedOrder) {
-    return errorResponse("Order was not found.", 404);
-  }
 
   revalidatePath("/", "layout");
 

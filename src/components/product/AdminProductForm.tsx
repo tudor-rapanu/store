@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatRomaniaDateTimeLocal } from "@/lib/dates/romania";
 import { getTranslatedText } from "@/lib/i18n/text";
+import { PRODUCT_DETAIL_ICONS, getProductDetailIcon } from "@/lib/product-detail-icons";
 import { getProductImageSrc } from "@/lib/product-images";
 
 type Product = {
@@ -30,6 +31,9 @@ type Product = {
   preorderShipDate?: Date | string | null;
   publishAt?: Date | string | null;
   isDigital?: boolean;
+  sizeGuideId?: string | null;
+  trackStock?: boolean;
+  stock?: number;
   isPrivate?: boolean;
 };
 
@@ -43,6 +47,7 @@ type Variant = {
   saleEnabled?: boolean;
   saleStartsAt?: Date | string | null;
   saleEndsAt?: Date | string | null;
+  trackStock?: boolean;
   stock: number;
 };
 
@@ -64,10 +69,33 @@ type AvailableCategory = {
   depth?: number;
 };
 
+type AvailableSizeGuide = {
+  id: string;
+  title: string;
+};
+
 type DigitalFile = {
   id: string;
   fileName: string;
   fileSize: number;
+};
+
+type ProductDetailBlock = {
+  id?: string;
+  icon: string;
+  label: {
+    en: string;
+    ro: string;
+  };
+  value: {
+    en: string;
+    ro: string;
+  };
+  enabled: boolean;
+};
+
+type ProductDetailRow = ProductDetailBlock & {
+  rowId: string;
 };
 
 function createId() {
@@ -157,7 +185,9 @@ export function AdminProductForm({
   imageSources = {},
   categories = [],
   availableCategories = [],
+  availableSizeGuides = [],
   digitalFiles = [],
+  detailBlocks = [],
 }: {
   locale: "en" | "ro";
   product?: Product;
@@ -166,7 +196,9 @@ export function AdminProductForm({
   imageSources?: Record<string, string | null>;
   categories?: string[];
   availableCategories?: AvailableCategory[];
+  availableSizeGuides?: AvailableSizeGuide[];
   digitalFiles?: DigitalFile[];
+  detailBlocks?: ProductDetailBlock[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -200,6 +232,8 @@ export function AdminProductForm({
     toDateTimeInputValue(product?.preorderShipDate),
   );
   const [isDigital, setIsDigital] = useState(product?.isDigital ?? false);
+  const [trackStock, setTrackStock] = useState(product?.trackStock ?? false);
+  const [stock, setStock] = useState(String(product?.stock ?? 0));
   const [publishAt, setPublishAt] = useState(
     toDateTimeInputValue(product?.publishAt),
   );
@@ -214,6 +248,12 @@ export function AdminProductForm({
       ...variant,
       id: createId(),
       skuWasEdited: false,
+    })),
+  );
+  const [detailRows, setDetailRows] = useState<ProductDetailRow[]>(() =>
+    detailBlocks.map((detail) => ({
+      ...detail,
+      rowId: createId(),
     })),
   );
 
@@ -233,10 +273,23 @@ export function AdminProductForm({
         saleEnabled: variant.saleEnabled ?? false,
         saleStartsAt: toDateTimeInputValue(variant.saleStartsAt),
         saleEndsAt: toDateTimeInputValue(variant.saleEndsAt),
+        trackStock: variant.trackStock ?? false,
         stock: variant.stock,
       })),
     );
   }, [variantRows, variantsEnabled]);
+  const detailPayload = useMemo(
+    () =>
+      JSON.stringify(
+        detailRows.map((detail) => ({
+          icon: detail.icon,
+          label: detail.label,
+          value: detail.value,
+          enabled: detail.enabled,
+        })),
+      ),
+    [detailRows],
+  );
   const categoryPayload = selectedCategories.join(", ");
   const selectedCategoryLabels = selectedCategories.map((categoryValue) => {
     const category = availableCategories.find(
@@ -258,6 +311,72 @@ export function AdminProductForm({
       [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
       return next;
     });
+  }
+
+  function addDetailBlock() {
+    setDetailRows((current) => [
+      ...current,
+      {
+        rowId: createId(),
+        icon: "shirt",
+        label: {
+          en: "",
+          ro: "",
+        },
+        value: {
+          en: "",
+          ro: "",
+        },
+        enabled: true,
+      },
+    ]);
+  }
+
+  function moveDetailBlock(index: number, direction: -1 | 1) {
+    setDetailRows((current) => {
+      const next = [...current];
+      const targetIndex = index + direction;
+
+      if (targetIndex < 0 || targetIndex >= next.length) {
+        return current;
+      }
+
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
+  }
+
+  function updateDetailBlock(
+    rowId: string,
+    field: "icon" | "enabled",
+    value: string | boolean,
+  ) {
+    setDetailRows((current) =>
+      current.map((detail) =>
+        detail.rowId === rowId ? { ...detail, [field]: value } : detail,
+      ),
+    );
+  }
+
+  function updateDetailTranslation(
+    rowId: string,
+    field: "label" | "value",
+    language: "en" | "ro",
+    value: string,
+  ) {
+    setDetailRows((current) =>
+      current.map((detail) =>
+        detail.rowId === rowId
+          ? {
+              ...detail,
+              [field]: {
+                ...detail[field],
+                [language]: value,
+              },
+            }
+          : detail,
+      ),
+    );
   }
 
   function updateOption(id: string, field: "name" | "values", value: string) {
@@ -338,6 +457,7 @@ export function AdminProductForm({
         saleEnabled: false,
         saleStartsAt: "",
         saleEndsAt: "",
+        trackStock: false,
         stock: 0,
       },
     ]);
@@ -408,6 +528,7 @@ export function AdminProductForm({
           saleEnabled: false,
           saleStartsAt: "",
           saleEndsAt: "",
+          trackStock: false,
           stock: 0,
         };
       }),
@@ -470,6 +591,7 @@ export function AdminProductForm({
     formData.set("existingImages", JSON.stringify(existingImages));
     formData.set("variants", variantPayload);
     formData.set("categories", categoryPayload);
+    formData.set("productDetails", detailPayload);
 
     try {
       const response = await fetch(
@@ -508,10 +630,13 @@ export function AdminProductForm({
         setPreorderEnabled(false);
         setPreorderShipDate("");
         setIsDigital(false);
+        setTrackStock(false);
+        setStock("0");
         setPublishAt("");
         setVariantsEnabled(false);
         setOptions([]);
         setVariantRows([]);
+        setDetailRows([]);
       }
     } catch {
       setError("The product could not be saved.");
@@ -524,6 +649,12 @@ export function AdminProductForm({
     <Card className="rounded-none border-black shadow-none">
       <form onSubmit={handleSubmit}>
         <input type="hidden" name="variants" value={variantPayload} readOnly />
+        <input
+          type="hidden"
+          name="productDetails"
+          value={detailPayload}
+          readOnly
+        />
         <input
           type="hidden"
           name="categories"
@@ -670,6 +801,49 @@ export function AdminProductForm({
             )}
           </section>
 
+          {!variantsEnabled && (
+            <section className="space-y-4 border border-black p-4">
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-widest">
+                  Product Stock
+                </h2>
+                <p className="text-xs uppercase tracking-widest text-slate-500">
+                  Leave stock tracking disabled for permanent or made-to-order products.
+                </p>
+              </div>
+              <label className="flex items-center gap-3 text-sm font-black uppercase tracking-widest">
+                <input
+                  type="checkbox"
+                  name="trackStock"
+                  checked={trackStock}
+                  onChange={(event) => setTrackStock(event.target.checked)}
+                  className="size-4"
+                />
+                Track stock for this product
+              </label>
+              {trackStock && (
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="stock"
+                    className="uppercase text-xs font-bold tracking-widest"
+                  >
+                    Available Stock
+                  </Label>
+                  <Input
+                    id="stock"
+                    name="stock"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={stock}
+                    onChange={(event) => setStock(event.target.value)}
+                    className="rounded-none border-black h-11"
+                  />
+                </div>
+              )}
+            </section>
+          )}
+
           <section className="space-y-4 border border-black p-4">
             <div>
               <h2 className="text-sm font-black uppercase tracking-widest">
@@ -709,6 +883,204 @@ export function AdminProductForm({
                   Shipping Starts From
                 </Label>
                 <Input id="preorderShipDate" name="preorderShipDate" type="datetime-local" value={preorderShipDate} onChange={(event) => setPreorderShipDate(event.target.value)} className="rounded-none border-black h-11" />
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-4 border border-black p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-widest">
+                  Product Details
+                </h2>
+                <p className="text-xs uppercase tracking-widest text-slate-500">
+                  Optional highlights shown on the product page with selectable icons.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addDetailBlock}
+                className="h-9 rounded-none border-black uppercase tracking-widest text-xs"
+              >
+                <Plus size={14} /> Detail
+              </Button>
+            </div>
+
+            {detailRows.length === 0 ? (
+              <p className="border border-dashed border-slate-300 p-4 text-xs font-bold uppercase tracking-widest text-slate-500">
+                No product details added yet.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {detailRows.map((detail, index) => {
+                  const DetailIcon = getProductDetailIcon(detail.icon);
+
+                  return (
+                    <div
+                      key={detail.rowId}
+                      className="space-y-4 border border-slate-200 p-3"
+                    >
+                      <div className="grid gap-3 md:grid-cols-[180px_1fr_auto]">
+                        <label className="space-y-1">
+                          <span className="text-xs font-bold uppercase tracking-widest">
+                            Icon
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-black">
+                              <DetailIcon size={18} />
+                            </span>
+                            <select
+                              value={detail.icon}
+                              onChange={(event) =>
+                                updateDetailBlock(
+                                  detail.rowId,
+                                  "icon",
+                                  event.target.value,
+                                )
+                              }
+                              className="h-10 w-full rounded-none border border-black bg-white px-3 text-sm"
+                            >
+                              {PRODUCT_DETAIL_ICONS.map((icon) => (
+                                <option key={icon.key} value={icon.key}>
+                                  {icon.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </label>
+                        <label className="flex items-center gap-3 self-end text-xs font-black uppercase tracking-widest">
+                          <input
+                            type="checkbox"
+                            checked={detail.enabled}
+                            onChange={(event) =>
+                              updateDetailBlock(
+                                detail.rowId,
+                                "enabled",
+                                event.target.checked,
+                              )
+                            }
+                            className="size-4"
+                          />
+                          Show on product page
+                        </label>
+                        <div className="grid grid-cols-3 gap-1 self-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => moveDetailBlock(index, -1)}
+                            className="rounded-none border-black"
+                            aria-label="Move detail up"
+                          >
+                            <ArrowUp size={14} />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => moveDetailBlock(index, 1)}
+                            className="rounded-none border-black"
+                            aria-label="Move detail down"
+                          >
+                            <ArrowDown size={14} />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() =>
+                              setDetailRows((current) =>
+                                current.filter(
+                                  (item) => item.rowId !== detail.rowId,
+                                ),
+                              )
+                            }
+                            className="rounded-none border-black"
+                            aria-label="Delete detail"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label className="uppercase text-xs font-bold tracking-widest">
+                            Label (English)
+                          </Label>
+                          <Input
+                            value={detail.label.en}
+                            onChange={(event) =>
+                              updateDetailTranslation(
+                                detail.rowId,
+                                "label",
+                                "en",
+                                event.target.value,
+                              )
+                            }
+                            placeholder="Fabric"
+                            className="rounded-none border-black h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="uppercase text-xs font-bold tracking-widest">
+                            Label (Romanian)
+                          </Label>
+                          <Input
+                            value={detail.label.ro}
+                            onChange={(event) =>
+                              updateDetailTranslation(
+                                detail.rowId,
+                                "label",
+                                "ro",
+                                event.target.value,
+                              )
+                            }
+                            placeholder="Material"
+                            className="rounded-none border-black h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="uppercase text-xs font-bold tracking-widest">
+                            Value (English)
+                          </Label>
+                          <Input
+                            value={detail.value.en}
+                            onChange={(event) =>
+                              updateDetailTranslation(
+                                detail.rowId,
+                                "value",
+                                "en",
+                                event.target.value,
+                              )
+                            }
+                            placeholder="100% cotton"
+                            className="rounded-none border-black h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="uppercase text-xs font-bold tracking-widest">
+                            Value (Romanian)
+                          </Label>
+                          <Input
+                            value={detail.value.ro}
+                            onChange={(event) =>
+                              updateDetailTranslation(
+                                detail.rowId,
+                                "value",
+                                "ro",
+                                event.target.value,
+                              )
+                            }
+                            placeholder="100% bumbac"
+                            className="rounded-none border-black h-10"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -794,6 +1166,33 @@ export function AdminProductForm({
               onChange={(event) => setPublishAt(event.target.value)}
               className="rounded-none border-black h-11"
             />
+          </section>
+
+          <section className="space-y-3 border border-black p-4">
+            <div>
+              <Label
+                htmlFor="sizeGuideId"
+                className="uppercase text-xs font-bold tracking-widest"
+              >
+                Size Guide
+              </Label>
+              <p className="mt-1 text-xs uppercase tracking-widest text-slate-500">
+                Optional reusable measurement table for clothing products.
+              </p>
+            </div>
+            <select
+              id="sizeGuideId"
+              name="sizeGuideId"
+              defaultValue={product?.sizeGuideId ?? ""}
+              className="h-11 w-full rounded-none border border-black bg-white px-3 text-sm"
+            >
+              <option value="">No size guide</option>
+              {availableSizeGuides.map((guide) => (
+                <option key={guide.id} value={guide.id}>
+                  {guide.title}
+                </option>
+              ))}
+            </select>
           </section>
 
           <section className="space-y-4 border border-black p-4">
@@ -892,8 +1291,30 @@ export function AdminProductForm({
                         <Input value={variant.name} onChange={(event) => updateVariant(variant.id, "name", event.target.value)} placeholder="Black / Medium" className="rounded-none border-black h-10" />
                         <Input value={variant.sku} onChange={(event) => updateVariant(variant.id, "sku", event.target.value)} placeholder="SKU (optional)" className="rounded-none border-black h-10" />
                         <Input value={variant.price} onChange={(event) => updateVariant(variant.id, "price", event.target.value)} type="number" step="0.01" placeholder="Price RON" className="rounded-none border-black h-10" />
-                        <Input value={variant.stock} onChange={(event) => updateVariant(variant.id, "stock", event.target.value)} type="number" placeholder="Stock" className="rounded-none border-black h-10" />
+                        <label className="flex items-center gap-3 border border-black px-3 text-xs font-black uppercase tracking-widest">
+                          <input
+                            type="checkbox"
+                            checked={variant.trackStock ?? false}
+                            onChange={(event) =>
+                              setVariantRows((current) =>
+                                current.map((item) =>
+                                  item.id === variant.id
+                                    ? {
+                                        ...item,
+                                        trackStock: event.target.checked,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className="size-4"
+                          />
+                          Track stock
+                        </label>
                       </div>
+                      {variant.trackStock && (
+                        <Input value={variant.stock} onChange={(event) => updateVariant(variant.id, "stock", event.target.value)} type="number" min={0} step={1} placeholder="Stock" className="rounded-none border-black h-10" />
+                      )}
                       <div className="space-y-3 border border-slate-200 p-3">
                         <label className="flex items-center gap-3 text-xs font-black uppercase tracking-widest">
                           <input

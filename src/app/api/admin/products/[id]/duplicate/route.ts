@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
   productCategories,
+  productDetailBlocks,
   productVariants,
   products,
 } from "@/lib/db/schema";
@@ -83,7 +84,7 @@ export async function POST(
     return errorResponse("Product was not found.", 404);
   }
 
-  const [sourceVariants, sourceCategories] = await Promise.all([
+  const [sourceVariants, sourceCategories, sourceDetailBlocks] = await Promise.all([
     db
       .select()
       .from(productVariants)
@@ -92,6 +93,10 @@ export async function POST(
       .select({ categoryId: productCategories.categoryId })
       .from(productCategories)
       .where(eq(productCategories.productId, sourceProduct.id)),
+    db
+      .select()
+      .from(productDetailBlocks)
+      .where(eq(productDetailBlocks.productId, sourceProduct.id)),
   ]);
 
   const duplicateSlug = await getUniqueProductSlug(`${sourceProduct.slug}-copy`);
@@ -129,6 +134,10 @@ export async function POST(
           ? null
           : new Date(),
       imageUrl: sourceProduct.imageUrl,
+      isDigital: sourceProduct.isDigital,
+      sizeGuideId: sourceProduct.sizeGuideId,
+      trackStock: sourceProduct.trackStock,
+      stock: sourceProduct.stock,
       isSimple: sourceProduct.isSimple,
       isPrivate: sourceProduct.isPrivate,
     })
@@ -147,7 +156,21 @@ export async function POST(
         saleStartsAt: variant.saleStartsAt,
         saleEndsAt: variant.saleEndsAt,
         priceAdjustment: variant.priceAdjustment,
+        trackStock: variant.trackStock,
         stock: variant.stock,
+      })),
+    );
+  }
+
+  if (sourceDetailBlocks.length > 0) {
+    await db.insert(productDetailBlocks).values(
+      sourceDetailBlocks.map((detail) => ({
+        productId: duplicatedProduct.id,
+        icon: detail.icon,
+        label: detail.label,
+        value: detail.value,
+        sortOrder: detail.sortOrder,
+        enabled: detail.enabled,
       })),
     );
   }

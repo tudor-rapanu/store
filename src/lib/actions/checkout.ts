@@ -461,7 +461,7 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
     const isSimpleProduct = item.variantId === item.productId;
     let variantId: string | null = null;
     let unitPrice = getEffectiveProductPrice(product);
-    let stock: number | null = null;
+    let stock = product.trackStock ? product.stock : null;
 
     if (!isSimpleProduct) {
       const variant = variantById.get(item.variantId);
@@ -472,7 +472,7 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
 
       variantId = variant.id;
       unitPrice = getEffectiveVariantPrice(product, variant);
-      stock = variant.stock;
+      stock = variant.trackStock ? variant.stock : null;
     }
 
     if (!Number.isInteger(unitPrice) || unitPrice <= 0) {
@@ -484,7 +484,7 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
     const nextQuantity = (existing?.quantity ?? 0) + item.quantity;
 
     if (stock !== null && nextQuantity > stock) {
-      throw new Error("One of the selected variants is no longer in stock.");
+      throw new Error("One of the products in your cart is no longer in stock.");
     }
 
     resolvedByKey.set(key, {

@@ -36,6 +36,26 @@ export type InvoiceStatus = "not_generated" | "generated" | "failed";
 export type DiscountKind = "automatic" | "voucher";
 export type DiscountType = "percentage" | "fixed";
 export type DiscountScope = "storewide" | "category" | "product";
+export type SizeGuideRow = {
+  label: string;
+  values: string[];
+};
+
+export const sizeGuides = pgTable("size_guides", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  slug: text("slug").unique().notNull(),
+  title: jsonb("title").$type<TranslatedText>().notNull(),
+  description: jsonb("description").$type<TranslatedText>(),
+  imageUrl: text("image_url"),
+  columns: jsonb("columns").$type<string[]>().default([]).notNull(),
+  rows: jsonb("rows").$type<SizeGuideRow[]>().default([]).notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("size_guides_enabled_idx").on(table.enabled),
+  index("size_guides_slug_idx").on(table.slug),
+]);
 
 // -------------------------------------------------------------------------
 // 1. PRODUCTS TABLE
@@ -59,6 +79,11 @@ export const products = pgTable("products", {
   publishRevalidatedAt: timestamp("publish_revalidated_at"),
   imageUrl: text("image_url"),
   isDigital: boolean("is_digital").default(false).notNull(),
+  sizeGuideId: uuid("size_guide_id").references(() => sizeGuides.id, {
+    onDelete: "set null",
+  }),
+  trackStock: boolean("track_stock").default(false).notNull(),
+  stock: integer("stock").default(0).notNull(),
   isSimple: boolean("is_simple").default(true).notNull(),
   isPrivate: boolean("is_private").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -69,6 +94,8 @@ export const products = pgTable("products", {
   index("products_created_at_idx").on(table.createdAt),
   index("products_sale_enabled_idx").on(table.saleEnabled),
   index("products_is_digital_idx").on(table.isDigital),
+  index("products_size_guide_id_idx").on(table.sizeGuideId),
+  index("products_track_stock_idx").on(table.trackStock),
 ]);
 
 // -------------------------------------------------------------------------
@@ -89,12 +116,14 @@ export const productVariants = pgTable("product_variants", {
   saleStartsAt: timestamp("sale_starts_at"),
   saleEndsAt: timestamp("sale_ends_at"),
   priceAdjustment: integer("price_adjustment").default(0).notNull(), // Added to basePrice
+  trackStock: boolean("track_stock").default(false).notNull(),
   stock: integer("stock").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
   index("product_variants_product_id_idx").on(table.productId),
   index("product_variants_sale_enabled_idx").on(table.saleEnabled),
+  index("product_variants_track_stock_idx").on(table.trackStock),
 ]);
 
 // -------------------------------------------------------------------------
@@ -111,6 +140,7 @@ export const categories = pgTable("categories", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
   index("categories_parent_id_idx").on(table.parentId),
+  index("categories_created_at_idx").on(table.createdAt),
 ]);
 
 export const productCategories = pgTable(
@@ -141,6 +171,26 @@ export const digitalProductFiles = pgTable("digital_product_files", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("digital_product_files_product_id_idx").on(table.productId),
+]);
+
+export const productDetailBlocks = pgTable("product_detail_blocks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  icon: text("icon").notNull(),
+  label: jsonb("label").$type<TranslatedText>().notNull(),
+  value: jsonb("value").$type<TranslatedText>().notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("product_detail_blocks_product_id_sort_idx").on(
+    table.productId,
+    table.sortOrder,
+  ),
+  index("product_detail_blocks_enabled_idx").on(table.enabled),
 ]);
 
 // -------------------------------------------------------------------------
@@ -209,6 +259,7 @@ export const orders = pgTable("orders", {
   invoiceUrl: text("invoice_url"),
   fgoInvoiceId: text("fgo_invoice_id"),
   cancelRequestedAt: timestamp("cancel_requested_at"),
+  stockReducedAt: timestamp("stock_reduced_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
@@ -358,10 +409,19 @@ export const samedayCities = pgTable("sameday_cities", {
 // -------------------------------------------------------------------------
 // RELATIONS DEFINITIONS (Enables clean relational queries via Drizzle)
 // -------------------------------------------------------------------------
-export const productsRelations = relations(products, ({ many }) => ({
+export const productsRelations = relations(products, ({ many, one }) => ({
   variants: many(productVariants),
   productCategories: many(productCategories),
   digitalFiles: many(digitalProductFiles),
+  detailBlocks: many(productDetailBlocks),
+  sizeGuide: one(sizeGuides, {
+    fields: [products.sizeGuideId],
+    references: [sizeGuides.id],
+  }),
+}));
+
+export const sizeGuidesRelations = relations(sizeGuides, ({ many }) => ({
+  products: many(products),
 }));
 
 export const productVariantsRelations = relations(
@@ -405,6 +465,16 @@ export const digitalProductFilesRelations = relations(
   ({ one }) => ({
     product: one(products, {
       fields: [digitalProductFiles.productId],
+      references: [products.id],
+    }),
+  }),
+);
+
+export const productDetailBlocksRelations = relations(
+  productDetailBlocks,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [productDetailBlocks.productId],
       references: [products.id],
     }),
   }),

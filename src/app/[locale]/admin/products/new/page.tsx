@@ -1,5 +1,8 @@
 import { AdminProductForm } from "@/components/product/AdminProductForm";
 import { getAllCategories, getCategoryOptions } from "@/lib/categories";
+import { db } from "@/lib/db";
+import { sizeGuides } from "@/lib/db/schema";
+import { getTranslatedText } from "@/lib/i18n/text";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -15,7 +18,10 @@ type NewProductPageProps = {
 export default async function NewProductPage({ params }: NewProductPageProps) {
   const { locale } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
-  const allCategories = await getAllCategories();
+  const [allCategories, guides] = await Promise.all([
+    getAllCategories(),
+    db.select().from(sizeGuides),
+  ]);
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
@@ -31,6 +37,10 @@ export default async function NewProductPage({ params }: NewProductPageProps) {
       <AdminProductForm
         locale={activeLocale}
         availableCategories={getCategoryOptions(allCategories, activeLocale)}
+        availableSizeGuides={guides.map((guide) => ({
+          id: guide.id,
+          title: getTranslatedText(guide.title, activeLocale, guide.slug),
+        }))}
       />
     </main>
   );

@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
+import { HomepageContentSections } from "@/components/homepage/HomepageContentSections";
 import { ProductCategorySlider } from "@/components/product/ProductCategorySlider";
 import { ProductSkeleton } from "@/components/product/ProductSkeleton";
 import { PaymentReturnNotice } from "@/components/checkout/PaymentReturnNotice";
 import type { Metadata } from "next";
 import {
+  getCachedHomepageContentSections,
   getCachedHomepageCategorySliders,
   getCachedHomepageProducts,
   getCachedPublicCategories,
@@ -57,27 +59,68 @@ export default async function HomePage({ params }: PageProps) {
     <main className="mx-auto max-w-7xl px-8 py-16">
       <PaymentReturnNotice />
 
-      <section className="grid gap-8 border-b border-black pb-12 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
-        <div>
-          <h1 className="max-w-4xl text-4xl font-black uppercase tracking-tighter sm:text-5xl lg:text-6xl">
-            {copy.title}
-          </h1>
-        </div>
-        <div className="space-y-5">
-          <p className="text-sm leading-7 text-slate-600">{copy.intro}</p>
-          <Button
-            asChild
-            className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
-          >
-            <Link href={`/${activeLocale}/products`}>{copy.allProducts}</Link>
-          </Button>
-        </div>
-      </section>
+      <Suspense fallback={<HomeHeroSkeleton />}>
+        <HomeCustomContent locale={activeLocale} copy={copy} />
+      </Suspense>
 
       <Suspense fallback={<HomeCatalogSkeleton />}>
         <HomeCatalogContent locale={activeLocale} copy={copy} />
       </Suspense>
     </main>
+  );
+}
+
+async function HomeCustomContent({
+  locale,
+  copy,
+}: {
+  locale: "en" | "ro";
+  copy: (typeof homeCopy)["en" | "ro"];
+}) {
+  const [homepageContent, currencyPresentation] = await Promise.all([
+    getCachedHomepageContentSections(),
+    getCurrencyPresentation(),
+  ]);
+
+  if (homepageContent.sections.length === 0) {
+    return <DefaultHomeHero locale={locale} copy={copy} />;
+  }
+
+  return (
+    <HomepageContentSections
+      sections={homepageContent.sections}
+      featuredProducts={homepageContent.featuredProducts}
+      locale={locale}
+      displayCurrency={currencyPresentation.displayCurrency}
+      ronToEurRate={currencyPresentation.ronToEurRate}
+    />
+  );
+}
+
+function DefaultHomeHero({
+  locale,
+  copy,
+}: {
+  locale: "en" | "ro";
+  copy: (typeof homeCopy)["en" | "ro"];
+}) {
+  return (
+    <section className="grid gap-8 border-b border-black pb-12 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
+      <div>
+        <h1 className="max-w-4xl text-4xl font-black uppercase tracking-tighter sm:text-5xl lg:text-6xl">
+          {copy.title}
+        </h1>
+      </div>
+      <div className="space-y-5">
+        <p className="text-sm leading-7 text-slate-600">{copy.intro}</p>
+        <Button
+          asChild
+          className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
+        >
+          <Link href={`/${locale}/products`}>{copy.allProducts}</Link>
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -176,6 +219,22 @@ async function HomeCatalogContent({
         </section>
       )}
     </>
+  );
+}
+
+function HomeHeroSkeleton() {
+  return (
+    <section className="grid gap-8 border-b border-black pb-12 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
+      <div className="space-y-3">
+        <div className="h-12 max-w-4xl animate-pulse bg-slate-100" />
+        <div className="h-12 max-w-3xl animate-pulse bg-slate-100" />
+      </div>
+      <div className="space-y-4">
+        <div className="h-4 w-full animate-pulse bg-slate-100" />
+        <div className="h-4 w-4/5 animate-pulse bg-slate-100" />
+        <div className="h-12 w-40 animate-pulse bg-slate-100" />
+      </div>
+    </section>
   );
 }
 

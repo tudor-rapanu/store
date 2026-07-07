@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
 import { revalidateCatalogCache } from "@/lib/catalog/cache";
-import { updateHomepageSettings } from "@/lib/homepage/settings";
+import {
+  getHomepageSettings,
+  updateHomepageSettings,
+} from "@/lib/homepage/settings";
 
 type HomepageSliderPayload = {
   categorySections?: Array<{
@@ -31,7 +34,9 @@ export async function POST(request: Request) {
         .filter((section) => section.categoryId)
     : [];
   const productsPerSlider = Number(body.productsPerSlider);
+  const currentSettings = await getHomepageSettings();
   const settings = await updateHomepageSettings({
+    ...currentSettings,
     categorySections,
     productsPerSlider,
   });

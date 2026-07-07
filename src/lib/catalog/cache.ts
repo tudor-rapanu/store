@@ -1,15 +1,20 @@
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
-import { and, count, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 
 import { getCategoryAndDescendantIds } from "@/lib/categories";
 import { db } from "@/lib/db";
 import {
   categories,
   productCategories,
+  productDetailBlocks,
   products,
   productVariants,
+  sizeGuides,
 } from "@/lib/db/schema";
-import { getHomepageSettings } from "@/lib/homepage/settings";
+import {
+  type HomepageContentSection,
+  getHomepageSettings,
+} from "@/lib/homepage/settings";
 
 const CATALOG_REVALIDATE_SECONDS = 60;
 export const PUBLIC_PRODUCTS_PER_PAGE = 12;
@@ -127,7 +132,7 @@ export const getCachedPublicCategories = unstable_cache(
         name: categories.name,
       })
       .from(categories)
-      .orderBy(desc(categories.createdAt));
+      .orderBy(asc(categories.slug));
   },
   ["catalog:public-categories"],
   {
@@ -258,6 +263,53 @@ export const getCachedHomepageCategorySliders = unstable_cache(
   },
 );
 
+function getHomepageFeaturedProductIds(sections: HomepageContentSection[]) {
+  return Array.from(
+    new Set(
+      sections
+        .filter(
+          (section) => section.enabled && section.type === "featuredProduct",
+        )
+        .map((section) => section.content.productId)
+        .filter(
+          (productId): productId is string => typeof productId === "string",
+        ),
+    ),
+  );
+}
+
+export const getCachedHomepageContentSections = unstable_cache(
+  async () => {
+    const settings = await getHomepageSettings();
+    const enabledSections = settings.contentSections.filter(
+      (section) => section.enabled,
+    );
+    const featuredProductIds = getHomepageFeaturedProductIds(enabledSections);
+    const featuredProducts =
+      featuredProductIds.length > 0
+        ? await db
+            .select()
+            .from(products)
+            .where(
+              and(
+                inArray(products.id, featuredProductIds),
+                publicProductWhere(),
+              ),
+            )
+        : [];
+
+    return {
+      sections: enabledSections,
+      featuredProducts,
+    };
+  },
+  ["catalog:homepage-content-sections"],
+  {
+    revalidate: CATALOG_REVALIDATE_SECONDS,
+    tags: [CATALOG_CACHE_TAGS.products],
+  },
+);
+
 export const getCachedPublicCategoryProducts = unstable_cache(
   async (slug: string, page = 1, perPage = PUBLIC_PRODUCTS_PER_PAGE) => {
     const safePage = Math.max(Math.floor(page), 1);
@@ -350,6 +402,47 @@ export const getCachedProductVariants = unstable_cache(
       .where(eq(productVariants.productId, productId));
   },
   ["catalog:product-variants"],
+  {
+    revalidate: CATALOG_REVALIDATE_SECONDS,
+    tags: [CATALOG_CACHE_TAGS.products],
+  },
+);
+
+export const getCachedProductDetailBlocks = unstable_cache(
+  async (productId: string) => {
+    return db
+      .select()
+      .from(productDetailBlocks)
+      .where(
+        and(
+          eq(productDetailBlocks.productId, productId),
+          eq(productDetailBlocks.enabled, true),
+        ),
+      )
+      .orderBy(asc(productDetailBlocks.sortOrder));
+  },
+  ["catalog:product-detail-blocks"],
+  {
+    revalidate: CATALOG_REVALIDATE_SECONDS,
+    tags: [CATALOG_CACHE_TAGS.products],
+  },
+);
+
+export const getCachedSizeGuideById = unstable_cache(
+  async (sizeGuideId: string | null) => {
+    if (!sizeGuideId) {
+      return null;
+    }
+
+    const [guide] = await db
+      .select()
+      .from(sizeGuides)
+      .where(and(eq(sizeGuides.id, sizeGuideId), eq(sizeGuides.enabled, true)))
+      .limit(1);
+
+    return guide ?? null;
+  },
+  ["catalog:size-guide-by-id"],
   {
     revalidate: CATALOG_REVALIDATE_SECONDS,
     tags: [CATALOG_CACHE_TAGS.products],

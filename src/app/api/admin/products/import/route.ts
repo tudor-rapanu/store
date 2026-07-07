@@ -26,6 +26,8 @@ type ImportProductRow = {
   imageUrls?: string;
   categories?: string;
   isDigital?: string | boolean;
+  trackStock?: string | boolean;
+  stock?: string | number;
   digitalFileUrl?: string;
   digitalFileUrls?: string;
   isPrivate?: string | boolean;
@@ -37,6 +39,7 @@ type ImportProductRow = {
   variantType3?: string;
   variantValues3?: string;
   variantPrice?: string | number;
+  variantTrackStock?: string | boolean;
   variantStock?: string | number;
 };
 
@@ -45,6 +48,7 @@ type VariantInput = {
   sku: string;
   attributes: Record<string, string>;
   price?: number;
+  trackStock?: boolean;
   stock?: number;
 };
 
@@ -60,6 +64,8 @@ type NormalizedImportRow = {
   sourceImageUrls: string[];
   sourceDigitalFileUrls: string[];
   isDigital: boolean;
+  trackStock: boolean;
+  stock: number;
   isPrivate: boolean;
   categoryNames: string[];
   variants: VariantInput[];
@@ -215,6 +221,10 @@ function parseVariantJson(value: unknown, rowNumber: number) {
         "stock" in variant && typeof variant.stock === "number"
           ? variant.stock
           : 0,
+      trackStock:
+        "trackStock" in variant && typeof variant.trackStock === "boolean"
+          ? variant.trackStock
+          : false,
     };
   });
 }
@@ -250,6 +260,7 @@ function parseFriendlyVariants(row: ImportProductRow) {
   }
 
   const defaultPrice = parseNumber(row.variantPrice, 0);
+  const defaultTrackStock = getImportBoolean(row.variantTrackStock);
   const defaultStock = Math.max(Math.floor(parseNumber(row.variantStock, 0)), 0);
 
   return getOptionCombinations(completeOptions).map((attributes) => ({
@@ -257,6 +268,7 @@ function parseFriendlyVariants(row: ImportProductRow) {
     sku: "",
     attributes,
     price: defaultPrice,
+    trackStock: defaultTrackStock,
     stock: defaultStock,
   }));
 }
@@ -481,6 +493,8 @@ export async function POST(request: Request) {
         sourceImageUrls: parseImageUrls(row),
         sourceDigitalFileUrls: parseDigitalFileUrls(row),
         isDigital: getImportBoolean(row.isDigital),
+        trackStock: getImportBoolean(row.trackStock),
+        stock: Math.max(Math.floor(parseNumber(row.stock, 0)), 0),
         isPrivate: getImportPrivateValue(row.isPrivate),
         categoryNames: parseList(row.categories),
         variants: parseVariants(row, rowNumber),
@@ -584,6 +598,9 @@ export async function POST(request: Request) {
           basePrice: row.basePrice ?? 0,
           imageUrl,
           isDigital: row.isDigital,
+          trackStock: row.variants.length === 0 ? row.trackStock : false,
+          stock:
+            row.variants.length === 0 && row.trackStock ? row.stock : 0,
           isSimple: row.variants.length === 0,
           isPrivate: row.isPrivate,
         })
@@ -623,7 +640,10 @@ export async function POST(request: Request) {
             attributes: variant.attributes,
             price: Math.round((variant.price ?? 0) * 100),
             priceAdjustment: 0,
-            stock: variant.stock ?? 0,
+            trackStock: variant.trackStock ?? false,
+            stock: variant.trackStock
+              ? Math.max(Math.floor(variant.stock ?? 0), 0)
+              : 0,
           })),
         );
       }

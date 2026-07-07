@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { orders, type PaymentCurrency } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { sendOrderEmail } from "@/lib/email";
+import { reduceTrackedStockForPaidOrder } from "@/lib/inventory";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { checkRequestRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
@@ -413,6 +414,10 @@ export async function POST(request: Request) {
       }
 
       const wasAlreadyPaid = existingOrder.paymentStatus === "paid";
+
+      if (!wasAlreadyPaid) {
+        await reduceTrackedStockForPaidOrder(existingOrder.id);
+      }
 
       // 1. Update the database
       const [updatedOrder] = await db

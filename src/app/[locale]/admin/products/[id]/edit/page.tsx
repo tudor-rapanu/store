@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 
 import { AdminProductForm } from "@/components/product/AdminProductForm";
@@ -11,8 +11,10 @@ import {
   categories,
   digitalProductFiles,
   productCategories,
+  productDetailBlocks,
   productVariants,
   products,
+  sizeGuides,
 } from "@/lib/db/schema";
 import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImagePaths, getProductImageSrc } from "@/lib/product-images";
@@ -66,6 +68,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
       saleEnabled: productVariants.saleEnabled,
       saleStartsAt: productVariants.saleStartsAt,
       saleEndsAt: productVariants.saleEndsAt,
+      trackStock: productVariants.trackStock,
       stock: productVariants.stock,
     })
     .from(productVariants)
@@ -86,7 +89,21 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     })
     .from(digitalProductFiles)
     .where(eq(digitalProductFiles.productId, product.id));
-  const allCategories = await getAllCategories();
+  const linkedDetailBlocks = await db
+    .select({
+      id: productDetailBlocks.id,
+      icon: productDetailBlocks.icon,
+      label: productDetailBlocks.label,
+      value: productDetailBlocks.value,
+      enabled: productDetailBlocks.enabled,
+    })
+    .from(productDetailBlocks)
+    .where(eq(productDetailBlocks.productId, product.id))
+    .orderBy(asc(productDetailBlocks.sortOrder));
+  const [allCategories, guides] = await Promise.all([
+    getAllCategories(),
+    db.select().from(sizeGuides),
+  ]);
   const categoryOptions = getCategoryOptions(allCategories, activeLocale);
   const categoryValuesById = new Map(
     categoryOptions.map((category) => [category.id, category.value]),
@@ -132,6 +149,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
           saleEnabled: variant.saleEnabled,
           saleStartsAt: variant.saleStartsAt,
           saleEndsAt: variant.saleEndsAt,
+          trackStock: variant.trackStock,
           stock: variant.stock,
         }))}
         imagePaths={imagePaths}
@@ -141,7 +159,12 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
           getTranslatedText(category.name, "en"),
         )}
         availableCategories={categoryOptions}
+        availableSizeGuides={guides.map((guide) => ({
+          id: guide.id,
+          title: getTranslatedText(guide.title, activeLocale, guide.slug),
+        }))}
         digitalFiles={linkedDigitalFiles}
+        detailBlocks={linkedDetailBlocks}
       />
     </main>
   );

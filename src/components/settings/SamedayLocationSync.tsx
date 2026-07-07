@@ -14,6 +14,11 @@ type SamedayLocationSyncProps = {
   }[];
 };
 
+type SamedayLocationSummary = {
+  countyCount?: number;
+  cityCount?: number;
+};
+
 export function SamedayLocationSync({
   countyCount,
   cityCount,
@@ -21,6 +26,8 @@ export function SamedayLocationSync({
 }: SamedayLocationSyncProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [displayCountyCount, setDisplayCountyCount] = useState(countyCount);
+  const [displayCityCount, setDisplayCityCount] = useState(cityCount);
 
   async function syncLocations(force: boolean) {
     setIsSyncing(true);
@@ -65,6 +72,7 @@ export function SamedayLocationSync({
           ? `${force ? "Refreshed" : "Synced"} ${countiesToSync.length} counties and ${syncedCities} new cities. Skipped ${skippedCounties} complete counties with ${skippedCachedCities} cached cities. First skipped: ${skippedDetails[0] ?? "none"}. ${failures.length} counties failed. First failure: ${failures[0]}`
           : `${force ? "Refreshed" : "Synced"} ${countiesToSync.length} counties and ${syncedCities} new cities. Skipped ${skippedCounties} complete counties with ${skippedCachedCities} cached cities. First skipped: ${skippedDetails[0] ?? "none"}.`;
 
+      setDisplayCountyCount((current) => Math.max(current, countiesToSync.length));
       setMessage(finalMessage);
       showToast({
         title: failures.length > 0 ? "Sync completed with issues" : "Sync complete",
@@ -97,7 +105,9 @@ export function SamedayLocationSync({
     const responseText = await response.text();
     const data = parseJsonResponse(responseText) as {
       ok?: boolean;
+      counties?: number;
       countyList?: { id: number; name: string }[];
+      summary?: SamedayLocationSummary;
       error?: string;
     };
 
@@ -107,6 +117,16 @@ export function SamedayLocationSync({
           responseText.slice(0, 500) ||
           getFetchErrorMessage(response, "Could not sync Sameday counties."),
       );
+    }
+
+    if (data.counties !== undefined) {
+      setDisplayCountyCount(data.counties);
+    }
+    if (data.summary?.countyCount !== undefined) {
+      setDisplayCountyCount(data.summary.countyCount);
+    }
+    if (data.summary?.cityCount !== undefined) {
+      setDisplayCityCount(data.summary.cityCount);
     }
 
     return data.countyList ?? [];
@@ -125,6 +145,7 @@ export function SamedayLocationSync({
       skipped?: boolean;
       cached?: number;
       remoteTotal?: number | null;
+      summary?: SamedayLocationSummary;
       error?: string;
     };
 
@@ -134,6 +155,13 @@ export function SamedayLocationSync({
           responseText.slice(0, 500) ||
           getFetchErrorMessage(response, "Could not sync Sameday cities."),
       );
+    }
+
+    if (data.summary?.countyCount !== undefined) {
+      setDisplayCountyCount(data.summary.countyCount);
+    }
+    if (data.summary?.cityCount !== undefined) {
+      setDisplayCityCount(data.summary.cityCount);
     }
 
     return {
@@ -161,7 +189,7 @@ export function SamedayLocationSync({
             Counties
           </div>
           <div className="text-2xl font-black tracking-tighter">
-            {countyCount}
+            {displayCountyCount}
           </div>
         </div>
         <div className="border border-slate-200 p-3">
@@ -169,7 +197,7 @@ export function SamedayLocationSync({
             Cities
           </div>
           <div className="text-2xl font-black tracking-tighter">
-            {cityCount}
+            {displayCityCount}
           </div>
         </div>
       </div>

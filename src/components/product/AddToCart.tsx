@@ -29,6 +29,7 @@ interface Variant {
   saleStartsAt?: Date | string | null;
   saleEndsAt?: Date | string | null;
   priceAdjustment: number;
+  trackStock?: boolean | null;
   stock: number;
 }
 
@@ -43,6 +44,8 @@ interface AddToCartProps {
     saleStartsAt?: Date | string | null;
     saleEndsAt?: Date | string | null;
     isDigital?: boolean | null;
+    trackStock?: boolean | null;
+    stock?: number | null;
   };
   variants: Variant[];
   displayCurrency?: "RON" | "EUR";
@@ -61,6 +64,8 @@ export function AddToCart({
   const addItem = useCart((state) => state.addItem);
   const [wasAdded, setWasAdded] = useState(false);
   const isSimpleProduct = variants.length === 0;
+  const simpleProductOutOfStock =
+    isSimpleProduct && Boolean(product.trackStock) && (product.stock ?? 0) <= 0;
 
   const attributeKeys = Object.keys(variants[0]?.attributes || {});
   const hasSelectedAllAttributes = attributeKeys.every((key) =>
@@ -78,6 +83,8 @@ export function AddToCart({
     ? getVariantPricePresentation(product, selectedVariant)
     : getProductPricePresentation(product);
   const finalPrice = pricePresentation.effectivePrice;
+  const selectedVariantOutOfStock =
+    Boolean(selectedVariant?.trackStock) && (selectedVariant?.stock ?? 0) <= 0;
   const displayPrice =
     displayCurrency === "EUR"
       ? formatEur(finalPrice, ronToEurRate)
@@ -88,6 +95,10 @@ export function AddToCart({
       : formatRon(pricePresentation.regularPrice);
 
   const handleAdd = () => {
+    if (simpleProductOutOfStock || selectedVariantOutOfStock) {
+      return;
+    }
+
     if (isSimpleProduct) {
       addItem({
         productId: product.id,
@@ -191,11 +202,13 @@ export function AddToCart({
       <Button
         onClick={handleAdd}
         disabled={
-          (!isSimpleProduct && !selectedVariant) || selectedVariant?.stock === 0
+          simpleProductOutOfStock ||
+          (!isSimpleProduct && !selectedVariant) ||
+          selectedVariantOutOfStock
         }
         className="w-full h-14 rounded-none bg-black text-white hover:bg-slate-800 uppercase tracking-widest font-bold text-sm"
       >
-        {selectedVariant?.stock === 0
+        {simpleProductOutOfStock || selectedVariantOutOfStock
           ? "Out of Stock"
           : wasAdded
             ? "Added"

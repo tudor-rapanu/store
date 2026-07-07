@@ -4,11 +4,15 @@ import type { Metadata } from "next";
 
 import { Button } from "@/components/ui/button";
 import { AddToCart } from "@/components/product/AddToCart";
+import { ProductDetailHighlights } from "@/components/product/ProductDetailHighlights";
 import { ProductImageGallery } from "@/components/product/ProductImageGallery";
+import { ProductSizeGuide } from "@/components/product/ProductSizeGuide";
 import { ProductViewTracker } from "@/components/product/ProductViewTracker";
 import {
+  getCachedProductDetailBlocks,
   getCachedProductVariants,
   getCachedPublicProductBySlug,
+  getCachedSizeGuideById,
 } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
 import {
@@ -70,8 +74,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
     product.preorderEnabled && product.preorderShipDate
       ? formatFulfillmentDate(product.preorderShipDate, activeLocale)
       : null;
-  const [variants, currencyPresentation] = await Promise.all([
+  const [variants, detailBlocks, sizeGuide, currencyPresentation] = await Promise.all([
     getCachedProductVariants(product.id),
+    getCachedProductDetailBlocks(product.id),
+    getCachedSizeGuideById(product.sizeGuideId),
     getCurrencyPresentation(),
   ]);
 
@@ -99,6 +105,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
           {description && (
             <p className="text-sm leading-7 text-slate-600">{description}</p>
           )}
+
+          <ProductDetailHighlights
+            details={detailBlocks}
+            locale={activeLocale}
+          />
 
           <div className="border border-black p-4 text-sm">
             {product.isDigital ? (
@@ -134,6 +145,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 saleStartsAt: toIsoString(product.saleStartsAt),
                 saleEndsAt: toIsoString(product.saleEndsAt),
                 isDigital: product.isDigital,
+                trackStock: product.trackStock,
+                stock: product.stock,
               }}
               variants={variants.map((variant) => ({
                 id: variant.id,
@@ -146,6 +159,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 saleStartsAt: toIsoString(variant.saleStartsAt),
                 saleEndsAt: toIsoString(variant.saleEndsAt),
                 priceAdjustment: variant.priceAdjustment,
+                trackStock: variant.trackStock,
                 stock: variant.stock,
               }))}
               displayCurrency={currencyPresentation.displayCurrency}
@@ -160,6 +174,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </Button>
           </div>
         </section>
+      </div>
+      <div className="mt-16">
+        <ProductSizeGuide sizeGuide={sizeGuide} locale={activeLocale} />
       </div>
     </main>
   );

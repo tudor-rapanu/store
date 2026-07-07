@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import {
   digitalProductFiles,
   productCategories,
+  productDetailBlocks,
   productVariants,
   products,
 } from "@/lib/db/schema";
@@ -16,6 +17,9 @@ import { uploadDigitalProductFile } from "@/lib/storage/digital-products";
 import { uploadProductImage } from "@/lib/storage/product-images";
 
 export const runtime = "nodejs";
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function errorResponse(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -35,7 +39,21 @@ type VariantInput = {
   saleEnabled?: boolean;
   saleStartsAt?: Date | null;
   saleEndsAt?: Date | null;
+  trackStock?: boolean;
   stock?: number;
+};
+
+type ProductDetailBlockInput = {
+  icon: string;
+  label: {
+    en: string;
+    ro: string;
+  };
+  value: {
+    en: string;
+    ro: string;
+  };
+  enabled: boolean;
 };
 
 function parseOptionalPriceBani(value: string) {
@@ -70,6 +88,14 @@ function parseProductionDays(value: string, fallback: number) {
   const parsed = Number.parseInt(value, 10);
 
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseOptionalUuid(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  return UUID_PATTERN.test(value) ? value : null;
 }
 
 function slugify(value: string) {
@@ -146,6 +172,10 @@ function parseVariants(value: string) {
         "saleEndsAt" in variant && typeof variant.saleEndsAt === "string"
           ? parseOptionalDate(variant.saleEndsAt)
           : null,
+      trackStock:
+        "trackStock" in variant && typeof variant.trackStock === "boolean"
+          ? variant.trackStock
+          : false,
       stock:
         "stock" in variant && typeof variant.stock === "number"
           ? variant.stock
@@ -159,6 +189,73 @@ function parseCategoryNames(value: string) {
     .split(",")
     .map((name) => name.trim())
     .filter(Boolean);
+}
+
+function parseProductDetailBlocks(value: string) {
+  if (!value) {
+    return [];
+  }
+
+  const parsed = JSON.parse(value) as unknown;
+
+  if (!Array.isArray(parsed)) {
+    throw new Error("Product details must be a JSON array.");
+  }
+
+  return parsed
+    .map((detail): ProductDetailBlockInput | null => {
+      if (!detail || typeof detail !== "object") {
+        return null;
+      }
+
+      const icon =
+        "icon" in detail && typeof detail.icon === "string"
+          ? detail.icon.trim()
+          : "info";
+      const label =
+        "label" in detail &&
+        detail.label &&
+        typeof detail.label === "object" &&
+        !Array.isArray(detail.label)
+          ? (detail.label as Record<string, unknown>)
+          : {};
+      const detailValue =
+        "value" in detail &&
+        detail.value &&
+        typeof detail.value === "object" &&
+        !Array.isArray(detail.value)
+          ? (detail.value as Record<string, unknown>)
+          : {};
+      const labelEn =
+        typeof label.en === "string" ? label.en.trim() : "";
+      const labelRo =
+        typeof label.ro === "string" ? label.ro.trim() : "";
+      const valueEn =
+        typeof detailValue.en === "string" ? detailValue.en.trim() : "";
+      const valueRo =
+        typeof detailValue.ro === "string" ? detailValue.ro.trim() : "";
+
+      if ((!labelEn && !labelRo) || (!valueEn && !valueRo)) {
+        return null;
+      }
+
+      return {
+        icon: icon || "info",
+        label: {
+          en: labelEn || labelRo,
+          ro: labelRo || labelEn,
+        },
+        value: {
+          en: valueEn || valueRo,
+          ro: valueRo || valueEn,
+        },
+        enabled:
+          "enabled" in detail && typeof detail.enabled === "boolean"
+            ? detail.enabled
+            : true,
+      };
+    })
+    .filter((detail): detail is ProductDetailBlockInput => Boolean(detail));
 }
 
 function validateVariantSales(variants: VariantInput[]) {
@@ -221,6 +318,9 @@ export async function POST(request: Request) {
   const preorderEnabled = formData.get("preorderEnabled") === "on";
   const preorderShipDateInput = getString(formData, "preorderShipDate");
   const isDigital = formData.get("isDigital") === "on";
+  const sizeGuideId = parseOptionalUuid(getString(formData, "sizeGuideId"));
+  const trackStock = formData.get("trackStock") === "on";
+  const stockInput = getString(formData, "stock");
   const publishAtInput = getString(formData, "publishAt");
   const isPrivate = formData.get("isPrivate") === "on";
   const categoryNames = parseCategoryNames(getString(formData, "categories"));
@@ -231,6 +331,7 @@ export async function POST(request: Request) {
     .getAll("digitalFiles")
     .filter((file): file is File => file instanceof File && file.size > 0);
   const variantsInput = getString(formData, "variants");
+  const detailsInput = getString(formData, "productDetails");
 
   if (!titleEn || !titleRo || !slug || !priceInput) {
     return errorResponse("All product fields are required.");
@@ -249,15 +350,22 @@ export async function POST(request: Request) {
   if (!Number.isFinite(price) || price <= 0) {
     return errorResponse("Enter a valid product price.");
   }
+  const stock = Math.max(Number.parseInt(stockInput || "0", 10), 0);
+
+  if (trackStock && !Number.isInteger(stock)) {
+    return errorResponse("Enter a valid product stock.");
+  }
 
   let variants: VariantInput[];
+  let detailBlocks: ProductDetailBlockInput[];
 
   try {
     variants = parseVariants(variantsInput);
     validateVariantSales(variants);
+    detailBlocks = parseProductDetailBlocks(detailsInput);
   } catch (error) {
     return errorResponse(
-      error instanceof Error ? error.message : "Invalid variants JSON.",
+      error instanceof Error ? error.message : "Invalid product form data.",
     );
   }
 
@@ -330,6 +438,9 @@ export async function POST(request: Request) {
     publishRevalidatedAt: shouldWaitForPublishRevalidation ? null : new Date(),
     imageUrl,
     isDigital,
+    sizeGuideId,
+    trackStock: variants.length === 0 ? trackStock : false,
+    stock: variants.length === 0 && trackStock ? stock : 0,
     isSimple: variants.length === 0,
     isPrivate,
   }).returning();
@@ -366,7 +477,21 @@ export async function POST(request: Request) {
         saleStartsAt: variant.saleEnabled ? variant.saleStartsAt : null,
         saleEndsAt: variant.saleEnabled ? variant.saleEndsAt : null,
         priceAdjustment: 0,
-        stock: variant.stock ?? 0,
+        trackStock: variant.trackStock ?? false,
+        stock: variant.trackStock ? Math.max(Math.floor(variant.stock ?? 0), 0) : 0,
+      })),
+    );
+  }
+
+  if (detailBlocks.length > 0) {
+    await db.insert(productDetailBlocks).values(
+      detailBlocks.map((detail, index) => ({
+        productId: product.id,
+        icon: detail.icon,
+        label: detail.label,
+        value: detail.value,
+        sortOrder: index,
+        enabled: detail.enabled,
       })),
     );
   }

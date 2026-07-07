@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getFetchErrorMessage, showToast } from "@/lib/client/toast";
 
 type ShippingProfile = {
   id: string;
@@ -85,16 +86,30 @@ export function ShippingProfilesSettings({
       };
 
       if (!response.ok || !data.ok) {
-        throw new Error(data.error ?? "Could not save shipping profiles.");
+        throw new Error(
+          data.error ??
+            getFetchErrorMessage(response, "Could not save shipping profiles."),
+        );
       }
 
       setMessage("Shipping profiles saved.");
+      showToast({
+        title: "Settings saved",
+        description: "Shipping profiles were updated.",
+        variant: "success",
+      });
     } catch (error) {
-      setMessage(
+      const message =
         error instanceof Error
           ? error.message
-          : "Could not save shipping profiles.",
-      );
+          : "Could not save shipping profiles.";
+
+      setMessage(message);
+      showToast({
+        title: "Save failed",
+        description: message,
+        variant: "error",
+      });
     } finally {
       setIsSaving(false);
     }

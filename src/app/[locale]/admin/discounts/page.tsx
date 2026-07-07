@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { desc } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -43,11 +44,6 @@ export default async function AdminDiscountsPage({
     redirect(`/${activeLocale}`);
   }
 
-  const [discountRows, options] = await Promise.all([
-    db.select().from(discounts).orderBy(desc(discounts.createdAt)),
-    getDiscountAdminOptions(),
-  ]);
-
   return (
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl px-4 py-16">
       <div className="mb-8 flex items-end justify-between gap-4 border-b border-black pb-4">
@@ -68,6 +64,27 @@ export default async function AdminDiscountsPage({
         </Button>
       </div>
 
+      <Suspense fallback={<DiscountsSkeleton />}>
+        <DiscountsPanel activeLocale={activeLocale} />
+      </Suspense>
+    </main>
+  );
+}
+
+async function DiscountsPanel({
+  activeLocale,
+}: {
+  activeLocale: "en" | "ro";
+}) {
+  try {
+    const [discountRows, options] = await withDiscountsTimeout(
+      Promise.all([
+        db.select().from(discounts).orderBy(desc(discounts.createdAt)),
+        getDiscountAdminOptions(),
+      ]),
+    );
+
+    return (
       <AdminDiscountManager
         discounts={discountRows.map((discount) => ({
           id: discount.id,
@@ -91,6 +108,70 @@ export default async function AdminDiscountsPage({
           label: getTranslatedText(category.name, activeLocale, category.id),
         }))}
       />
-    </main>
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Discounts could not be loaded.";
+
+    return (
+      <section className="space-y-3 border border-red-300 bg-red-50 p-4">
+        <h2 className="text-sm font-black uppercase tracking-widest text-red-950">
+          Discounts could not load
+        </h2>
+        <p className="text-sm font-medium text-red-900">
+          The admin discounts data took too long to respond.
+        </p>
+        <p className="text-xs font-bold uppercase tracking-wider text-red-700">
+          {message}
+        </p>
+      </section>
+    );
+  }
+}
+
+function withDiscountsTimeout<T>(promise: Promise<T>, timeoutMs = 8000) {
+  let timeout: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(new Error(`Discounts timed out after ${timeoutMs / 1000}s.`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    clearTimeout(timeout);
+  });
+}
+
+function DiscountsSkeleton() {
+  return (
+    <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <section className="space-y-4 border border-black p-4">
+        <div className="h-4 w-40 animate-pulse bg-slate-100" />
+        {[1, 2, 3, 4, 5].map((item) => (
+          <div key={item} className="space-y-2">
+            <div className="h-3 w-24 animate-pulse bg-slate-100" />
+            <div className="h-11 animate-pulse border border-slate-200 bg-slate-50" />
+          </div>
+        ))}
+      </section>
+      <section className="space-y-4">
+        {[1, 2, 3].map((item) => (
+          <div
+            key={item}
+            className="grid gap-4 border border-black p-4 md:grid-cols-[minmax(0,1fr)_auto]"
+          >
+            <div className="space-y-3">
+              <div className="h-4 w-48 animate-pulse bg-slate-100" />
+              <div className="h-4 w-64 animate-pulse bg-slate-100" />
+              <div className="h-4 w-56 animate-pulse bg-slate-100" />
+            </div>
+            <div className="flex gap-2">
+              <div className="h-10 w-24 animate-pulse bg-slate-100" />
+              <div className="h-10 w-20 animate-pulse bg-slate-100" />
+            </div>
+          </div>
+        ))}
+      </section>
+    </div>
   );
 }

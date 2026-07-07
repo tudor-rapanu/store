@@ -1,5 +1,6 @@
 import "./globals.css";
 import { PostHogProvider } from "@/components/layout/PostHogProvider";
+import { ToastProvider } from "@/components/layout/ToastProvider";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -18,7 +19,9 @@ export default function RootLayout({
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <body>
-        <PostHogProvider>{children}</PostHogProvider>
+        <PostHogProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

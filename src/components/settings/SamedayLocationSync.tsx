@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { getFetchErrorMessage, showToast } from "@/lib/client/toast";
 
 type SamedayLocationSyncProps = {
   countyCount: number;
@@ -59,17 +60,29 @@ export function SamedayLocationSync({
         }
       }
 
-      setMessage(
+      const finalMessage =
         failures.length > 0
           ? `${force ? "Refreshed" : "Synced"} ${countiesToSync.length} counties and ${syncedCities} new cities. Skipped ${skippedCounties} complete counties with ${skippedCachedCities} cached cities. First skipped: ${skippedDetails[0] ?? "none"}. ${failures.length} counties failed. First failure: ${failures[0]}`
-          : `${force ? "Refreshed" : "Synced"} ${countiesToSync.length} counties and ${syncedCities} new cities. Skipped ${skippedCounties} complete counties with ${skippedCachedCities} cached cities. First skipped: ${skippedDetails[0] ?? "none"}.`,
-      );
+          : `${force ? "Refreshed" : "Synced"} ${countiesToSync.length} counties and ${syncedCities} new cities. Skipped ${skippedCounties} complete counties with ${skippedCachedCities} cached cities. First skipped: ${skippedDetails[0] ?? "none"}.`;
+
+      setMessage(finalMessage);
+      showToast({
+        title: failures.length > 0 ? "Sync completed with issues" : "Sync complete",
+        description: finalMessage,
+        variant: failures.length > 0 ? "error" : "success",
+      });
     } catch (error) {
-      setMessage(
+      const errorMessage =
         error instanceof Error
           ? error.message
-          : "Could not sync Sameday locations.",
-      );
+          : "Could not sync Sameday locations.";
+
+      setMessage(errorMessage);
+      showToast({
+        title: "Sync failed",
+        description: errorMessage,
+        variant: "error",
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -90,9 +103,9 @@ export function SamedayLocationSync({
 
     if (!response.ok || !data.ok) {
       throw new Error(
-        data.error ??
-          responseText.slice(0, 500) ??
-          "Could not sync Sameday counties.",
+        data.error ||
+          responseText.slice(0, 500) ||
+          getFetchErrorMessage(response, "Could not sync Sameday counties."),
       );
     }
 
@@ -117,9 +130,9 @@ export function SamedayLocationSync({
 
     if (!response.ok || !data.ok) {
       throw new Error(
-        data.error ??
-          responseText.slice(0, 500) ??
-          "Could not sync Sameday cities.",
+        data.error ||
+          responseText.slice(0, 500) ||
+          getFetchErrorMessage(response, "Could not sync Sameday cities."),
       );
     }
 

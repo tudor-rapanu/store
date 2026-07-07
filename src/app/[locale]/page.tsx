@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductCategorySlider } from "@/components/product/ProductCategorySlider";
+import { ProductSkeleton } from "@/components/product/ProductSkeleton";
 import { PaymentReturnNotice } from "@/components/checkout/PaymentReturnNotice";
 import type { Metadata } from "next";
 import {
@@ -50,6 +52,42 @@ export default async function HomePage({ params }: PageProps) {
   const { locale } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
   const copy = homeCopy[activeLocale];
+
+  return (
+    <main className="mx-auto max-w-7xl px-8 py-16">
+      <PaymentReturnNotice />
+
+      <section className="grid gap-8 border-b border-black pb-12 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
+        <div>
+          <h1 className="max-w-4xl text-4xl font-black uppercase tracking-tighter sm:text-5xl lg:text-6xl">
+            {copy.title}
+          </h1>
+        </div>
+        <div className="space-y-5">
+          <p className="text-sm leading-7 text-slate-600">{copy.intro}</p>
+          <Button
+            asChild
+            className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
+          >
+            <Link href={`/${activeLocale}/products`}>{copy.allProducts}</Link>
+          </Button>
+        </div>
+      </section>
+
+      <Suspense fallback={<HomeCatalogSkeleton />}>
+        <HomeCatalogContent locale={activeLocale} copy={copy} />
+      </Suspense>
+    </main>
+  );
+}
+
+async function HomeCatalogContent({
+  locale,
+  copy,
+}: {
+  locale: "en" | "ro";
+  copy: (typeof homeCopy)["en" | "ro"];
+}) {
   const [products, homepageSliders, categories, currencyPresentation] =
     await Promise.all([
       getCachedHomepageProducts(4),
@@ -66,38 +104,16 @@ export default async function HomePage({ params }: PageProps) {
   );
 
   return (
-    <main className="mx-auto max-w-7xl px-8 py-16">
-      <PaymentReturnNotice />
-
-      <section className="grid gap-8 border-b border-black pb-12 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
-        <div>
-          {/* <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-500">
-            {copy.eyebrow}
-          </p> */}
-          <h1 className="max-w-4xl text-4xl font-black uppercase tracking-tighter sm:text-5xl lg:text-6xl">
-            {copy.title}
-          </h1>
-        </div>
-        <div className="space-y-5">
-          <p className="text-sm leading-7 text-slate-600">{copy.intro}</p>
-          <Button
-            asChild
-            className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
-          >
-            <Link href={`/${activeLocale}/products`}>{copy.allProducts}</Link>
-          </Button>
-        </div>
-      </section>
-
+    <>
       {homepageSliders.length > 0 ? (
         <div>
           {homepageSliders.map((section) => (
             <ProductCategorySlider
               key={section.category.id}
-              title={getTranslatedText(section.category.name, activeLocale)}
-              href={`/${activeLocale}/category/${section.category.slug}`}
+              title={getTranslatedText(section.category.name, locale)}
+              href={`/${locale}/category/${section.category.slug}`}
               products={section.products}
-              locale={activeLocale}
+              locale={locale}
               displayCurrency={currencyPresentation.displayCurrency}
               ronToEurRate={currencyPresentation.ronToEurRate}
               catalogDiscounts={catalogDiscounts}
@@ -111,7 +127,7 @@ export default async function HomePage({ params }: PageProps) {
               {copy.latest}
             </h2>
             <Link
-              href={`/${activeLocale}/products`}
+              href={`/${locale}/products`}
               className="text-xs font-bold uppercase tracking-widest text-slate-500 transition-colors hover:text-black"
             >
               {copy.allProducts}
@@ -128,7 +144,7 @@ export default async function HomePage({ params }: PageProps) {
                 <ProductCard
                   key={product.id}
                   product={product}
-                  locale={activeLocale}
+                  locale={locale}
                   eager={index === 0}
                   displayCurrency={currencyPresentation.displayCurrency}
                   ronToEurRate={currencyPresentation.ronToEurRate}
@@ -149,15 +165,31 @@ export default async function HomePage({ params }: PageProps) {
             {categories.map((category) => (
               <Link
                 key={category.id}
-                href={`/${activeLocale}/category/${category.slug}`}
+                href={`/${locale}/category/${category.slug}`}
                 className="border border-black p-4 text-sm font-black uppercase tracking-widest transition-colors hover:bg-black hover:text-white"
               >
-                {getTranslatedText(category.name, activeLocale, category.slug)}
+                {getTranslatedText(category.name, locale, category.slug)}
               </Link>
             ))}
           </div>
         </section>
       )}
-    </main>
+    </>
+  );
+}
+
+function HomeCatalogSkeleton() {
+  return (
+    <section className="space-y-6 py-12">
+      <div className="flex items-end justify-between gap-4">
+        <div className="h-8 w-56 animate-pulse bg-slate-100" />
+        <div className="h-10 w-24 animate-pulse bg-slate-100" />
+      </div>
+      <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-3 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((item) => (
+          <ProductSkeleton key={item} />
+        ))}
+      </div>
+    </section>
   );
 }

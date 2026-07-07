@@ -53,7 +53,11 @@ export function MobileNavMenu({
           <Menu size={20} strokeWidth={1.5} />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[320px] border-l-black">
+      <SheetContent
+        side="right"
+        className="w-[320px] border-l-black"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
         <SheetHeader>
           <SheetTitle className="text-left text-xl font-black uppercase tracking-tighter">
             Menu

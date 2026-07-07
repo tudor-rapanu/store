@@ -37,7 +37,6 @@ export async function POST(request: Request) {
   });
 
   revalidateCatalogCache();
-  revalidatePath("/", "layout");
   revalidatePath("/en");
   revalidatePath("/ro");
 

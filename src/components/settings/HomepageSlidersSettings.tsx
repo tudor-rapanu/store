@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getFetchErrorMessage, showToast } from "@/lib/client/toast";
 import type { HomepageCategorySection } from "@/lib/homepage/settings";
 
 type CategoryOption = {
@@ -108,16 +109,30 @@ export function HomepageSlidersSettings({
       };
 
       if (!response.ok || !data.ok) {
-        throw new Error(data.error ?? "Could not save homepage sliders.");
+        throw new Error(
+          data.error ??
+            getFetchErrorMessage(response, "Could not save homepage sliders."),
+        );
       }
 
       setMessage("Homepage sliders saved.");
+      showToast({
+        title: "Settings saved",
+        description: "Homepage sliders were updated.",
+        variant: "success",
+      });
     } catch (error) {
-      setMessage(
+      const message =
         error instanceof Error
           ? error.message
-          : "Could not save homepage sliders.",
-      );
+          : "Could not save homepage sliders.";
+
+      setMessage(message);
+      showToast({
+        title: "Save failed",
+        description: message,
+        variant: "error",
+      });
     } finally {
       setIsSaving(false);
     }

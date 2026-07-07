@@ -6,7 +6,13 @@ import type { Metadata } from "next";
 import { CancelOrderButton } from "@/components/order/CancelOrderButton";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
-import { orderItems, orders, products, productVariants } from "@/lib/db/schema";
+import {
+  digitalProductFiles,
+  orderItems,
+  orders,
+  products,
+  productVariants,
+} from "@/lib/db/schema";
 import { formatFulfillmentEstimate } from "@/lib/fulfillment/estimate";
 import { createClient } from "@/lib/supabase/server";
 
@@ -70,6 +76,21 @@ export default async function PublicOrderPage({
     .leftJoin(productVariants, eq(productVariants.id, orderItems.variantId))
     .leftJoin(products, eq(products.id, orderItems.productId))
     .where(eq(orderItems.orderId, order.id));
+  const downloadFiles =
+    order.paymentStatus === "paid"
+      ? await db
+          .select({
+            id: digitalProductFiles.id,
+            fileName: digitalProductFiles.fileName,
+            fileSize: digitalProductFiles.fileSize,
+          })
+          .from(digitalProductFiles)
+          .innerJoin(
+            orderItems,
+            eq(orderItems.productId, digitalProductFiles.productId),
+          )
+          .where(eq(orderItems.orderId, order.id))
+      : [];
   const address = order.shippingAddress as {
     street?: string;
     city?: string;
@@ -116,41 +137,67 @@ export default async function PublicOrderPage({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <section className="space-y-3 border border-black p-4">
-          <h2 className="text-sm font-black uppercase tracking-widest">
-            Products
-          </h2>
-          {items.length === 0 ? (
-            <div className="text-sm text-slate-500">
-              Product details are not available for this order yet.
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-200 border border-slate-200">
-              {items.map((row) => (
-                <div
-                  key={row.item.id}
-                  className="grid gap-2 p-3 md:grid-cols-[1fr_auto_auto]"
-                >
-                  <div>
-                    <div className="font-bold uppercase tracking-tight">
-                      {row.product?.title?.[activeLocale] ||
-                        row.product?.title?.en ||
-                        row.variant?.name ||
-                        "Product"}
+        <div className="space-y-6">
+          <section className="space-y-3 border border-black p-4">
+            <h2 className="text-sm font-black uppercase tracking-widest">
+              Products
+            </h2>
+            {items.length === 0 ? (
+              <div className="text-sm text-slate-500">
+                Product details are not available for this order yet.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200 border border-slate-200">
+                {items.map((row) => (
+                  <div
+                    key={row.item.id}
+                    className="grid gap-2 p-3 md:grid-cols-[1fr_auto_auto]"
+                  >
+                    <div>
+                      <div className="font-bold uppercase tracking-tight">
+                        {row.product?.title?.[activeLocale] ||
+                          row.product?.title?.en ||
+                          row.variant?.name ||
+                          "Product"}
+                      </div>
+                      <div className="text-xs uppercase tracking-widest text-slate-500">
+                        {row.variant?.sku}
+                      </div>
                     </div>
-                    <div className="text-xs uppercase tracking-widest text-slate-500">
-                      {row.variant?.sku}
+                    <div className="font-bold">x{row.item.quantity}</div>
+                    <div className="font-bold">
+                      {(row.item.unitPrice / 100).toFixed(2)} RON
                     </div>
                   </div>
-                  <div className="font-bold">x{row.item.quantity}</div>
-                  <div className="font-bold">
-                    {(row.item.unitPrice / 100).toFixed(2)} RON
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {downloadFiles.length > 0 && (
+            <section className="space-y-3 border border-black p-4">
+              <h2 className="text-sm font-black uppercase tracking-widest">
+                Downloads
+              </h2>
+              <div className="divide-y divide-slate-200 border border-slate-200">
+                {downloadFiles.map((file) => (
+                  <a
+                    key={file.id}
+                    href={`/api/order-downloads/${order.orderNumber}/${file.id}${
+                      hasGuestToken ? `?token=${token}` : ""
+                    }`}
+                    className="flex items-center justify-between gap-4 p-3 text-sm font-bold uppercase tracking-widest underline"
+                  >
+                    <span>{file.fileName}</span>
+                    <span className="text-xs text-slate-500">
+                      {(file.fileSize / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </section>
           )}
-        </section>
+        </div>
 
         <aside className="space-y-6">
           <InfoBox title="Customer">

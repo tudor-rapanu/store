@@ -19,6 +19,8 @@ import { LanguageSelector } from "./LanguageSelector";
 import { SearchBar } from "@/components/search/SearchBar";
 
 type CategoryLink = {
+  id: string;
+  parentId: string | null;
   slug: string;
   name: string;
 };
@@ -39,8 +41,23 @@ export function MobileNavMenu({
   initialCurrency,
 }: MobileNavMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const parentCategories = categories.filter((category) => !category.parentId);
+  const childCategoriesByParentId = new Map<string, CategoryLink[]>();
+
+  categories.forEach((category) => {
+    if (!category.parentId) {
+      return;
+    }
+
+    childCategoriesByParentId.set(category.parentId, [
+      ...(childCategoriesByParentId.get(category.parentId) ?? []),
+      category,
+    ]);
+  });
   const linkClass =
     "block border-b border-slate-200 py-4 text-sm font-bold uppercase tracking-widest transition-colors hover:text-slate-500";
+  const childLinkClass =
+    "block border-b border-slate-200 py-3 pl-5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-colors hover:text-black";
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -82,15 +99,29 @@ export function MobileNavMenu({
               </SheetClose>
             )}
             {!isAdmin &&
-              categories.map((category) => (
-                <SheetClose asChild key={category.slug}>
-                  <Link
-                    href={`/${locale}/category/${category.slug}`}
-                    className={linkClass}
-                  >
-                    {category.name}
-                  </Link>
-                </SheetClose>
+              parentCategories.map((category) => (
+                <div key={category.id}>
+                  <SheetClose asChild>
+                    <Link
+                      href={`/${locale}/category/${category.slug}`}
+                      className={linkClass}
+                    >
+                      {category.name}
+                    </Link>
+                  </SheetClose>
+                  {(childCategoriesByParentId.get(category.id) ?? []).map(
+                    (subcategory) => (
+                      <SheetClose asChild key={subcategory.id}>
+                        <Link
+                          href={`/${locale}/category/${subcategory.slug}`}
+                          className={childLinkClass}
+                        >
+                          {subcategory.name}
+                        </Link>
+                      </SheetClose>
+                    ),
+                  )}
+                </div>
               ))}
 
             {isLoggedIn ? (

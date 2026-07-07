@@ -42,6 +42,7 @@ interface AddToCartProps {
     saleEnabled?: boolean | null;
     saleStartsAt?: Date | string | null;
     saleEndsAt?: Date | string | null;
+    isDigital?: boolean | null;
   };
   variants: Variant[];
   displayCurrency?: "RON" | "EUR";
@@ -95,6 +96,7 @@ export function AddToCart({
         price: finalPrice,
         sku: product.slug,
         quantity: 1,
+        isDigital: Boolean(product.isDigital),
       });
       posthog.capture("add_to_cart", {
         product_id: product.id,
@@ -118,6 +120,7 @@ export function AddToCart({
         price: finalPrice,
         sku: selectedVariant.sku,
         quantity: 1,
+        isDigital: Boolean(product.isDigital),
       });
       posthog.capture("add_to_cart", {
         product_id: product.id,

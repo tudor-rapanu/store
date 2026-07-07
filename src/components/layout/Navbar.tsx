@@ -53,7 +53,9 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
                 >
                   Shop
                 </Link>
-                {categoryLinks.map((category) => (
+                {categoryLinks
+                  .filter((category) => !category.parentId)
+                  .map((category) => (
                   <Link
                     key={category.slug}
                     href={`/${locale}/category/${category.slug}`}
@@ -174,6 +176,8 @@ async function getCategoryLinks(locale: "en" | "ro") {
     const items = await getCachedPublicCategories();
 
     return items.map((category) => ({
+      id: category.id,
+      parentId: category.parentId,
       slug: category.slug,
       name: getTranslatedText(category.name, locale, category.slug),
     }));

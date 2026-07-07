@@ -27,13 +27,27 @@ export async function POST(request: Request) {
     nameEn?: string;
     nameRo?: string;
     slug?: string;
+    parentId?: string;
   };
   const nameEn = body.nameEn?.trim();
   const nameRo = body.nameRo?.trim() || nameEn;
   const slug = slugify(body.slug || nameEn || "");
+  const parentId = body.parentId?.trim() || null;
 
   if (!nameEn || !slug) {
     return errorResponse("Category name and slug are required.");
+  }
+
+  if (parentId) {
+    const [parentCategory] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(eq(categories.id, parentId))
+      .limit(1);
+
+    if (!parentCategory) {
+      return errorResponse("Parent category was not found.");
+    }
   }
 
   const [existingCategory] = await db
@@ -47,6 +61,7 @@ export async function POST(request: Request) {
   }
 
   await db.insert(categories).values({
+    parentId,
     slug,
     name: { en: nameEn, ro: nameRo ?? nameEn },
   });

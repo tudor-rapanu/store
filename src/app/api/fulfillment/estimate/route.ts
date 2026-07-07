@@ -83,7 +83,9 @@ export async function POST(request: Request) {
       .select()
       .from(products)
       .where(and(inArray(products.id, productIds), publicProductWhere()));
-    const estimate = getCartFulfillmentEstimate(productRows);
+    const estimate = getCartFulfillmentEstimate(
+      productRows.filter((product) => !product.isDigital),
+    );
     const locale = body.locale === "ro" ? "ro" : "en";
 
     return NextResponse.json({

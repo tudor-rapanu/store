@@ -127,10 +127,12 @@ function getOptionalNumericId(value: unknown, fieldName: string) {
 
 function validateCheckoutCustomerData(
   customerData: CheckoutCustomerData,
+  options: { isDigitalOnly?: boolean } = {},
 ): CheckoutCustomerData {
   if (!isRecord(customerData) || !isRecord(customerData.address)) {
     throw new Error("Checkout details are invalid.");
   }
+  const isDigitalOnly = options.isDigitalOnly === true;
 
   const email = getValidatedString(customerData.email, "Email", {
     max: 254,
@@ -154,11 +156,11 @@ function validateCheckoutCustomerData(
     customerData.paymentCurrency,
   );
 
-  if (countryCode === "RO" && shippingMethod === "international") {
+  if (!isDigitalOnly && countryCode === "RO" && shippingMethod === "international") {
     throw new Error("Select a valid Romanian shipping method.");
   }
 
-  if (countryCode !== "RO" && shippingMethod !== "international") {
+  if (!isDigitalOnly && countryCode !== "RO" && shippingMethod !== "international") {
     throw new Error("International orders must use international shipping.");
   }
 
@@ -171,18 +173,30 @@ function validateCheckoutCustomerData(
   const phone = getValidatedString(customerData.phone, "Phone number", {
     max: 32,
   });
-  const street = getValidatedString(customerData.address.street, "Address", {
-    max: 240,
-  });
-  const city = getValidatedString(customerData.address.city, "City", {
-    max: 120,
-  });
-  const county = getValidatedString(customerData.address.county, "County", {
-    max: 120,
-  });
-  const zip = getValidatedString(customerData.address.zip, "Postal code", {
-    max: 20,
-  });
+  const street = isDigitalOnly
+    ? getOptionalValidatedString(customerData.address.street, "Address", 240) ??
+      "Digital delivery"
+    : getValidatedString(customerData.address.street, "Address", {
+        max: 240,
+      });
+  const city = isDigitalOnly
+    ? getOptionalValidatedString(customerData.address.city, "City", 120) ??
+      "Digital"
+    : getValidatedString(customerData.address.city, "City", {
+        max: 120,
+      });
+  const county = isDigitalOnly
+    ? getOptionalValidatedString(customerData.address.county, "County", 120) ??
+      "Digital"
+    : getValidatedString(customerData.address.county, "County", {
+        max: 120,
+      });
+  const zip = isDigitalOnly
+    ? getOptionalValidatedString(customerData.address.zip, "Postal code", 20) ??
+      "000000"
+    : getValidatedString(customerData.address.zip, "Postal code", {
+        max: 20,
+      });
 
   return {
     email,
@@ -208,10 +222,10 @@ function validateCheckoutCustomerData(
           "Country",
           120,
         ) ?? (countryCode === "RO" ? "Romania" : countryCode),
-      samedayCityId: isRomaniaCountry(countryCode)
+      samedayCityId: !isDigitalOnly && isRomaniaCountry(countryCode)
         ? getOptionalNumericId(customerData.address.samedayCityId, "Sameday city")
         : undefined,
-      samedayCountyId: isRomaniaCountry(countryCode)
+      samedayCountyId: !isDigitalOnly && isRomaniaCountry(countryCode)
         ? getOptionalNumericId(
             customerData.address.samedayCountyId,
             "Sameday county",
@@ -493,9 +507,15 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
 
     return product ? [product] : [];
   });
-  const fulfillmentEstimate = getCartFulfillmentEstimate(fulfillmentProducts);
+  const physicalFulfillmentProducts = fulfillmentProducts.filter(
+    (product) => !product.isDigital,
+  );
+  const hasPhysicalItems = physicalFulfillmentProducts.length > 0;
+  const fulfillmentEstimate = hasPhysicalItems
+    ? getCartFulfillmentEstimate(physicalFulfillmentProducts)
+    : null;
 
-  return { items, subtotal, fulfillmentEstimate };
+  return { items, subtotal, fulfillmentEstimate, hasPhysicalItems };
 }
 
 async function saveCheckoutProfile(
@@ -543,10 +563,11 @@ export async function initiateCheckout(
       return { error: "Too many checkout attempts. Please try again shortly." };
     }
 
-    customerData = validateCheckoutCustomerData(customerData);
-
     const userId = await getCurrentUserId();
     const resolvedCart = await resolveCheckoutCart(cartItems);
+    customerData = validateCheckoutCustomerData(customerData, {
+      isDigitalOnly: !resolvedCart.hasPhysicalItems,
+    });
     const discount = await resolveBestDiscount({
       items: resolvedCart.items,
       email: customerData.email,
@@ -557,10 +578,12 @@ export async function initiateCheckout(
       resolvedCart.subtotal - discount.discountAmount,
       0,
     );
-    const shippingAmount = await calculateShippingAmount(
-      customerData.shippingMethod,
-      discountedSubtotal,
-    );
+    const shippingAmount = resolvedCart.hasPhysicalItems
+      ? await calculateShippingAmount(
+          customerData.shippingMethod,
+          discountedSubtotal,
+        )
+      : 0;
     const orderTotal = discountedSubtotal + shippingAmount;
     const payment = resolvePaymentAmount(orderTotal);
     const [newOrder] = await db
@@ -573,7 +596,9 @@ export async function initiateCheckout(
         customerLastName: customerData.lastName,
         customerPhone: customerData.phone,
         shippingAddress: customerData.address,
-        shippingMethod: customerData.shippingMethod,
+        shippingMethod: resolvedCart.hasPhysicalItems
+          ? customerData.shippingMethod
+          : "address",
         subtotalAmount: resolvedCart.subtotal,
         discountAmount: discount.discountAmount,
         discountSnapshot: discount.discountSnapshot,
@@ -700,10 +725,11 @@ export async function createBankTransferOrder(
       return { error: "Too many checkout attempts. Please try again shortly." };
     }
 
-    customerData = validateCheckoutCustomerData(customerData);
-
     const userId = await getCurrentUserId();
     const resolvedCart = await resolveCheckoutCart(cartItems);
+    customerData = validateCheckoutCustomerData(customerData, {
+      isDigitalOnly: !resolvedCart.hasPhysicalItems,
+    });
     const discount = await resolveBestDiscount({
       items: resolvedCart.items,
       email: customerData.email,
@@ -714,10 +740,12 @@ export async function createBankTransferOrder(
       resolvedCart.subtotal - discount.discountAmount,
       0,
     );
-    const shippingAmount = await calculateShippingAmount(
-      customerData.shippingMethod,
-      discountedSubtotal,
-    );
+    const shippingAmount = resolvedCart.hasPhysicalItems
+      ? await calculateShippingAmount(
+          customerData.shippingMethod,
+          discountedSubtotal,
+        )
+      : 0;
     const orderTotal = discountedSubtotal + shippingAmount;
     const payment = resolvePaymentAmount(orderTotal);
     const [newOrder] = await db
@@ -731,7 +759,9 @@ export async function createBankTransferOrder(
         customerPhone: customerData.phone,
         // If a locker is selected, it will be passed inside the street/city fields
         shippingAddress: customerData.address,
-        shippingMethod: customerData.shippingMethod,
+        shippingMethod: resolvedCart.hasPhysicalItems
+          ? customerData.shippingMethod
+          : "address",
         subtotalAmount: resolvedCart.subtotal,
         discountAmount: discount.discountAmount,
         discountSnapshot: discount.discountSnapshot,

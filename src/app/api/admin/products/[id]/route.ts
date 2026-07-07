@@ -3,15 +3,17 @@ import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 import {
-  categories,
+  digitalProductFiles,
   productCategories,
   productVariants,
   products,
 } from "@/lib/db/schema";
 import { isAdminUser } from "@/lib/admin-auth";
+import { findOrCreateCategoryIds } from "@/lib/categories";
 import { getProductImagePaths } from "@/lib/product-images";
 import { revalidateCatalogViews } from "@/lib/catalog/cache";
 import { parseRomaniaDateTimeLocal } from "@/lib/dates/romania";
+import { uploadDigitalProductFile } from "@/lib/storage/digital-products";
 import {
   deleteProductImages,
   uploadProductImage,
@@ -204,36 +206,7 @@ async function syncProductCategories(productId: string, categoryNames: string[])
     return;
   }
 
-  const categoryIds: string[] = [];
-
-  for (const name of categoryNames) {
-    const slug = slugify(name);
-
-    if (!slug) {
-      continue;
-    }
-
-    const [existingCategory] = await db
-      .select()
-      .from(categories)
-      .where(eq(categories.slug, slug))
-      .limit(1);
-
-    if (existingCategory) {
-      categoryIds.push(existingCategory.id);
-      continue;
-    }
-
-    const [createdCategory] = await db
-      .insert(categories)
-      .values({
-        slug,
-        name: { en: name, ro: name },
-      })
-      .returning();
-
-    categoryIds.push(createdCategory.id);
-  }
+  const categoryIds = await findOrCreateCategoryIds(categoryNames);
 
   if (categoryIds.length > 0) {
     await db.insert(productCategories).values(
@@ -292,6 +265,7 @@ export async function PATCH(
     );
     const preorderEnabled = formData.get("preorderEnabled") === "on";
     const preorderShipDateInput = getString(formData, "preorderShipDate");
+    const isDigital = formData.get("isDigital") === "on";
     const publishAtInput = getString(formData, "publishAt");
     const isPrivate = formData.get("isPrivate") === "on";
     const categoryNames = parseCategoryNames(getString(formData, "categories"));
@@ -299,6 +273,9 @@ export async function PATCH(
     const images = formData
       .getAll("images")
       .filter((image): image is File => image instanceof File && image.size > 0);
+    const digitalFiles = formData
+      .getAll("digitalFiles")
+      .filter((file): file is File => file instanceof File && file.size > 0);
     const variantsInput = getString(formData, "variants");
 
     if (!titleEn || !titleRo || !slug || !priceInput) {
@@ -362,6 +339,18 @@ export async function PATCH(
       return errorResponse("Enter a valid publish date.");
     }
 
+    if (isDigital && digitalFiles.length === 0) {
+      const [existingDigitalFile] = await db
+        .select({ id: digitalProductFiles.id })
+        .from(digitalProductFiles)
+        .where(eq(digitalProductFiles.productId, id))
+        .limit(1);
+
+      if (!existingDigitalFile) {
+        return errorResponse("Add at least one protected file for digital products.");
+      }
+    }
+
     const shouldWaitForPublishRevalidation =
       publishAt && publishAt > new Date();
 
@@ -408,6 +397,7 @@ export async function PATCH(
         publishRevalidatedAt: shouldWaitForPublishRevalidation
           ? null
           : new Date(),
+        isDigital,
         isSimple: variants.length === 0,
         isPrivate,
         updatedAt: new Date(),
@@ -418,6 +408,22 @@ export async function PATCH(
 
     if (!updatedProduct) {
       return errorResponse("Product was not found.", 404);
+    }
+
+    if (isDigital && digitalFiles.length > 0) {
+      const uploadedFiles = await Promise.all(
+        digitalFiles.map((file) => uploadDigitalProductFile(file, id)),
+      );
+
+      await db.insert(digitalProductFiles).values(
+        uploadedFiles.map((file) => ({
+          productId: id,
+          fileName: file.fileName,
+          storageKey: file.storageKey,
+          contentType: file.contentType,
+          fileSize: file.fileSize,
+        })),
+      );
     }
 
     const previousImages = getProductImagePaths(existingProduct?.imageUrl);

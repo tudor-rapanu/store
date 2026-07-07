@@ -19,9 +19,11 @@ type ProductSummary = {
 
 type CategorySummary = {
   id: string;
+  parentId: string | null;
   slug: string;
   nameEn: string;
   nameRo: string;
+  depth?: number;
   products: ProductSummary[];
 };
 
@@ -29,6 +31,7 @@ type CategoryDraft = {
   nameEn: string;
   nameRo: string;
   slug: string;
+  parentId: string;
 };
 
 function getCategoryDraft(category: CategorySummary): CategoryDraft {
@@ -36,6 +39,7 @@ function getCategoryDraft(category: CategorySummary): CategoryDraft {
     nameEn: category.nameEn,
     nameRo: category.nameRo,
     slug: category.slug,
+    parentId: category.parentId ?? "",
   };
 }
 
@@ -117,6 +121,7 @@ export function AdminCategoryManager({
         nameEn: String(formData.get("nameEn") ?? ""),
         nameRo: String(formData.get("nameRo") ?? ""),
         slug: String(formData.get("slug") ?? ""),
+        parentId: String(formData.get("parentId") ?? ""),
       }),
     });
 
@@ -127,7 +132,7 @@ export function AdminCategoryManager({
 
   function updateDraft(
     categoryId: string,
-    field: "nameEn" | "nameRo" | "slug",
+    field: "nameEn" | "nameRo" | "slug" | "parentId",
     value: string,
   ) {
     const category = categories.find((item) => item.id === categoryId);
@@ -138,7 +143,7 @@ export function AdminCategoryManager({
         ...(current[categoryId] ??
           (category
             ? getCategoryDraft(category)
-            : { nameEn: "", nameRo: "", slug: "" })),
+            : { nameEn: "", nameRo: "", slug: "", parentId: "" })),
         [field]: value,
       },
     }));
@@ -148,7 +153,7 @@ export function AdminCategoryManager({
     <div className="space-y-8">
       <form
         onSubmit={createCategory}
-        className="grid gap-4 border border-black p-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end"
+        className="grid gap-4 border border-black p-4 md:grid-cols-[1fr_1fr_1fr_1fr_auto] md:items-end"
       >
         <div className="space-y-2">
           <Label
@@ -176,6 +181,30 @@ export function AdminCategoryManager({
             name="nameRo"
             className="h-11 rounded-none border-black"
           />
+        </div>
+        <div className="space-y-2">
+          <Label
+            htmlFor="parentId"
+            className="text-xs font-bold uppercase tracking-widest"
+          >
+            Parent
+          </Label>
+          <select
+            id="parentId"
+            name="parentId"
+            className="h-11 w-full rounded-none border border-black bg-white px-3 text-sm"
+          >
+            <option value="">Main category</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {`${"— ".repeat(category.depth ?? 0)}${
+                  locale === "ro"
+                    ? category.nameRo || category.nameEn
+                    : category.nameEn
+                }`}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="space-y-2">
           <Label
@@ -216,6 +245,7 @@ export function AdminCategoryManager({
             <CategoryRow
               key={category.id}
               category={category}
+              categories={categories}
               draft={mergedDrafts[category.id] ?? getCategoryDraft(category)}
               products={products}
               locale={locale}
@@ -232,6 +262,7 @@ export function AdminCategoryManager({
 
 function CategoryRow({
   category,
+  categories,
   draft,
   products,
   locale,
@@ -240,13 +271,14 @@ function CategoryRow({
   onRequest,
 }: {
   category: CategorySummary;
+  categories: CategorySummary[];
   draft: CategoryDraft;
   products: ProductSummary[];
   locale: "en" | "ro";
   pendingKey: string | null;
   onDraftChange: (
     categoryId: string,
-    field: "nameEn" | "nameRo" | "slug",
+    field: "nameEn" | "nameRo" | "slug" | "parentId",
     value: string,
   ) => void;
   onRequest: (key: string, url: string, options: RequestInit) => Promise<boolean>;
@@ -261,13 +293,16 @@ function CategoryRow({
   const [selectedProductId, setSelectedProductId] = useState(
     availableProducts[0]?.id ?? "",
   );
-
   return (
     <details className="group">
       <summary className="grid cursor-pointer gap-4 p-4 md:grid-cols-[1fr_auto] md:items-center">
         <div>
           <h2 className="font-black uppercase tracking-tight">
-            {locale === "ro" ? category.nameRo || category.nameEn : category.nameEn}
+            <span style={{ paddingLeft: `${(category.depth ?? 0) * 18}px` }}>
+              {locale === "ro"
+                ? category.nameRo || category.nameEn
+                : category.nameEn}
+            </span>
           </h2>
           <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
             {category.slug}
@@ -283,7 +318,7 @@ function CategoryRow({
       </summary>
 
       <div className="space-y-6 border-t border-black p-4">
-        <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto_auto] md:items-end">
+        <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_1fr_auto_auto] md:items-end">
           <Input
             value={draft.nameEn}
             onChange={(event) =>
@@ -308,6 +343,25 @@ function CategoryRow({
             className="h-10 rounded-none border-black"
             aria-label="Category slug"
           />
+          <select
+            value={draft.parentId}
+            onChange={(event) =>
+              onDraftChange(category.id, "parentId", event.target.value)
+            }
+            className="h-10 rounded-none border border-black bg-white px-3 text-sm"
+            aria-label="Parent category"
+          >
+            <option value="">Main category</option>
+            {categories
+              .filter((item) => item.id !== category.id)
+              .map((item) => (
+                <option key={item.id} value={item.id}>
+                  {`${"— ".repeat(item.depth ?? 0)}${
+                    locale === "ro" ? item.nameRo || item.nameEn : item.nameEn
+                  }`}
+                </option>
+              ))}
+          </select>
           <Button
             type="button"
             variant="outline"

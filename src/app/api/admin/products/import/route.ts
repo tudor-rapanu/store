@@ -1,15 +1,16 @@
-import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
+import { findOrCreateCategoryIds } from "@/lib/categories";
 import { revalidateCatalogViews } from "@/lib/catalog/cache";
 import { db } from "@/lib/db";
 import {
-  categories,
+  digitalProductFiles,
   productCategories,
   productVariants,
   products,
 } from "@/lib/db/schema";
+import { uploadDigitalProductFileBuffer } from "@/lib/storage/digital-products";
 import { uploadProductImageBuffer } from "@/lib/storage/product-images";
 
 export const runtime = "nodejs";
@@ -24,6 +25,9 @@ type ImportProductRow = {
   imageUrl?: string;
   imageUrls?: string;
   categories?: string;
+  isDigital?: string | boolean;
+  digitalFileUrl?: string;
+  digitalFileUrls?: string;
   isPrivate?: string | boolean;
   variants?: string;
   variantType1?: string;
@@ -54,6 +58,8 @@ type NormalizedImportRow = {
   descriptionRo: string;
   basePrice: number | null;
   sourceImageUrls: string[];
+  sourceDigitalFileUrls: string[];
+  isDigital: boolean;
   isPrivate: boolean;
   categoryNames: string[];
   variants: VariantInput[];
@@ -62,6 +68,7 @@ type NormalizedImportRow = {
 
 const MAX_IMPORT_ROWS = 200;
 const MAX_REMOTE_IMAGE_BYTES = 25 * 1024 * 1024;
+const MAX_REMOTE_DIGITAL_FILE_BYTES = 100 * 1024 * 1024;
 const ALLOWED_REMOTE_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -98,6 +105,16 @@ function getImportPrivateValue(value: unknown) {
   return true;
 }
 
+function getImportBoolean(value: unknown) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const raw = getString(value).toLowerCase();
+
+  return ["true", "1", "yes", "y", "digital"].includes(raw);
+}
+
 function parsePrice(value: unknown) {
   const price = Number.parseFloat(String(value ?? "").replace(",", "."));
 
@@ -131,6 +148,18 @@ function parseImageUrls(row: ImportProductRow) {
     ? imageUrls.split("|").map((item) => item.trim())
     : singleImageUrl
       ? [singleImageUrl]
+      : [];
+
+  return values.filter(Boolean);
+}
+
+function parseDigitalFileUrls(row: ImportProductRow) {
+  const digitalFileUrls = getString(row.digitalFileUrls);
+  const singleDigitalFileUrl = getString(row.digitalFileUrl);
+  const values = digitalFileUrls
+    ? digitalFileUrls.split("|").map((item) => item.trim())
+    : singleDigitalFileUrl
+      ? [singleDigitalFileUrl]
       : [];
 
   return values.filter(Boolean);
@@ -301,41 +330,6 @@ function getUniqueSku(baseSku: string, usedSkus: Set<string>) {
   return candidate;
 }
 
-async function getCategoryIds(categoryNames: string[]) {
-  const categoryIds: string[] = [];
-
-  for (const name of categoryNames) {
-    const slug = slugify(name);
-
-    if (!slug) {
-      continue;
-    }
-
-    const [existingCategory] = await db
-      .select({ id: categories.id })
-      .from(categories)
-      .where(eq(categories.slug, slug))
-      .limit(1);
-
-    if (existingCategory) {
-      categoryIds.push(existingCategory.id);
-      continue;
-    }
-
-    const [createdCategory] = await db
-      .insert(categories)
-      .values({
-        slug,
-        name: { en: name, ro: name },
-      })
-      .returning({ id: categories.id });
-
-    categoryIds.push(createdCategory.id);
-  }
-
-  return categoryIds;
-}
-
 async function fetchImportImage(url: string, rowNumber: number) {
   let parsedUrl: URL;
 
@@ -390,6 +384,64 @@ async function fetchImportImage(url: string, rowNumber: number) {
   return { buffer, contentType };
 }
 
+function getFileNameFromUrl(url: URL) {
+  const lastSegment = url.pathname.split("/").filter(Boolean).pop();
+
+  return lastSegment ? decodeURIComponent(lastSegment) : "download";
+}
+
+async function fetchImportDigitalFile(url: string, rowNumber: number) {
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new Error(`Row ${rowNumber}: digital file URL is invalid.`);
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    throw new Error(`Row ${rowNumber}: digital file URL must use http or https.`);
+  }
+
+  const response = await fetch(parsedUrl, {
+    headers: {
+      Accept: "application/octet-stream,*/*",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Row ${rowNumber}: digital file download failed with status ${response.status}.`,
+    );
+  }
+
+  const contentLength = Number.parseInt(
+    response.headers.get("content-length") ?? "",
+    10,
+  );
+
+  if (
+    Number.isFinite(contentLength) &&
+    contentLength > MAX_REMOTE_DIGITAL_FILE_BYTES
+  ) {
+    throw new Error(`Row ${rowNumber}: digital file must be 100 MB or smaller.`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+
+  if (buffer.byteLength > MAX_REMOTE_DIGITAL_FILE_BYTES) {
+    throw new Error(`Row ${rowNumber}: digital file must be 100 MB or smaller.`);
+  }
+
+  return {
+    buffer,
+    contentType:
+      response.headers.get("content-type")?.split(";")[0].trim() ||
+      "application/octet-stream",
+    fileName: getFileNameFromUrl(parsedUrl),
+  };
+}
+
 export async function POST(request: Request) {
   if (!(await isAdminUser())) {
     return errorResponse("You are not allowed to import products.", 403);
@@ -427,6 +479,8 @@ export async function POST(request: Request) {
         descriptionRo: getString(row.descriptionRo),
         basePrice: parsePrice(row.price),
         sourceImageUrls: parseImageUrls(row),
+        sourceDigitalFileUrls: parseDigitalFileUrls(row),
+        isDigital: getImportBoolean(row.isDigital),
         isPrivate: getImportPrivateValue(row.isPrivate),
         categoryNames: parseList(row.categories),
         variants: parseVariants(row, rowNumber),
@@ -462,6 +516,12 @@ export async function POST(request: Request) {
 
     if (row.sourceImageUrls.length === 0) {
       errors.push(`Row ${row.rowNumber}: imageUrl or imageUrls is required.`);
+    }
+
+    if (row.isDigital && row.sourceDigitalFileUrls.length === 0) {
+      errors.push(
+        `Row ${row.rowNumber}: digitalFileUrl or digitalFileUrls is required for digital products.`,
+      );
     }
   });
 
@@ -523,10 +583,36 @@ export async function POST(request: Request) {
               : null,
           basePrice: row.basePrice ?? 0,
           imageUrl,
+          isDigital: row.isDigital,
           isSimple: row.variants.length === 0,
           isPrivate: row.isPrivate,
         })
         .returning({ id: products.id, slug: products.slug });
+
+      if (row.isDigital) {
+        const uploadedDigitalFiles = await Promise.all(
+          row.sourceDigitalFileUrls.map(async (url) => {
+            const file = await fetchImportDigitalFile(url, row.rowNumber);
+
+            return uploadDigitalProductFileBuffer({
+              buffer: file.buffer,
+              contentType: file.contentType,
+              fileName: file.fileName,
+              productId: product.id,
+            });
+          }),
+        );
+
+        await db.insert(digitalProductFiles).values(
+          uploadedDigitalFiles.map((file) => ({
+            productId: product.id,
+            fileName: file.fileName,
+            storageKey: file.storageKey,
+            contentType: file.contentType,
+            fileSize: file.fileSize,
+          })),
+        );
+      }
 
       if (row.variants.length > 0) {
         await db.insert(productVariants).values(
@@ -542,7 +628,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const categoryIds = await getCategoryIds(row.categoryNames);
+      const categoryIds = await findOrCreateCategoryIds(row.categoryNames);
 
       if (categoryIds.length > 0) {
         await db.insert(productCategories).values(

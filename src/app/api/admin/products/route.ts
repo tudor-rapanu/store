@@ -3,14 +3,16 @@ import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 import {
-  categories,
+  digitalProductFiles,
   productCategories,
   productVariants,
   products,
 } from "@/lib/db/schema";
 import { isAdminUser } from "@/lib/admin-auth";
+import { findOrCreateCategoryIds } from "@/lib/categories";
 import { revalidateCatalogViews } from "@/lib/catalog/cache";
 import { parseRomaniaDateTimeLocal } from "@/lib/dates/romania";
+import { uploadDigitalProductFile } from "@/lib/storage/digital-products";
 import { uploadProductImage } from "@/lib/storage/product-images";
 
 export const runtime = "nodejs";
@@ -180,36 +182,7 @@ async function syncProductCategories(productId: string, categoryNames: string[])
     return;
   }
 
-  const categoryIds: string[] = [];
-
-  for (const name of categoryNames) {
-    const slug = slugify(name);
-
-    if (!slug) {
-      continue;
-    }
-
-    const [existingCategory] = await db
-      .select()
-      .from(categories)
-      .where(eq(categories.slug, slug))
-      .limit(1);
-
-    if (existingCategory) {
-      categoryIds.push(existingCategory.id);
-      continue;
-    }
-
-    const [createdCategory] = await db
-      .insert(categories)
-      .values({
-        slug,
-        name: { en: name, ro: name },
-      })
-      .returning();
-
-    categoryIds.push(createdCategory.id);
-  }
+  const categoryIds = await findOrCreateCategoryIds(categoryNames);
 
   if (categoryIds.length > 0) {
     await db.insert(productCategories).values(
@@ -247,12 +220,16 @@ export async function POST(request: Request) {
   );
   const preorderEnabled = formData.get("preorderEnabled") === "on";
   const preorderShipDateInput = getString(formData, "preorderShipDate");
+  const isDigital = formData.get("isDigital") === "on";
   const publishAtInput = getString(formData, "publishAt");
   const isPrivate = formData.get("isPrivate") === "on";
   const categoryNames = parseCategoryNames(getString(formData, "categories"));
   const images = formData
     .getAll("images")
     .filter((image): image is File => image instanceof File && image.size > 0);
+  const digitalFiles = formData
+    .getAll("digitalFiles")
+    .filter((file): file is File => file instanceof File && file.size > 0);
   const variantsInput = getString(formData, "variants");
 
   if (!titleEn || !titleRo || !slug || !priceInput) {
@@ -261,6 +238,10 @@ export async function POST(request: Request) {
 
   if (images.length === 0) {
     return errorResponse("At least one valid product image is required.");
+  }
+
+  if (isDigital && digitalFiles.length === 0) {
+    return errorResponse("Add at least one protected file for digital products.");
   }
 
   const price = Number.parseFloat(priceInput);
@@ -348,9 +329,26 @@ export async function POST(request: Request) {
     publishAt,
     publishRevalidatedAt: shouldWaitForPublishRevalidation ? null : new Date(),
     imageUrl,
+    isDigital,
     isSimple: variants.length === 0,
     isPrivate,
   }).returning();
+
+  if (isDigital && digitalFiles.length > 0) {
+    const uploadedFiles = await Promise.all(
+      digitalFiles.map((file) => uploadDigitalProductFile(file, product.id)),
+    );
+
+    await db.insert(digitalProductFiles).values(
+      uploadedFiles.map((file) => ({
+        productId: product.id,
+        fileName: file.fileName,
+        storageKey: file.storageKey,
+        contentType: file.contentType,
+        fileSize: file.fileSize,
+      })),
+    );
+  }
 
   if (variants.length > 0) {
     await db.insert(productVariants).values(

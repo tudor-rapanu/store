@@ -5,9 +5,11 @@ import type { Metadata } from "next";
 
 import { AdminProductForm } from "@/components/product/AdminProductForm";
 import { Button } from "@/components/ui/button";
+import { getAllCategories, getCategoryOptions } from "@/lib/categories";
 import { db } from "@/lib/db";
 import {
   categories,
+  digitalProductFiles,
   productCategories,
   productVariants,
   products,
@@ -70,12 +72,25 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     .where(eq(productVariants.productId, product.id));
   const linkedCategories = await db
     .select({
+      id: categories.id,
       name: categories.name,
     })
     .from(productCategories)
     .innerJoin(categories, eq(productCategories.categoryId, categories.id))
     .where(eq(productCategories.productId, product.id));
-  const allCategories = await db.select().from(categories);
+  const linkedDigitalFiles = await db
+    .select({
+      id: digitalProductFiles.id,
+      fileName: digitalProductFiles.fileName,
+      fileSize: digitalProductFiles.fileSize,
+    })
+    .from(digitalProductFiles)
+    .where(eq(digitalProductFiles.productId, product.id));
+  const allCategories = await getAllCategories();
+  const categoryOptions = getCategoryOptions(allCategories, activeLocale);
+  const categoryValuesById = new Map(
+    categoryOptions.map((category) => [category.id, category.value]),
+  );
   const imagePaths = getProductImagePaths(product.imageUrl);
   const imageSources = Object.fromEntries(
     imagePaths.map((imagePath) => [
@@ -122,13 +137,11 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
         imagePaths={imagePaths}
         imageSources={imageSources}
         categories={linkedCategories.map((category) =>
+          categoryValuesById.get(category.id) ??
           getTranslatedText(category.name, "en"),
         )}
-        availableCategories={allCategories.map((category) => ({
-          id: category.id,
-          name: getTranslatedText(category.name, activeLocale, category.slug),
-          value: getTranslatedText(category.name, "en", category.slug),
-        }))}
+        availableCategories={categoryOptions}
+        digitalFiles={linkedDigitalFiles}
       />
     </main>
   );

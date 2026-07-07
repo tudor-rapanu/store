@@ -17,6 +17,9 @@ type ImportProductRow = {
   imageUrl?: string;
   imageUrls?: string;
   categories?: string;
+  isDigital?: string;
+  digitalFileUrl?: string;
+  digitalFileUrls?: string;
   isPrivate?: string;
   variants?: string;
   variantType1?: string;
@@ -38,7 +41,9 @@ const sampleCsv = Papa.unparse([
     slug: "smooth-operator-patch",
     price: "25",
     imageUrls: "https://example.com/image.webp",
-    categories: "Patches|F1",
+    categories: "Patches > F1|Patches > Embroidered",
+    isDigital: "false",
+    digitalFileUrls: "",
     isPrivate: "true",
     variants: "",
     variantType1: "Model",
@@ -179,15 +184,20 @@ export function ImportProductsCsv() {
           {" "}
           <code>titleRo</code>, <code>descriptionEn</code>,{" "}
           <code>descriptionRo</code>, <code>slug</code>,{" "}
-          <code>categories</code>, <code>isPrivate</code>,{" "}
-          <code>variants</code>, <code>variantType1</code>,{" "}
+          <code>categories</code>, <code>isDigital</code>,{" "}
+          <code>digitalFileUrl</code>, <code>digitalFileUrls</code>,{" "}
+          <code>isPrivate</code>, <code>variants</code>, <code>variantType1</code>,{" "}
           <code>variantValues1</code>, <code>variantType2</code>,{" "}
           <code>variantValues2</code>, <code>variantType3</code>,{" "}
           <code>variantValues3</code>, <code>variantPrice</code>,{" "}
           <code>variantStock</code>. Use <code>|</code> between multiple image
-          URLs, categories, or variant values. Imported products are private
-          unless <code>isPrivate</code> is set to <code>false</code>. Duplicate
-          slugs are imported as copy products.
+          URLs, categories, or variant values. Use <code>&gt;</code> inside a
+          category value to create a subcategory path, for example{" "}
+          <code>Patches &gt; F1</code>. For digital products, set{" "}
+          <code>isDigital</code> to <code>true</code> and provide protected file
+          URLs in <code>digitalFileUrl</code> or <code>digitalFileUrls</code>.
+          Imported products are private unless <code>isPrivate</code> is set to{" "}
+          <code>false</code>. Duplicate slugs are imported as copy products.
         </div>
 
         {message && (

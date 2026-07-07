@@ -9,6 +9,7 @@ import {
   jsonb,
   primaryKey,
   index,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -57,6 +58,7 @@ export const products = pgTable("products", {
   publishAt: timestamp("publish_at"),
   publishRevalidatedAt: timestamp("publish_revalidated_at"),
   imageUrl: text("image_url"),
+  isDigital: boolean("is_digital").default(false).notNull(),
   isSimple: boolean("is_simple").default(true).notNull(),
   isPrivate: boolean("is_private").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -66,6 +68,7 @@ export const products = pgTable("products", {
   index("products_publish_at_idx").on(table.publishAt),
   index("products_created_at_idx").on(table.createdAt),
   index("products_sale_enabled_idx").on(table.saleEnabled),
+  index("products_is_digital_idx").on(table.isDigital),
 ]);
 
 // -------------------------------------------------------------------------
@@ -99,11 +102,16 @@ export const productVariants = pgTable("product_variants", {
 // -------------------------------------------------------------------------
 export const categories = pgTable("categories", {
   id: uuid("id").defaultRandom().primaryKey(),
+  parentId: uuid("parent_id").references((): AnyPgColumn => categories.id, {
+    onDelete: "set null",
+  }),
   slug: text("slug").unique().notNull(),
   name: jsonb("name").$type<TranslatedText>().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("categories_parent_id_idx").on(table.parentId),
+]);
 
 export const productCategories = pgTable(
   "product_categories",
@@ -120,6 +128,20 @@ export const productCategories = pgTable(
     index("product_categories_category_id_idx").on(table.categoryId),
   ],
 );
+
+export const digitalProductFiles = pgTable("digital_product_files", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  fileName: text("file_name").notNull(),
+  storageKey: text("storage_key").notNull(),
+  contentType: text("content_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("digital_product_files_product_id_idx").on(table.productId),
+]);
 
 // -------------------------------------------------------------------------
 // 4. ORDERS TABLE (Wired for Netopia tracking)
@@ -339,6 +361,7 @@ export const samedayCities = pgTable("sameday_cities", {
 export const productsRelations = relations(products, ({ many }) => ({
   variants: many(productVariants),
   productCategories: many(productCategories),
+  digitalFiles: many(digitalProductFiles),
 }));
 
 export const productVariantsRelations = relations(
@@ -351,7 +374,15 @@ export const productVariantsRelations = relations(
   }),
 );
 
-export const categoriesRelations = relations(categories, ({ many }) => ({
+export const categoriesRelations = relations(categories, ({ many, one }) => ({
+  parent: one(categories, {
+    fields: [categories.parentId],
+    references: [categories.id],
+    relationName: "category_parent",
+  }),
+  children: many(categories, {
+    relationName: "category_parent",
+  }),
   productCategories: many(productCategories),
 }));
 
@@ -365,6 +396,16 @@ export const productCategoriesRelations = relations(
     category: one(categories, {
       fields: [productCategories.categoryId],
       references: [categories.id],
+    }),
+  }),
+);
+
+export const digitalProductFilesRelations = relations(
+  digitalProductFiles,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [digitalProductFiles.productId],
+      references: [products.id],
     }),
   }),
 );

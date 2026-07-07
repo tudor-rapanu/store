@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import { AdminDiscountManager } from "@/components/discounts/AdminDiscountManager";
 import { Button } from "@/components/ui/button";
 import { isAdminUser } from "@/lib/admin-auth";
+import { getCategoryOptions } from "@/lib/categories";
 import { db } from "@/lib/db";
 import { discounts } from "@/lib/db/schema";
 import { getDiscountAdminOptions } from "@/lib/discounts";
@@ -103,10 +104,12 @@ async function DiscountsPanel({
           id: product.id,
           label: getTranslatedText(product.title, activeLocale, product.id),
         }))}
-        categories={options.categories.map((category) => ({
-          id: category.id,
-          label: getTranslatedText(category.name, activeLocale, category.id),
-        }))}
+        categories={getCategoryOptions(options.categories, activeLocale).map(
+          (category) => ({
+            id: category.id,
+            label: category.name,
+          }),
+        )}
       />
     );
   } catch (error) {

@@ -102,6 +102,7 @@ async function HomeCatalogContent({
   const catalogDiscounts = await getCatalogAutomaticDiscountPrices(
     Array.from(catalogProductsById.values()),
   );
+  const mainCategories = categories.filter((category) => !category.parentId);
 
   return (
     <>
@@ -156,13 +157,13 @@ async function HomeCatalogContent({
         </section>
       )}
 
-      {categories.length > 0 && (
+      {mainCategories.length > 0 && (
         <section className="border-t border-black py-12">
           <h2 className="mb-6 text-2xl font-black uppercase tracking-tight">
             {copy.categories}
           </h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            {categories.map((category) => (
+            {mainCategories.map((category) => (
               <Link
                 key={category.id}
                 href={`/${locale}/category/${category.slug}`}

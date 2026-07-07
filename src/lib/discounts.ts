@@ -1,5 +1,6 @@
 import { and, eq, inArray, or } from "drizzle-orm";
 
+import { getAllCategories } from "@/lib/categories";
 import { db } from "@/lib/db";
 import {
   categories,
@@ -333,12 +334,7 @@ export async function getDiscountAdminOptions() {
         title: products.title,
       })
       .from(products),
-    db
-      .select({
-        id: categories.id,
-        name: categories.name,
-      })
-      .from(categories),
+    getAllCategories(),
   ]);
 
   return {

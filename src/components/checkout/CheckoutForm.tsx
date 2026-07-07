@@ -190,12 +190,15 @@ export function CheckoutForm({
   } | null>(null);
 
   const cartSubtotal = total();
+  const isDigitalOnlyCart = items.length > 0 && items.every((item) => item.isDigital);
   const discountAmount = Math.min(discountPreview.discountAmount, cartSubtotal);
   const discountedSubtotal = Math.max(cartSubtotal - discountAmount, 0);
   const activeShippingProfile = shippingProfiles.find(
     (profile) => profile.method === shippingMethod && profile.enabled,
   );
-  const shippingAmount = activeShippingProfile
+  const shippingAmount = isDigitalOnlyCart
+    ? 0
+    : activeShippingProfile
     ? shippingMethod !== "international" &&
       discountedSubtotal >= activeShippingProfile.freeShippingThreshold
       ? 0
@@ -482,17 +485,25 @@ export function CheckoutForm({
     async (_prevState: unknown, formData: FormData) => {
       setErrorMessage(null);
 
-      if (shippingMethod === "easybox" && !locker) {
+      if (!isDigitalOnlyCart && shippingMethod === "easybox" && !locker) {
         setErrorMessage("Please select a Sameday Easybox locker.");
         return null;
       }
 
-      if (isRomania && (!selectedLocation.countyName || !selectedLocation.countyId)) {
+      if (
+        !isDigitalOnlyCart &&
+        isRomania &&
+        (!selectedLocation.countyName || !selectedLocation.countyId)
+      ) {
         setErrorMessage("Please select a county.");
         return null;
       }
 
-      if (isRomania && (!selectedLocation.cityName || !selectedLocation.cityId)) {
+      if (
+        !isDigitalOnlyCart &&
+        isRomania &&
+        (!selectedLocation.cityName || !selectedLocation.cityId)
+      ) {
         setErrorMessage("Please select a city.");
         return null;
       }
@@ -600,8 +611,8 @@ export function CheckoutForm({
   const isCheckoutDisabled =
     isPending ||
     isApplyingVoucher ||
-    isLoadingShippingProfiles ||
-    !activeShippingProfile;
+    (isLoadingShippingProfiles && !isDigitalOnlyCart) ||
+    (!activeShippingProfile && !isDigitalOnlyCart);
 
   if (items.length === 0) {
     return (
@@ -739,7 +750,11 @@ export function CheckoutForm({
                 ))}
               </select>
             </div>
-            {isRomania ? (
+            {isDigitalOnlyCart ? (
+              <div className="border border-black bg-slate-50 p-4 text-xs font-bold uppercase tracking-wider text-slate-600">
+                Digital products are delivered by protected download after payment.
+              </div>
+            ) : isRomania ? (
               <div className="flex gap-4">
                 <Button
                   type="button"
@@ -774,7 +789,7 @@ export function CheckoutForm({
               </div>
             )}
 
-            {shippingMethod === "easybox" && (
+            {!isDigitalOnlyCart && shippingMethod === "easybox" && (
               <div className="p-6 border border-black bg-slate-50 space-y-4">
                 {isLoadingLockerConfig ? (
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -813,9 +828,11 @@ export function CheckoutForm({
                 )}
               </div>
             )}
-            {activeShippingProfile && (
+            {(activeShippingProfile || isDigitalOnlyCart) && (
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                {shippingAmount === 0
+                {isDigitalOnlyCart
+                  ? "No shipping cost for digital products."
+                  : shippingAmount === 0
                   ? "Shipping is free for this order."
                   : `${formatCheckoutAmount(shippingAmount)} shipping. ${freeShippingRemainder > 0 ? `Add ${formatRon(freeShippingRemainder)} for free shipping.` : ""}`}
               </p>

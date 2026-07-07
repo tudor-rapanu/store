@@ -8,6 +8,7 @@ export interface CartItem {
   price: number;
   quantity: number;
   sku: string;
+  isDigital?: boolean;
 }
 
 interface CartStore {

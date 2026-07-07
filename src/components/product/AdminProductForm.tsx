@@ -29,6 +29,7 @@ type Product = {
   preorderEnabled?: boolean;
   preorderShipDate?: Date | string | null;
   publishAt?: Date | string | null;
+  isDigital?: boolean;
   isPrivate?: boolean;
 };
 
@@ -60,6 +61,13 @@ type AvailableCategory = {
   id: string;
   name: string;
   value: string;
+  depth?: number;
+};
+
+type DigitalFile = {
+  id: string;
+  fileName: string;
+  fileSize: number;
 };
 
 function createId() {
@@ -149,6 +157,7 @@ export function AdminProductForm({
   imageSources = {},
   categories = [],
   availableCategories = [],
+  digitalFiles = [],
 }: {
   locale: "en" | "ro";
   product?: Product;
@@ -157,6 +166,7 @@ export function AdminProductForm({
   imageSources?: Record<string, string | null>;
   categories?: string[];
   availableCategories?: AvailableCategory[];
+  digitalFiles?: DigitalFile[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -189,6 +199,7 @@ export function AdminProductForm({
   const [preorderShipDate, setPreorderShipDate] = useState(
     toDateTimeInputValue(product?.preorderShipDate),
   );
+  const [isDigital, setIsDigital] = useState(product?.isDigital ?? false);
   const [publishAt, setPublishAt] = useState(
     toDateTimeInputValue(product?.publishAt),
   );
@@ -492,11 +503,12 @@ export function AdminProductForm({
         setSalePrice("");
         setSaleStartsAt("");
         setSaleEndsAt("");
-        setProductionMinDays("1");
-        setProductionMaxDays("3");
-      setPreorderEnabled(false);
-      setPreorderShipDate("");
-      setPublishAt("");
+      setProductionMinDays("1");
+      setProductionMaxDays("3");
+        setPreorderEnabled(false);
+        setPreorderShipDate("");
+        setIsDigital(false);
+        setPublishAt("");
         setVariantsEnabled(false);
         setOptions([]);
         setVariantRows([]);
@@ -606,6 +618,59 @@ export function AdminProductForm({
           </section>
 
           <section className="space-y-4 border border-black p-4">
+            <label className="flex items-center gap-3 text-sm font-black uppercase tracking-widest">
+              <input
+                type="checkbox"
+                name="isDigital"
+                checked={isDigital}
+                onChange={(event) => setIsDigital(event.target.checked)}
+                className="size-4"
+              />
+              Digital downloadable product
+            </label>
+            {isDigital && (
+              <div className="space-y-3">
+                <p className="text-xs uppercase tracking-widest text-slate-500">
+                  Digital products have no shipping cost or fulfillment estimate.
+                  Files are only downloadable after payment.
+                </p>
+                {digitalFiles.length > 0 && (
+                  <div className="divide-y divide-slate-200 border border-slate-200">
+                    {digitalFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between gap-4 p-3 text-sm"
+                      >
+                        <span className="font-bold uppercase tracking-wider">
+                          {file.fileName}
+                        </span>
+                        <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                          {(file.fileSize / 1024 / 1024).toFixed(2)} MB
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="digitalFiles"
+                    className="uppercase text-xs font-bold tracking-widest"
+                  >
+                    Protected Files
+                  </Label>
+                  <Input
+                    id="digitalFiles"
+                    name="digitalFiles"
+                    type="file"
+                    multiple
+                    className="rounded-none border-black h-11"
+                  />
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-4 border border-black p-4">
             <div>
               <h2 className="text-sm font-black uppercase tracking-widest">
                 Fulfillment Estimate
@@ -685,6 +750,7 @@ export function AdminProductForm({
                       <label
                         key={category.id}
                         className="flex cursor-pointer items-center gap-3 text-sm font-bold uppercase tracking-widest"
+                        style={{ paddingLeft: `${(category.depth ?? 0) * 16}px` }}
                       >
                         <input
                           type="checkbox"

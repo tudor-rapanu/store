@@ -9,11 +9,11 @@ import { SamedayLocationSync } from "@/components/settings/SamedayLocationSync";
 import { ShippingProfilesSettings } from "@/components/settings/ShippingProfilesSettings";
 import { Button } from "@/components/ui/button";
 import { isAdminUser } from "@/lib/admin-auth";
+import { getCategoryOptions } from "@/lib/categories";
 import { getCurrencySettings } from "@/lib/currency/settings";
 import { db } from "@/lib/db";
 import { categories, samedayCities, samedayCounties } from "@/lib/db/schema";
 import { getHomepageSettings } from "@/lib/homepage/settings";
-import { getTranslatedText } from "@/lib/i18n/text";
 import { getShippingProfiles } from "@/lib/shipping/profiles";
 
 export const metadata: Metadata = {
@@ -81,7 +81,11 @@ async function HomepageSlidersPanel({
         db
           .select({
             id: categories.id,
+            parentId: categories.parentId,
+            slug: categories.slug,
             name: categories.name,
+            createdAt: categories.createdAt,
+            updatedAt: categories.updatedAt,
           })
           .from(categories),
       ]),
@@ -90,10 +94,12 @@ async function HomepageSlidersPanel({
 
     return (
       <HomepageSlidersSettings
-        categories={categoryRows.map((category) => ({
-          id: category.id,
-          label: getTranslatedText(category.name, activeLocale, category.id),
-        }))}
+        categories={getCategoryOptions(categoryRows, activeLocale).map(
+          (category) => ({
+            id: category.id,
+            label: category.name,
+          }),
+        )}
         sections={homepageSettings.categorySections}
         productsPerSlider={homepageSettings.productsPerSlider}
       />

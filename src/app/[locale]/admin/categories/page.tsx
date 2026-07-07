@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 import { AdminCategoryManager } from "@/components/category/AdminCategoryManager";
 import { Button } from "@/components/ui/button";
+import { buildCategoryTree } from "@/lib/categories";
 import { db } from "@/lib/db";
 import { categories, productCategories, products } from "@/lib/db/schema";
 import { getTranslatedText } from "@/lib/i18n/text";
@@ -27,6 +28,7 @@ export default async function AdminCategoriesPage({
     .select({
       category: {
         id: categories.id,
+        parentId: categories.parentId,
         slug: categories.slug,
         name: categories.name,
         createdAt: categories.createdAt,
@@ -58,9 +60,11 @@ export default async function AdminCategoriesPage({
     string,
     {
       id: string;
+      parentId: string | null;
       slug: string;
       nameEn: string;
       nameRo: string;
+      depth: number;
       products: Array<{
         id: string;
         title: string;
@@ -76,9 +80,11 @@ export default async function AdminCategoriesPage({
     if (!categoryMap.has(category.id)) {
       categoryMap.set(category.id, {
         id: category.id,
+        parentId: category.parentId,
         slug: category.slug,
         nameEn: getTranslatedText(category.name, "en", category.slug),
         nameRo: getTranslatedText(category.name, "ro", category.slug),
+        depth: 0,
         products: [],
       });
     }
@@ -92,6 +98,33 @@ export default async function AdminCategoriesPage({
       });
     }
   });
+  const categoryTree = buildCategoryTree(
+    Array.from(categoryMap.values()).map((category) => ({
+      id: category.id,
+      parentId: category.parentId,
+      slug: category.slug,
+      name: { en: category.nameEn, ro: category.nameRo },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })),
+  );
+  const sortedCategoryIds: Array<{ id: string; depth: number }> = [];
+
+  function visitCategory(node: (typeof categoryTree)[number], depth: number) {
+    sortedCategoryIds.push({ id: node.id, depth });
+    node.children.forEach((child) => visitCategory(child, depth + 1));
+  }
+
+  categoryTree.forEach((node) => visitCategory(node, 0));
+  const sortedCategories = sortedCategoryIds
+    .map(({ id, depth }) => {
+      const category = categoryMap.get(id);
+
+      return category ? { ...category, depth } : null;
+    })
+    .filter((category): category is NonNullable<typeof category> =>
+      Boolean(category),
+    );
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
@@ -115,7 +148,7 @@ export default async function AdminCategoriesPage({
 
       <AdminCategoryManager
         locale={activeLocale}
-        categories={Array.from(categoryMap.values())}
+        categories={sortedCategories}
         products={allProducts.map((product) => ({
           id: product.id,
           title: getTranslatedText(product.title, activeLocale, product.slug),

@@ -1,6 +1,7 @@
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { and, count, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 
+import { getCategoryAndDescendantIds } from "@/lib/categories";
 import { db } from "@/lib/db";
 import {
   categories,
@@ -99,6 +100,8 @@ export const getCachedCategoryBySlug = unstable_cache(
     const [category] = await db
       .select({
         id: categories.id,
+        parentId: categories.parentId,
+        slug: categories.slug,
         name: categories.name,
       })
       .from(categories)
@@ -119,6 +122,7 @@ export const getCachedPublicCategories = unstable_cache(
     return db
       .select({
         id: categories.id,
+        parentId: categories.parentId,
         slug: categories.slug,
         name: categories.name,
       })
@@ -162,30 +166,42 @@ export const getCachedHomepageCategorySliders = unstable_cache(
     }
 
     const categoryIds = enabledSections.map((section) => section.categoryId);
-    const [categoryRows, productRows] = await Promise.all([
-      db
-        .select({
-          id: categories.id,
-          slug: categories.slug,
-          name: categories.name,
-        })
-        .from(categories)
-        .where(inArray(categories.id, categoryIds)),
-      db
-        .select({
-          categoryId: productCategories.categoryId,
-          product: products,
-        })
-        .from(productCategories)
-        .innerJoin(products, eq(products.id, productCategories.productId))
-        .where(
-          and(
-            inArray(productCategories.categoryId, categoryIds),
-            publicProductWhere(),
-          ),
-        )
-        .orderBy(desc(products.createdAt)),
-    ]);
+    const categoryRows = await db
+      .select({
+        id: categories.id,
+        parentId: categories.parentId,
+        slug: categories.slug,
+        name: categories.name,
+      })
+      .from(categories);
+    const descendantCategoryIdsById = new Map<string, string[]>();
+
+    for (const categoryId of categoryIds) {
+      descendantCategoryIdsById.set(
+        categoryId,
+        getCategoryAndDescendantIds(categoryRows, categoryId),
+      );
+    }
+    const productCategoryIds = Array.from(
+      new Set(Array.from(descendantCategoryIdsById.values()).flat()),
+    );
+    const productRows =
+      productCategoryIds.length > 0
+        ? await db
+            .select({
+              categoryId: productCategories.categoryId,
+              product: products,
+            })
+            .from(productCategories)
+            .innerJoin(products, eq(products.id, productCategories.productId))
+            .where(
+              and(
+                inArray(productCategories.categoryId, productCategoryIds),
+                publicProductWhere(),
+              ),
+            )
+            .orderBy(desc(products.createdAt))
+        : [];
     const categoriesById = new Map(
       categoryRows.map((category) => [category.id, category]),
     );
@@ -201,7 +217,22 @@ export const getCachedHomepageCategorySliders = unstable_cache(
 
     const sections = enabledSections.map((section) => {
       const category = categoriesById.get(section.categoryId);
-      const sectionProducts = productsByCategoryId.get(section.categoryId) ?? [];
+      const descendantCategoryIds =
+        descendantCategoryIdsById.get(section.categoryId) ?? [
+          section.categoryId,
+        ];
+      const seenProductIds = new Set<string>();
+      const sectionProducts = descendantCategoryIds
+        .flatMap((categoryId) => productsByCategoryId.get(categoryId) ?? [])
+        .filter((product) => {
+          if (seenProductIds.has(product.id)) {
+            return false;
+          }
+
+          seenProductIds.add(product.id);
+          return true;
+        })
+        .slice(0, settings.productsPerSlider);
 
       if (!category || sectionProducts.length === 0) {
         return null;
@@ -231,7 +262,29 @@ export const getCachedPublicCategoryProducts = unstable_cache(
   async (slug: string, page = 1, perPage = PUBLIC_PRODUCTS_PER_PAGE) => {
     const safePage = Math.max(Math.floor(page), 1);
     const safePerPage = Math.min(Math.max(Math.floor(perPage), 1), 48);
-    const where = and(eq(categories.slug, slug), publicProductWhere());
+    const [category] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(eq(categories.slug, slug))
+      .limit(1);
+
+    if (!category) {
+      return {
+        items: [],
+        total: 0,
+        page: 1,
+        perPage: safePerPage,
+      };
+    }
+
+    const categoryRows = await db
+      .select({ id: categories.id, parentId: categories.parentId })
+      .from(categories);
+    const categoryIds = getCategoryAndDescendantIds(categoryRows, category.id);
+    const where = and(
+      inArray(productCategories.categoryId, categoryIds),
+      publicProductWhere(),
+    );
     const [totalResult] = await db
       .select({ value: count() })
       .from(products)

@@ -101,7 +101,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
           )}
 
           <div className="border border-black p-4 text-sm">
-            {preorderShipDate ? (
+            {product.isDigital ? (
+              <p className="font-black uppercase tracking-widest">
+                {activeLocale === "ro"
+                  ? "Produs digital. Disponibil pentru descarcare dupa plata."
+                  : "Digital product. Available to download after payment."}
+              </p>
+            ) : preorderShipDate ? (
               <p className="font-black uppercase tracking-widest">
                 {activeLocale === "ro"
                   ? `Livrarea incepe din ${preorderShipDate}`
@@ -127,6 +133,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 saleEnabled: product.saleEnabled,
                 saleStartsAt: toIsoString(product.saleStartsAt),
                 saleEndsAt: toIsoString(product.saleEndsAt),
+                isDigital: product.isDigital,
               }}
               variants={variants.map((variant) => ({
                 id: variant.id,

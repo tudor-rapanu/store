@@ -5,9 +5,11 @@ import { CatalogPagination } from "@/components/catalog/CatalogPagination";
 import { ProductCard } from "@/components/product/ProductCard";
 import {
   getCachedCategoryBySlug,
+  getCachedPublicCategories,
   getCachedPublicCategoryProducts,
   PUBLIC_PRODUCTS_PER_PAGE,
 } from "@/lib/catalog/cache";
+import { getDirectSubcategories } from "@/lib/categories";
 import { getCurrencyPresentation } from "@/lib/currency/display";
 import { getCatalogAutomaticDiscountPrices } from "@/lib/discounts";
 import { getTranslatedText } from "@/lib/i18n/text";
@@ -59,14 +61,16 @@ export default async function CategoryPage({
     notFound();
   }
 
-  const [catalog, currencyPresentation] = await Promise.all([
+  const [catalog, currencyPresentation, publicCategories] = await Promise.all([
     getCachedPublicCategoryProducts(slug, currentPage, PUBLIC_PRODUCTS_PER_PAGE),
     getCurrencyPresentation(),
+    getCachedPublicCategories(),
   ]);
   const { items, total, page: resolvedPage, perPage } = catalog;
   const totalPages = Math.max(Math.ceil(total / perPage), 1);
   const title = getTranslatedText(category?.name, activeLocale, slug);
   const catalogDiscounts = await getCatalogAutomaticDiscountPrices(items);
+  const subcategories = getDirectSubcategories(publicCategories, category.id);
 
   return (
     <main className="max-w-7xl mx-auto px-8 py-16">
@@ -78,6 +82,29 @@ export default async function CategoryPage({
           {title}
         </h1>
       </div>
+
+      {subcategories.length > 0 && (
+        <section className="mb-12">
+          <h2 className="mb-4 text-xs font-black uppercase tracking-widest text-slate-500">
+            Subcategories
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {subcategories.map((subcategory) => (
+              <a
+                key={subcategory.id}
+                href={`/${activeLocale}/category/${subcategory.slug}`}
+                className="border border-black p-4 text-sm font-black uppercase tracking-widest transition-colors hover:bg-black hover:text-white"
+              >
+                {getTranslatedText(
+                  subcategory.name,
+                  activeLocale,
+                  subcategory.slug,
+                )}
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       {items.length === 0 ? (
         <div className="text-slate-500 uppercase tracking-widest text-sm">

@@ -24,7 +24,7 @@ export default async function NewProductPage({ params }: NewProductPageProps) {
   ]);
 
   return (
-    <main className="max-w-3xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
+    <main className="max-w-6xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
       <div className="mb-8 border-b border-black pb-4">
         <h1 className="text-4xl font-black tracking-tighter uppercase">
           Add New Product

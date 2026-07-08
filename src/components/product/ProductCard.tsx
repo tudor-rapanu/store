@@ -41,7 +41,7 @@ export function ProductCard({
   };
 }) {
   const displayTitle = getTranslatedText(product.title, locale, product.slug);
-  const imageSrc = getProductImageSrc(product.imageUrl, "card");
+  const imageSrc = getProductImageSrc(product.imageUrl, "large");
   const price = getProductPricePresentation(product);
   const finalPrice = catalogDiscount?.discountedPrice ?? price.effectivePrice;
   const comparisonPrice = price.isOnSale ? price.regularPrice : price.effectivePrice;

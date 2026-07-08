@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { StatusBadge } from "@/components/order/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +43,11 @@ const fulfillmentStatuses: FulfillmentStatus[] = [
   "cancelled",
   "refunded",
 ];
-const shippingMethods: ShippingMethod[] = ["address", "easybox", "international"];
+const shippingMethods: ShippingMethod[] = [
+  "address",
+  "easybox",
+  "international",
+];
 const invoiceStatuses: InvoiceStatus[] = [
   "not_generated",
   "generated",
@@ -79,7 +84,9 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
       router.refresh();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "The order could not be saved.",
+        error instanceof Error
+          ? error.message
+          : "The order could not be saved.",
       );
     } finally {
       setIsPending(false);
@@ -88,6 +95,12 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
 
   return (
     <section className="space-y-6 border border-black p-4">
+      <div className="flex flex-wrap gap-2">
+        <StatusBadge value={draft.paymentStatus} className="py-1" />
+        <StatusBadge value={draft.fulfillmentStatus} className="py-1" />
+        <StatusBadge value={draft.invoiceStatus} className="py-1" />
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3">
         <SelectField
           label="Payment status"
@@ -126,7 +139,9 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <TextField
-          label={isInternational ? "Posta Romana tracking number" : "AWB number"}
+          label={
+            isInternational ? "Posta Romana tracking number" : "AWB number"
+          }
           value={draft.awbNumber ?? ""}
           onChange={(value) =>
             setDraft((current) => ({ ...current, awbNumber: value }))
@@ -204,7 +219,7 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
         type="button"
         disabled={isPending}
         onClick={saveOrder}
-        className="h-11 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
+        className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
       >
         {isPending ? "Saving..." : "Save Order"}
       </Button>

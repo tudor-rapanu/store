@@ -117,7 +117,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
   );
 
   return (
-    <main className="max-w-3xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
+    <main className="max-w-6xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
       <div className="mb-8 flex items-end justify-between gap-4 border-b border-black pb-4">
         <div>
           <h1 className="text-4xl font-black tracking-tighter uppercase">

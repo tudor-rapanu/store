@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
@@ -185,9 +186,12 @@ export async function POST(
   }
 
   revalidateCatalogViews({ productSlugs: [duplicatedProduct.slug] });
+  revalidatePath("/en/admin/products");
+  revalidatePath("/ro/admin/products");
 
   return NextResponse.json({
     ok: true,
+    productId: duplicatedProduct.id,
     redirectTo: `/${locale}/admin/products/${duplicatedProduct.id}/edit`,
   });
 }

@@ -66,14 +66,14 @@ export function CookieConsentBanner({ locale }: CookieConsentBannerProps) {
             type="button"
             variant="outline"
             onClick={() => chooseConsent("declined")}
-            className="h-11 rounded-none border-black text-xs font-bold uppercase tracking-widest"
+            className="h-12 rounded-none border-black text-xs font-bold uppercase tracking-widest"
           >
             Decline
           </Button>
           <Button
             type="button"
             onClick={() => chooseConsent("accepted")}
-            className="h-11 rounded-none bg-black text-xs font-bold uppercase tracking-widest text-white hover:bg-slate-900"
+            className="h-12 rounded-none bg-black text-xs font-bold uppercase tracking-widest text-white hover:bg-slate-900"
           >
             Accept
           </Button>

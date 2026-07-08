@@ -72,10 +72,13 @@ export function SamedayLocationSync({
           ? `${force ? "Refreshed" : "Synced"} ${countiesToSync.length} counties and ${syncedCities} new cities. Skipped ${skippedCounties} complete counties with ${skippedCachedCities} cached cities. First skipped: ${skippedDetails[0] ?? "none"}. ${failures.length} counties failed. First failure: ${failures[0]}`
           : `${force ? "Refreshed" : "Synced"} ${countiesToSync.length} counties and ${syncedCities} new cities. Skipped ${skippedCounties} complete counties with ${skippedCachedCities} cached cities. First skipped: ${skippedDetails[0] ?? "none"}.`;
 
-      setDisplayCountyCount((current) => Math.max(current, countiesToSync.length));
+      setDisplayCountyCount((current) =>
+        Math.max(current, countiesToSync.length),
+      );
       setMessage(finalMessage);
       showToast({
-        title: failures.length > 0 ? "Sync completed with issues" : "Sync complete",
+        title:
+          failures.length > 0 ? "Sync completed with issues" : "Sync complete",
         description: finalMessage,
         variant: failures.length > 0 ? "error" : "success",
       });
@@ -207,7 +210,7 @@ export function SamedayLocationSync({
           type="button"
           disabled={isSyncing}
           onClick={() => syncLocations(false)}
-          className="h-11 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSyncing ? "Syncing..." : "Sync Missing Locations"}
         </Button>
@@ -216,7 +219,7 @@ export function SamedayLocationSync({
           disabled={isSyncing}
           variant="outline"
           onClick={() => syncLocations(true)}
-          className="h-11 rounded-none border-black px-6 text-xs font-black uppercase tracking-widest disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-12 rounded-none border-black px-6 text-xs font-black uppercase tracking-widest disabled:cursor-not-allowed disabled:opacity-50"
         >
           Refresh All Locations
         </Button>

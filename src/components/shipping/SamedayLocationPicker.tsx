@@ -191,7 +191,7 @@ export function SamedayLocationPicker({
           required
           disabled={isLoadingCounties}
         >
-          <SelectTrigger id="county" className="rounded-none border-black h-11">
+          <SelectTrigger id="county" className="rounded-none border-black h-12">
             <SelectValue
               placeholder={
                 isLoadingCounties ? "Loading counties" : "Select county"
@@ -240,7 +240,7 @@ export function SamedayLocationPicker({
             }}
             disabled={!countyId}
             required
-            className="rounded-none border-black h-11"
+            className="rounded-none border-black h-12"
             placeholder={countyId ? "Type city name" : "Select county first"}
             autoComplete="off"
           />

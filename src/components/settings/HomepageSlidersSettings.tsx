@@ -160,7 +160,7 @@ export function HomepageSlidersSettings({
           step={1}
           value={draftLimit}
           onChange={(event) => setDraftLimit(event.target.value)}
-          className="h-11 max-w-40 rounded-none border-black"
+          className="h-12 max-w-40 rounded-none border-black"
         />
       </div>
 
@@ -217,7 +217,7 @@ export function HomepageSlidersSettings({
         type="button"
         disabled={isSaving}
         onClick={saveSettings}
-        className="h-11 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isSaving ? "Saving..." : "Save Homepage Sliders"}
       </Button>

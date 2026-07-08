@@ -204,7 +204,8 @@ export function SizeGuidesSettings({ sizeGuides }: SizeGuidesSettingsProps) {
             Size Guides
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            Create reusable measurement tables and assign them to clothing products.
+            Create reusable measurement tables and assign them to clothing
+            products.
           </p>
         </div>
         <Button
@@ -358,7 +359,12 @@ export function SizeGuidesSettings({ sizeGuides }: SizeGuidesSettingsProps) {
                       <Input
                         value={row.label}
                         onChange={(event) =>
-                          updateRow(index, rowIndex, "label", event.target.value)
+                          updateRow(
+                            index,
+                            rowIndex,
+                            "label",
+                            event.target.value,
+                          )
                         }
                         placeholder="A"
                         className="h-10 rounded-none border-black"
@@ -366,7 +372,12 @@ export function SizeGuidesSettings({ sizeGuides }: SizeGuidesSettingsProps) {
                       <Input
                         value={row.values.join(", ")}
                         onChange={(event) =>
-                          updateRow(index, rowIndex, "values", event.target.value)
+                          updateRow(
+                            index,
+                            rowIndex,
+                            "values",
+                            event.target.value,
+                          )
                         }
                         placeholder="49.5, 53.5, 56.5"
                         className="h-10 rounded-none border-black"
@@ -379,7 +390,8 @@ export function SizeGuidesSettings({ sizeGuides }: SizeGuidesSettingsProps) {
                           updateGuide(index, (current) => ({
                             ...current,
                             rows: current.rows.filter(
-                              (_, currentRowIndex) => currentRowIndex !== rowIndex,
+                              (_, currentRowIndex) =>
+                                currentRowIndex !== rowIndex,
                             ),
                           }))
                         }
@@ -416,7 +428,7 @@ export function SizeGuidesSettings({ sizeGuides }: SizeGuidesSettingsProps) {
         type="button"
         disabled={isSaving}
         onClick={saveSizeGuides}
-        className="h-11 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isSaving ? "Saving..." : "Save Size Guides"}
       </Button>
@@ -502,7 +514,7 @@ function TextField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="h-11 rounded-none border-black"
+        className="h-12 rounded-none border-black"
       />
     </div>
   );

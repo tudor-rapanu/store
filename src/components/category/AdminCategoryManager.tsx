@@ -57,10 +57,7 @@ export function AdminCategoryManager({
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [drafts, setDrafts] = useState(() =>
     Object.fromEntries(
-      categories.map((category) => [
-        category.id,
-        getCategoryDraft(category),
-      ]),
+      categories.map((category) => [category.id, getCategoryDraft(category)]),
     ),
   );
   const mergedDrafts = useMemo(
@@ -74,11 +71,7 @@ export function AdminCategoryManager({
     [categories, drafts],
   );
 
-  async function requestJson(
-    key: string,
-    url: string,
-    options: RequestInit,
-  ) {
+  async function requestJson(key: string, url: string, options: RequestInit) {
     setError(null);
     setPendingKey(key);
 
@@ -166,7 +159,7 @@ export function AdminCategoryManager({
             id="nameEn"
             name="nameEn"
             required
-            className="h-11 rounded-none border-black"
+            className="h-12 rounded-none border-black"
           />
         </div>
         <div className="space-y-2">
@@ -179,7 +172,7 @@ export function AdminCategoryManager({
           <Input
             id="nameRo"
             name="nameRo"
-            className="h-11 rounded-none border-black"
+            className="h-12 rounded-none border-black"
           />
         </div>
         <div className="space-y-2">
@@ -192,7 +185,7 @@ export function AdminCategoryManager({
           <select
             id="parentId"
             name="parentId"
-            className="h-11 w-full rounded-none border border-black bg-white px-3 text-sm"
+            className="h-12 w-full rounded-none border border-black bg-white px-3 text-sm"
           >
             <option value="">Main category</option>
             {categories.map((category) => (
@@ -217,13 +210,13 @@ export function AdminCategoryManager({
             id="slug"
             name="slug"
             placeholder="auto if empty"
-            className="h-11 rounded-none border-black"
+            className="h-12 rounded-none border-black"
           />
         </div>
         <Button
           type="submit"
           disabled={pendingKey === "create"}
-          className="h-11 rounded-none bg-black px-5 text-white hover:bg-slate-900"
+          className="h-12 rounded-none bg-black px-5 text-white hover:bg-slate-900"
         >
           <Plus size={16} /> Create
         </Button>
@@ -281,7 +274,11 @@ function CategoryRow({
     field: "nameEn" | "nameRo" | "slug" | "parentId",
     value: string,
   ) => void;
-  onRequest: (key: string, url: string, options: RequestInit) => Promise<boolean>;
+  onRequest: (
+    key: string,
+    url: string,
+    options: RequestInit,
+  ) => Promise<boolean>;
 }) {
   const linkedProductIds = useMemo(
     () => new Set(category.products.map((product) => product.id)),
@@ -367,10 +364,14 @@ function CategoryRow({
             variant="outline"
             disabled={pendingKey === `save-${category.id}`}
             onClick={() =>
-              onRequest(`save-${category.id}`, `/api/admin/categories/${category.id}`, {
-                method: "PATCH",
-                body: JSON.stringify(draft),
-              })
+              onRequest(
+                `save-${category.id}`,
+                `/api/admin/categories/${category.id}`,
+                {
+                  method: "PATCH",
+                  body: JSON.stringify(draft),
+                },
+              )
             }
             className="h-10 rounded-none border-black text-xs font-bold uppercase tracking-widest"
           >
@@ -381,7 +382,9 @@ function CategoryRow({
             variant="outline"
             disabled={pendingKey === `delete-${category.id}`}
             onClick={() => {
-              if (window.confirm("Delete this category? Products stay intact.")) {
+              if (
+                window.confirm("Delete this category? Products stay intact.")
+              ) {
                 void onRequest(
                   `delete-${category.id}`,
                   `/api/admin/categories/${category.id}`,
@@ -430,7 +433,9 @@ function CategoryRow({
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={pendingKey === `unlink-${category.id}-${product.id}`}
+                    disabled={
+                      pendingKey === `unlink-${category.id}-${product.id}`
+                    }
                     onClick={() =>
                       onRequest(
                         `unlink-${category.id}-${product.id}`,
@@ -466,7 +471,9 @@ function CategoryRow({
           </select>
           <Button
             type="button"
-            disabled={!selectedProductId || pendingKey === `link-${category.id}`}
+            disabled={
+              !selectedProductId || pendingKey === `link-${category.id}`
+            }
             onClick={() =>
               onRequest(
                 `link-${category.id}`,

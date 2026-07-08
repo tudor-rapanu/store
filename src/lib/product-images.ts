@@ -66,7 +66,7 @@ function getProductImageVariantPath(
 ) {
   const trimmedPath = imagePath.trim();
   const match = trimmedPath.match(
-    /^(.*\/catalog\/normalized\/[^/]+)\/large\.webp$/,
+    /^(.*(?:^|\/)catalog\/normalized\/[^/]+)\/large\.webp$/,
   );
 
   if (!match) {

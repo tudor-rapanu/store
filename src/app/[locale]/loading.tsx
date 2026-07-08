@@ -11,7 +11,7 @@ export default function LocaleLoading() {
         <div className="space-y-4">
           <div className="h-4 animate-pulse bg-slate-100" />
           <div className="h-4 w-4/5 animate-pulse bg-slate-100" />
-          <div className="h-11 w-40 animate-pulse bg-slate-100" />
+          <div className="h-12 w-40 animate-pulse bg-slate-100" />
         </div>
       </section>
 

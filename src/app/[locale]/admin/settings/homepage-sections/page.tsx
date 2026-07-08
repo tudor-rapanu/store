@@ -43,7 +43,7 @@ export default async function HomepageSectionsSettingsPage({
   ]);
 
   return (
-    <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-5xl px-4 py-16">
+    <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl px-4 py-16">
       <SettingsHeader
         activeLocale={activeLocale}
         title="Homepage Sections"

@@ -32,11 +32,11 @@ export function DuplicateProductButton({
         redirectTo?: string;
       };
 
-      if (!response.ok || !result.ok || !result.redirectTo) {
+      if (!response.ok || !result.ok) {
         throw new Error(result.error ?? "Product could not be duplicated.");
       }
 
-      router.push(result.redirectTo);
+      router.replace(`/${locale}/admin/products?updated=${Date.now()}`);
       router.refresh();
     } catch (error) {
       window.alert(

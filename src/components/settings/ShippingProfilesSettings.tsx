@@ -161,7 +161,7 @@ export function ShippingProfilesSettings({
             step="0.0001"
             value={ronToEurRate}
             onChange={(event) => setRonToEurRate(event.target.value)}
-            className="h-11 rounded-none border-black"
+            className="h-12 rounded-none border-black"
           />
           <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Example: 0.20 means 100 RON displays as about 20 EUR.
@@ -173,7 +173,7 @@ export function ShippingProfilesSettings({
         type="button"
         disabled={isSaving}
         onClick={saveProfiles}
-        className="h-11 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isSaving ? "Saving..." : "Save Shipping Profiles"}
       </Button>
@@ -208,7 +208,7 @@ function AmountField({
           step="0.01"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-11 rounded-none border-0"
+          className="h-12 rounded-none border-0"
         />
         <span className="px-3 text-xs font-black uppercase tracking-widest">
           RON

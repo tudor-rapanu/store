@@ -139,7 +139,9 @@ export function ImportProductsCsv() {
       router.refresh();
     } catch (error) {
       setErrors([
-        error instanceof Error ? error.message : "The import could not be completed.",
+        error instanceof Error
+          ? error.message
+          : "The import could not be completed.",
       ]);
     } finally {
       setIsPending(false);
@@ -154,7 +156,7 @@ export function ImportProductsCsv() {
       </summary>
       <div className="space-y-4 border-t border-black p-4">
         <div className="grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-center">
-          <label className="flex min-h-11 cursor-pointer items-center gap-3 border border-black px-4 text-xs font-bold uppercase tracking-widest">
+          <label className="flex min-h-12 cursor-pointer items-center gap-3 border border-black px-4 text-xs font-bold uppercase tracking-widest">
             <FileUp size={16} />
             <span>{fileName || "Choose CSV"}</span>
             <input
@@ -168,7 +170,7 @@ export function ImportProductsCsv() {
             type="button"
             variant="outline"
             asChild
-            className="h-11 rounded-none border-black text-xs font-bold uppercase tracking-widest"
+            className="h-12 rounded-none border-black text-xs font-bold uppercase tracking-widest"
           >
             <a href={sampleHref} download="product-import-template.csv">
               Template
@@ -178,7 +180,7 @@ export function ImportProductsCsv() {
             type="button"
             disabled={rows.length === 0 || isPending}
             onClick={importRows}
-            className="h-11 rounded-none bg-black text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
+            className="h-12 rounded-none bg-black text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
           >
             {isPending ? "Importing..." : `Import ${rows.length || ""}`}
           </Button>
@@ -186,18 +188,17 @@ export function ImportProductsCsv() {
 
         <div className="text-xs leading-6 text-slate-600">
           Required columns: <code>titleEn</code>, <code>price</code>,{" "}
-          <code>imageUrl</code> or <code>imageUrls</code>. Optional:
-          {" "}
+          <code>imageUrl</code> or <code>imageUrls</code>. Optional:{" "}
           <code>titleRo</code>, <code>descriptionEn</code>,{" "}
-          <code>descriptionRo</code>, <code>slug</code>,{" "}
-          <code>categories</code>, <code>isDigital</code>,{" "}
-          <code>trackStock</code>, <code>stock</code>,{" "}
+          <code>descriptionRo</code>, <code>slug</code>, <code>categories</code>
+          , <code>isDigital</code>, <code>trackStock</code>, <code>stock</code>,{" "}
           <code>digitalFileUrl</code>, <code>digitalFileUrls</code>,{" "}
-          <code>isPrivate</code>, <code>variants</code>, <code>variantType1</code>,{" "}
-          <code>variantValues1</code>, <code>variantType2</code>,{" "}
-          <code>variantValues2</code>, <code>variantType3</code>,{" "}
-          <code>variantValues3</code>, <code>variantPrice</code>,{" "}
-          <code>variantTrackStock</code>, <code>variantStock</code>. Use <code>|</code> between multiple image
+          <code>isPrivate</code>, <code>variants</code>,{" "}
+          <code>variantType1</code>, <code>variantValues1</code>,{" "}
+          <code>variantType2</code>, <code>variantValues2</code>,{" "}
+          <code>variantType3</code>, <code>variantValues3</code>,{" "}
+          <code>variantPrice</code>, <code>variantTrackStock</code>,{" "}
+          <code>variantStock</code>. Use <code>|</code> between multiple image
           URLs, categories, or variant values. Use <code>&gt;</code> inside a
           category value to create a subcategory path, for example{" "}
           <code>Patches &gt; F1</code>. For digital products, set{" "}
@@ -218,7 +219,9 @@ export function ImportProductsCsv() {
             {errors.slice(0, 8).map((error) => (
               <div key={error}>{error}</div>
             ))}
-            {errors.length > 8 && <div>And {errors.length - 8} more errors.</div>}
+            {errors.length > 8 && (
+              <div>And {errors.length - 8} more errors.</div>
+            )}
           </div>
         )}
       </div>

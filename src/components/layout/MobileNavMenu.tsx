@@ -221,7 +221,7 @@ export function MobileNavMenu({
                 <input type="hidden" name="locale" value={locale} />
                 <Button
                   type="submit"
-                  className="h-11 w-full uppercase rounded-none bg-black text-white hover:bg-slate-800"
+                  className="h-12 w-full uppercase rounded-none bg-black text-white hover:bg-slate-800"
                 >
                   Logout
                 </Button>

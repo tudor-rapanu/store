@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import { AdminOrderEditor } from "@/components/order/AdminOrderEditor";
 import { AdminOrderItemsManager } from "@/components/order/AdminOrderItemsManager";
 import { SamedayAwbPanel } from "@/components/order/SamedayAwbPanel";
+import { StatusBadge } from "@/components/order/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { isAdminUser } from "@/lib/admin-auth";
 import { markStaleNetopiaOrdersFailed } from "@/lib/actions/orders";
@@ -141,7 +142,7 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
   );
 
   return (
-    <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-5xl px-4 py-16">
+    <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl px-4 py-16">
       <div className="mb-8 flex items-end justify-between gap-4 border-b border-black pb-4">
         <div>
           <h1 className="text-4xl font-black uppercase tracking-tighter">
@@ -150,6 +151,11 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
           <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
             {new Date(order.createdAt).toLocaleString("ro-RO")}
           </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <StatusBadge value={order.paymentStatus} className="py-1" />
+            <StatusBadge value={order.fulfillmentStatus} className="py-1" />
+            <StatusBadge value={order.invoiceStatus} className="py-1" />
+          </div>
         </div>
         <Button
           asChild
@@ -226,7 +232,10 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
 
           <InfoBox title="Payment">
             <p>Method: {order.paymentMethod.replaceAll("_", " ")}</p>
-            <p>Status: {order.paymentStatus}</p>
+            <div className="flex items-center gap-2">
+              <span>Status:</span>
+              <StatusBadge value={order.paymentStatus} className="py-1" />
+            </div>
             <p>Subtotal: {(order.subtotalAmount / 100).toFixed(2)} RON</p>
             {order.discountAmount > 0 && (
               <p>Discount: -{(order.discountAmount / 100).toFixed(2)} RON</p>

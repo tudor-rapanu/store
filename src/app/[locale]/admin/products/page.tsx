@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteProductButton } from "@/components/product/DeleteProductButton";
 import { DuplicateProductButton } from "@/components/product/DuplicateProductButton";
 import { ImportProductsCsv } from "@/components/product/ImportProductsCsv";
+import { StatusBadge } from "@/components/order/StatusBadge";
 import { db } from "@/lib/db";
 import { products } from "@/lib/db/schema";
 import { formatFulfillmentDate } from "@/lib/fulfillment/estimate";
@@ -63,7 +64,7 @@ export default async function AdminProductsPage({
     .offset(offset);
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
+    <main className="max-w-6xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
       <div className="mb-8 flex items-end justify-between border-b border-black pb-4">
         <div>
           <h1 className="text-4xl font-black tracking-tighter uppercase">
@@ -130,17 +131,17 @@ export default async function AdminProductsPage({
                       {product.slug} / {(price.effectivePrice / 100).toFixed(2)} RON
                       {price.isOnSale ? " sale" : ""}
                     </p>
-                    {product.isPrivate && (
-                      <p className="mt-1 text-xs font-black uppercase tracking-widest text-destructive">
-                        Private
-                      </p>
-                    )}
-                    {isScheduled && product.publishAt && (
-                      <p className="mt-1 text-xs font-black uppercase tracking-widest text-amber-700">
-                        Scheduled for{" "}
-                        {formatFulfillmentDate(product.publishAt, activeLocale)}
-                      </p>
-                    )}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {product.isPrivate && (
+                        <StatusBadge value="private" className="px-2 py-1" />
+                      )}
+                      {isScheduled && product.publishAt && (
+                        <StatusBadge
+                          value={`scheduled ${formatFulfillmentDate(product.publishAt, activeLocale)}`}
+                          className="px-2 py-1"
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">

@@ -93,11 +93,15 @@ export function SamedayAwbPanel({
   const selectedPickupPointContactIds = useMemo(
     () =>
       new Set(
-        (selectedPickupPoint?.contactPersons ?? []).map((contact) => contact.id),
+        (selectedPickupPoint?.contactPersons ?? []).map(
+          (contact) => contact.id,
+        ),
       ),
     [selectedPickupPoint],
   );
-  const activeContactPersonId = selectedPickupPointContactIds.has(contactPersonId)
+  const activeContactPersonId = selectedPickupPointContactIds.has(
+    contactPersonId,
+  )
     ? contactPersonId
     : "";
   const canGenerate = paymentStatus === "paid" && !awbNumber;
@@ -118,10 +122,10 @@ export function SamedayAwbPanel({
 
   const selectPickupPoint = useCallback(
     (pointId: string, points = pickupPoints) => {
-    setPickupPointId(pointId);
-    setContactPersonId(
-      getDefaultContactId(points.find((point) => point.id === pointId)),
-    );
+      setPickupPointId(pointId);
+      setContactPersonId(
+        getDefaultContactId(points.find((point) => point.id === pointId)),
+      );
     },
     [getDefaultContactId, pickupPoints],
   );
@@ -184,7 +188,9 @@ export function SamedayAwbPanel({
         }
       } catch (error) {
         setMessage(
-          error instanceof Error ? error.message : "Could not load Sameday data.",
+          error instanceof Error
+            ? error.message
+            : "Could not load Sameday data.",
         );
       } finally {
         setIsLoadingData(false);
@@ -218,7 +224,10 @@ export function SamedayAwbPanel({
     }
 
     setMessage(null);
-    const url = new URL("/api/admin/shipping/sameday/cities", window.location.origin);
+    const url = new URL(
+      "/api/admin/shipping/sameday/cities",
+      window.location.origin,
+    );
     url.searchParams.set("countyId", countyId);
     if (citySearch.trim()) {
       url.searchParams.set("name", citySearch.trim());
@@ -242,9 +251,9 @@ export function SamedayAwbPanel({
     setMessage(null);
     setIsGenerating(true);
     const payload = {
-          pickupPointId,
-          contactPersonId: activeContactPersonId,
-          packageType,
+      pickupPointId,
+      contactPersonId: activeContactPersonId,
+      packageType,
       packageWeight: weight,
       packageWidth: width,
       packageLength: length,
@@ -262,11 +271,14 @@ export function SamedayAwbPanel({
     });
 
     try {
-      const response = await fetch(`/api/admin/orders/${orderId}/generate-awb`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        `/api/admin/orders/${orderId}/generate-awb`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       const data = (await response.json()) as {
         ok?: boolean;
         error?: string;
@@ -401,7 +413,8 @@ export function SamedayAwbPanel({
                       Contact person
                     </Label>
                     <div className="border border-red-200 bg-red-50 p-3 text-xs font-bold uppercase tracking-wider text-red-700">
-                      This pickup point has no contact person returned by Sameday.
+                      This pickup point has no contact person returned by
+                      Sameday.
                     </div>
                   </div>
                 )}
@@ -466,10 +479,22 @@ export function SamedayAwbPanel({
                     { value: "2", label: "Large" },
                   ]}
                 />
-                <NumberField label="Weight" value={weight} onChange={setWeight} />
+                <NumberField
+                  label="Weight"
+                  value={weight}
+                  onChange={setWeight}
+                />
                 <NumberField label="Width" value={width} onChange={setWidth} />
-                <NumberField label="Length" value={length} onChange={setLength} />
-                <NumberField label="Height" value={height} onChange={setHeight} />
+                <NumberField
+                  label="Length"
+                  value={length}
+                  onChange={setLength}
+                />
+                <NumberField
+                  label="Height"
+                  value={height}
+                  onChange={setHeight}
+                />
               </div>
 
               <div className="space-y-2">
@@ -497,7 +522,8 @@ export function SamedayAwbPanel({
 
               {personalEasyboxLoad && (
                 <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                  The PDO service tax id will be fetched from your Sameday services.
+                  The PDO service tax id will be fetched from your Sameday
+                  services.
                 </p>
               )}
 
@@ -505,7 +531,7 @@ export function SamedayAwbPanel({
                 type="button"
                 disabled={!canSubmitAwb || isGenerating}
                 onClick={generateAwb}
-                className="h-11 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isGenerating ? "Generating..." : "Generate Home AWB"}
               </Button>

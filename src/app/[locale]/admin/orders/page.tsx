@@ -3,6 +3,7 @@ import { and, count, desc, eq, ilike, or } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
+import { StatusBadge } from "@/components/order/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { isAdminUser } from "@/lib/admin-auth";
 import { markStaleNetopiaOrdersFailed } from "@/lib/actions/orders";
@@ -216,8 +217,8 @@ export default async function AdminOrdersPage({
                   {order.customerEmail} / {order.customerPhone}
                 </div>
               </div>
-              <StatusPill value={order.paymentStatus} />
-              <StatusPill value={order.fulfillmentStatus} />
+              <StatusBadge value={order.paymentStatus} />
+              <StatusBadge value={order.fulfillmentStatus} />
               <div className="text-sm font-bold">
                 {(order.totalAmount / 100).toFixed(2)} RON
               </div>
@@ -290,13 +291,5 @@ function FilterSelect({
         </option>
       ))}
     </select>
-  );
-}
-
-function StatusPill({ value }: { value: string }) {
-  return (
-    <span className="w-fit border border-black px-3 py-2 text-xs font-black uppercase tracking-widest">
-      {value.replaceAll("_", " ")}
-    </span>
   );
 }

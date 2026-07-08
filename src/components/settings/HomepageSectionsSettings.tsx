@@ -67,9 +67,8 @@ function getString(content: Record<string, unknown>, key: string) {
 
 function getSlides(content: Record<string, unknown>) {
   return Array.isArray(content.slides)
-    ? content.slides.filter(
-        (slide): slide is Record<string, unknown> =>
-          Boolean(slide && typeof slide === "object" && !Array.isArray(slide)),
+    ? content.slides.filter((slide): slide is Record<string, unknown> =>
+        Boolean(slide && typeof slide === "object" && !Array.isArray(slide)),
       )
     : [];
 }
@@ -314,7 +313,7 @@ export function HomepageSectionsSettings({
         type="button"
         disabled={isSaving}
         onClick={saveSections}
-        className="h-11 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isSaving ? "Saving..." : "Save Homepage Sections"}
       </Button>

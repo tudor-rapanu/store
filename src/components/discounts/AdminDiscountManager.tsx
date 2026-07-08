@@ -152,14 +152,18 @@ export function AdminDiscountManager({
         </h2>
 
         <Field label="Name">
-          <Input name="name" required className="h-11 rounded-none border-black" />
+          <Input
+            name="name"
+            required
+            className="h-12 rounded-none border-black"
+          />
         </Field>
 
         <Field label="Mode">
           <select
             value={kind}
             onChange={(event) => setKind(event.target.value as DiscountKind)}
-            className="h-11 w-full rounded-none border border-black bg-white px-3"
+            className="h-12 w-full rounded-none border border-black bg-white px-3"
           >
             <option value="automatic">Automatic</option>
             <option value="voucher">Voucher code</option>
@@ -171,7 +175,7 @@ export function AdminDiscountManager({
             <Input
               name="code"
               required
-              className="h-11 rounded-none border-black uppercase"
+              className="h-12 rounded-none border-black uppercase"
             />
           </Field>
         )}
@@ -181,7 +185,7 @@ export function AdminDiscountManager({
             <select
               value={type}
               onChange={(event) => setType(event.target.value as DiscountType)}
-              className="h-11 w-full rounded-none border border-black bg-white px-3"
+              className="h-12 w-full rounded-none border border-black bg-white px-3"
             >
               <option value="percentage">Percentage</option>
               <option value="fixed">Fixed RON</option>
@@ -194,7 +198,7 @@ export function AdminDiscountManager({
               min="0"
               step={type === "percentage" ? "1" : "0.01"}
               required
-              className="h-11 rounded-none border-black"
+              className="h-12 rounded-none border-black"
             />
           </Field>
         </div>
@@ -203,7 +207,7 @@ export function AdminDiscountManager({
           <select
             value={scope}
             onChange={(event) => setScope(event.target.value as DiscountScope)}
-            className="h-11 w-full rounded-none border border-black bg-white px-3"
+            className="h-12 w-full rounded-none border border-black bg-white px-3"
           >
             <option value="storewide">Storewide</option>
             <option value="category">Category</option>
@@ -216,7 +220,7 @@ export function AdminDiscountManager({
             <select
               name="categoryId"
               required
-              className="h-11 w-full rounded-none border border-black bg-white px-3"
+              className="h-12 w-full rounded-none border border-black bg-white px-3"
             >
               <option value="">Select category</option>
               {categories.map((category) => (
@@ -233,7 +237,7 @@ export function AdminDiscountManager({
             <select
               name="productId"
               required
-              className="h-11 w-full rounded-none border border-black bg-white px-3"
+              className="h-12 w-full rounded-none border border-black bg-white px-3"
             >
               <option value="">Select product</option>
               {products.map((product) => (
@@ -249,7 +253,7 @@ export function AdminDiscountManager({
           <Input
             name="expiresAt"
             type="date"
-            className="h-11 rounded-none border-black"
+            className="h-12 rounded-none border-black"
           />
         </Field>
 
@@ -261,7 +265,7 @@ export function AdminDiscountManager({
         <Button
           type="submit"
           disabled={isSaving}
-          className="h-11 w-full rounded-none bg-black text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
+          className="h-12 w-full rounded-none bg-black text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
         >
           {isSaving ? "Saving..." : "Create Discount"}
         </Button>

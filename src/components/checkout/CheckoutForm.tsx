@@ -190,7 +190,8 @@ export function CheckoutForm({
   } | null>(null);
 
   const cartSubtotal = total();
-  const isDigitalOnlyCart = items.length > 0 && items.every((item) => item.isDigital);
+  const isDigitalOnlyCart =
+    items.length > 0 && items.every((item) => item.isDigital);
   const discountAmount = Math.min(discountPreview.discountAmount, cartSubtotal);
   const discountedSubtotal = Math.max(cartSubtotal - discountAmount, 0);
   const activeShippingProfile = shippingProfiles.find(
@@ -199,16 +200,19 @@ export function CheckoutForm({
   const shippingAmount = isDigitalOnlyCart
     ? 0
     : activeShippingProfile
-    ? shippingMethod !== "international" &&
-      discountedSubtotal >= activeShippingProfile.freeShippingThreshold
-      ? 0
-      : activeShippingProfile.price
-    : 0;
+      ? shippingMethod !== "international" &&
+        discountedSubtotal >= activeShippingProfile.freeShippingThreshold
+        ? 0
+        : activeShippingProfile.price
+      : 0;
   const orderTotal = discountedSubtotal + shippingAmount;
   const freeShippingRemainder = activeShippingProfile
     ? shippingMethod === "international"
       ? 0
-      : Math.max(activeShippingProfile.freeShippingThreshold - discountedSubtotal, 0)
+      : Math.max(
+          activeShippingProfile.freeShippingThreshold - discountedSubtotal,
+          0,
+        )
     : 0;
   const selectedCountry =
     CHECKOUT_COUNTRIES.find((country) => country.code === countryCode) ??
@@ -658,7 +662,7 @@ export function CheckoutForm({
                   name="firstName"
                   required
                   defaultValue={initialCustomer?.firstName ?? ""}
-                  className="rounded-none border-black h-11"
+                  className="rounded-none border-black h-12"
                 />
               </div>
               <div className="space-y-2">
@@ -673,7 +677,7 @@ export function CheckoutForm({
                   name="lastName"
                   required
                   defaultValue={initialCustomer?.lastName ?? ""}
-                  className="rounded-none border-black h-11"
+                  className="rounded-none border-black h-12"
                 />
               </div>
             </div>
@@ -692,7 +696,7 @@ export function CheckoutForm({
                   required
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="rounded-none border-black h-11"
+                  className="rounded-none border-black h-12"
                 />
               </div>
               <div className="space-y-2">
@@ -708,7 +712,7 @@ export function CheckoutForm({
                   type="tel"
                   required
                   defaultValue={initialCustomer?.phone ?? ""}
-                  className="rounded-none border-black h-11"
+                  className="rounded-none border-black h-12"
                 />
               </div>
             </div>
@@ -741,7 +745,7 @@ export function CheckoutForm({
                     country: nextCountry,
                   });
                 }}
-                className="h-11 w-full rounded-none border border-black bg-white px-3 text-sm font-bold"
+                className="h-12 w-full rounded-none border border-black bg-white px-3 text-sm font-bold"
               >
                 {CHECKOUT_COUNTRIES.map((country) => (
                   <option key={country.code} value={country.code}>
@@ -752,7 +756,8 @@ export function CheckoutForm({
             </div>
             {isDigitalOnlyCart ? (
               <div className="border border-black bg-slate-50 p-4 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Digital products are delivered by protected download after payment.
+                Digital products are delivered by protected download after
+                payment.
               </div>
             ) : isRomania ? (
               <div className="flex gap-4">
@@ -833,8 +838,8 @@ export function CheckoutForm({
                 {isDigitalOnlyCart
                   ? "No shipping cost for digital products."
                   : shippingAmount === 0
-                  ? "Shipping is free for this order."
-                  : `${formatCheckoutAmount(shippingAmount)} shipping. ${freeShippingRemainder > 0 ? `Add ${formatRon(freeShippingRemainder)} for free shipping.` : ""}`}
+                    ? "Shipping is free for this order."
+                    : `${formatCheckoutAmount(shippingAmount)} shipping. ${freeShippingRemainder > 0 ? `Add ${formatRon(freeShippingRemainder)} for free shipping.` : ""}`}
               </p>
             )}
           </section>
@@ -861,7 +866,7 @@ export function CheckoutForm({
                 name="street"
                 required
                 defaultValue={initialCustomer?.address?.street ?? ""}
-                className="rounded-none border-black h-11"
+                className="rounded-none border-black h-12"
               />
             </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_160px]">
@@ -887,7 +892,7 @@ export function CheckoutForm({
                       name="internationalRegion"
                       required
                       defaultValue={initialCustomer?.address?.county ?? ""}
-                      className="rounded-none border-black h-11"
+                      className="rounded-none border-black h-12"
                     />
                   </div>
                   <div className="space-y-2">
@@ -902,7 +907,7 @@ export function CheckoutForm({
                       name="internationalCity"
                       required
                       defaultValue={initialCustomer?.address?.city ?? ""}
-                      className="rounded-none border-black h-11"
+                      className="rounded-none border-black h-12"
                     />
                   </div>
                 </div>
@@ -919,7 +924,7 @@ export function CheckoutForm({
                   name="zip"
                   required
                   defaultValue={initialCustomer?.address?.zip ?? ""}
-                  className="rounded-none border-black h-11"
+                  className="rounded-none border-black h-12"
                 />
               </div>
             </div>
@@ -1076,9 +1081,7 @@ export function CheckoutForm({
                   />
                 )}
                 <SummaryRow
-                  label={
-                    isLoadingShippingProfiles ? "Shipping" : "Shipping"
-                  }
+                  label={isLoadingShippingProfiles ? "Shipping" : "Shipping"}
                   value={shippingAmount}
                   formatAmount={formatCheckoutAmount}
                   valueLabel={
@@ -1107,9 +1110,9 @@ export function CheckoutForm({
                 </div>
                 {paymentCurrency === "EUR" && (
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Card payments are processed in RON. Netopia will receive
-                    the RON total and include the EUR display value in the
-                    order description.
+                    Card payments are processed in RON. Netopia will receive the
+                    RON total and include the EUR display value in the order
+                    description.
                   </p>
                 )}
                 {paymentMethod === "transfer" && (

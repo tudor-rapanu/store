@@ -72,11 +72,7 @@ export default async function AdminDiscountsPage({
   );
 }
 
-async function DiscountsPanel({
-  activeLocale,
-}: {
-  activeLocale: "en" | "ro";
-}) {
+async function DiscountsPanel({ activeLocale }: { activeLocale: "en" | "ro" }) {
   try {
     const [discountRows, options] = await withDiscountsTimeout(
       Promise.all([
@@ -153,7 +149,7 @@ function DiscountsSkeleton() {
         {[1, 2, 3, 4, 5].map((item) => (
           <div key={item} className="space-y-2">
             <div className="h-3 w-24 animate-pulse bg-slate-100" />
-            <div className="h-11 animate-pulse border border-slate-200 bg-slate-50" />
+            <div className="h-12 animate-pulse border border-slate-200 bg-slate-50" />
           </div>
         ))}
       </section>

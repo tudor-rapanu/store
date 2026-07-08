@@ -39,6 +39,9 @@ export function DeleteProductButton({
         throw new Error(result.error ?? "Product could not be deleted.");
       }
 
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set("updated", String(Date.now()));
+      router.replace(`${nextUrl.pathname}${nextUrl.search}`);
       router.refresh();
     } catch (error) {
       window.alert(

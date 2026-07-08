@@ -59,7 +59,7 @@ export function CancelOrderButton({
       variant="outline"
       disabled={disabled || isPending}
       onClick={cancelOrder}
-      className="h-11 rounded-none border-black text-xs font-black uppercase tracking-widest"
+      className="h-12 rounded-none border-black text-xs font-black uppercase tracking-widest"
     >
       {isPending ? "Cancelling..." : "Cancel Order"}
     </Button>

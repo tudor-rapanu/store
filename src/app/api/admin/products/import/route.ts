@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { isAdminUser } from "@/lib/admin-auth";
 import { findOrCreateCategoryIds } from "@/lib/categories";
 import { revalidateCatalogViews } from "@/lib/catalog/cache";
+import { parseRomaniaDateTimeLocal } from "@/lib/dates/romania";
 import { db } from "@/lib/db";
 import {
   digitalProductFiles,
@@ -25,6 +26,9 @@ type ImportProductRow = {
   imageUrl?: string;
   imageUrls?: string;
   categories?: string;
+  productionMinDays?: string | number;
+  productionMaxDays?: string | number;
+  publishAt?: string;
   isDigital?: string | boolean;
   trackStock?: string | boolean;
   stock?: string | number;
@@ -68,6 +72,9 @@ type NormalizedImportRow = {
   stock: number;
   isPrivate: boolean;
   categoryNames: string[];
+  productionMinDays: number;
+  productionMaxDays: number;
+  publishAt: Date | null;
   variants: VariantInput[];
   copyIndex: number;
 };
@@ -134,6 +141,30 @@ function parsePrice(value: unknown) {
 function parseNumber(value: unknown, fallback: number) {
   const parsed = Number.parseFloat(String(value ?? "").replace(",", "."));
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parsePositiveInteger(value: unknown, fallback: number) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseImportDate(value: unknown, rowNumber: number, label: string) {
+  const raw = getString(value).replace(" ", "T");
+
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = parseRomaniaDateTimeLocal(raw);
+
+  if (!parsed) {
+    throw new Error(
+      `Row ${rowNumber}: ${label} must use YYYY-MM-DDTHH:mm in Romanian time.`,
+    );
+  }
+
+  return parsed;
 }
 
 function parseList(value: unknown) {
@@ -497,6 +528,9 @@ export async function POST(request: Request) {
         stock: Math.max(Math.floor(parseNumber(row.stock, 0)), 0),
         isPrivate: getImportPrivateValue(row.isPrivate),
         categoryNames: parseList(row.categories),
+        productionMinDays: parsePositiveInteger(row.productionMinDays, 1),
+        productionMaxDays: parsePositiveInteger(row.productionMaxDays, 3),
+        publishAt: parseImportDate(row.publishAt, rowNumber, "publishAt"),
         variants: parseVariants(row, rowNumber),
         copyIndex: 0,
       };
@@ -530,6 +564,12 @@ export async function POST(request: Request) {
 
     if (row.sourceImageUrls.length === 0) {
       errors.push(`Row ${row.rowNumber}: imageUrl or imageUrls is required.`);
+    }
+
+    if (row.productionMinDays > row.productionMaxDays) {
+      errors.push(
+        `Row ${row.rowNumber}: productionMaxDays must be greater than or equal to productionMinDays.`,
+      );
     }
 
     if (row.isDigital && row.sourceDigitalFileUrls.length === 0) {
@@ -596,6 +636,11 @@ export async function POST(request: Request) {
                 }
               : null,
           basePrice: row.basePrice ?? 0,
+          productionMinDays: row.productionMinDays,
+          productionMaxDays: row.productionMaxDays,
+          publishAt: row.publishAt,
+          publishRevalidatedAt:
+            row.publishAt && row.publishAt > new Date() ? null : new Date(),
           imageUrl,
           isDigital: row.isDigital,
           trackStock: row.variants.length === 0 ? row.trackStock : false,

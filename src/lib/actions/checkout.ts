@@ -13,7 +13,7 @@ import {
 } from "@/lib/geo/checkout-countries";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { calculateShippingAmount } from "@/lib/shipping/profiles";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
 import { upsertCustomerProfile } from "@/lib/customer-profile";
 import { checkServerActionRateLimit } from "@/lib/rate-limit";
 import { formatEur, formatRon, normalizePaymentCurrency } from "@/lib/currency/format";
@@ -327,10 +327,7 @@ function createOrderAccessToken() {
 }
 
 async function getCurrentUserId() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   return user?.id ?? null;
 }

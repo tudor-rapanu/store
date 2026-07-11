@@ -21,11 +21,13 @@ const scriptSrc = [
   "'unsafe-inline'",
   isDev ? "'unsafe-eval'" : null,
   "https://cdn.sameday.ro",
+  "https://v.toddsthreads.com",
   "https://eu-assets.i.posthog.com",
   "https://static.cloudflareinsights.com",
 ].filter(Boolean);
 const connectSrc = [
   "'self'",
+  "https://v.toddsthreads.com",
   "https://eu.i.posthog.com",
   "https://eu-assets.i.posthog.com",
   "https://cloudflareinsights.com",

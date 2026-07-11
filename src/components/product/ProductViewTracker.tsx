@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import posthog from "posthog-js";
+import { capturePostHog } from "@/lib/analytics/posthog-client";
 
 interface ProductViewTrackerProps {
   productId: string;
@@ -17,7 +17,7 @@ export function ProductViewTracker({
   basePrice,
 }: ProductViewTrackerProps) {
   useEffect(() => {
-    posthog.capture("product_viewed", {
+    capturePostHog("product_viewed", {
       product_id: productId,
       product_title: productTitle,
       product_slug: productSlug,

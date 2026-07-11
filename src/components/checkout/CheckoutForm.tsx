@@ -8,8 +8,8 @@ import {
   useState,
   startTransition,
 } from "react";
-import posthog from "posthog-js";
 import Script from "next/script";
+import { capturePostHog } from "@/lib/analytics/posthog-client";
 import { useCart } from "@/lib/store/useCart";
 import {
   initiateCheckout,
@@ -563,7 +563,7 @@ export function CheckoutForm({
       const locale =
         window.location.pathname.split("/")[1] === "ro" ? "ro" : "en";
 
-      posthog.capture("checkout_started", {
+      capturePostHog("checkout_started", {
         payment_method: paymentMethod,
         shipping_method: shippingMethod,
         cart_total: total(),
@@ -741,7 +741,7 @@ export function CheckoutForm({
                   setCountryCode(nextCountry);
                   setLocker(null);
                   setPaymentCurrency(getDefaultCurrencyForCountry(nextCountry));
-                  posthog.capture("checkout_country_selected", {
+                  capturePostHog("checkout_country_selected", {
                     country: nextCountry,
                   });
                 }}
@@ -767,7 +767,7 @@ export function CheckoutForm({
                   className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
                   onClick={() => {
                     setLocalShippingMethod("address");
-                    posthog.capture("shipping_method_selected", {
+                    capturePostHog("shipping_method_selected", {
                       method: "address",
                     });
                   }}
@@ -780,7 +780,7 @@ export function CheckoutForm({
                   className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
                   onClick={() => {
                     setLocalShippingMethod("easybox");
-                    posthog.capture("shipping_method_selected", {
+                    capturePostHog("shipping_method_selected", {
                       method: "easybox",
                     });
                   }}
@@ -942,7 +942,7 @@ export function CheckoutForm({
                 className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
                 onClick={() => {
                   setPaymentMethod("netopia");
-                  posthog.capture("payment_method_selected", {
+                  capturePostHog("payment_method_selected", {
                     method: "netopia",
                   });
                 }}
@@ -955,7 +955,7 @@ export function CheckoutForm({
                 className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
                 onClick={() => {
                   setPaymentMethod("transfer");
-                  posthog.capture("payment_method_selected", {
+                  capturePostHog("payment_method_selected", {
                     method: "bank_transfer",
                   });
                 }}

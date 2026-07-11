@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "../supabase/server";
+import { getAuthProvider } from "@/lib/auth/provider";
+import { getNeonAuth } from "@/lib/auth/neon/server";
 import { getPostHogClient } from "@/lib/posthog-server";
 
 export async function login(formData: FormData) {
@@ -15,14 +17,24 @@ export async function login(formData: FormData) {
     return { error: "Email and password are required" };
   }
 
-  // 2. Initialize the Supabase Server Client
-  const supabase = await createClient();
+  const error =
+    getAuthProvider() === "neon"
+      ? (
+          await getNeonAuth().signIn.email({
+            email,
+            password,
+          })
+        ).error
+      : (
+          await (async () => {
+            const supabase = await createClient();
 
-  // 3. Attempt to authenticate
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+            return supabase.auth.signInWithPassword({
+              email,
+              password,
+            });
+          })()
+        ).error;
 
   // Return errors gracefully so the frontend can display them to the user
   if (error) {
@@ -51,13 +63,25 @@ export async function register(formData: FormData) {
     return { error: "Email and password are required" };
   }
 
-  const supabase = await createClient();
+  const error =
+    getAuthProvider() === "neon"
+      ? (
+          await getNeonAuth().signUp.email({
+            email,
+            password,
+            name: email,
+          })
+        ).error
+      : (
+          await (async () => {
+            const supabase = await createClient();
 
-  // 5. Attempt to create the user
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+            return supabase.auth.signUp({
+              email,
+              password,
+            });
+          })()
+        ).error;
 
   if (error) {
     return { error: error.message };
@@ -89,10 +113,27 @@ export async function requestPasswordReset(formData: FormData) {
     return { error: "Email is required" };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${getSiteUrl()}/api/auth/callback?next=/${locale}/reset-password`,
-  });
+  const resetUrl =
+    getAuthProvider() === "neon"
+      ? `${getSiteUrl()}/${locale}/reset-password`
+      : `${getSiteUrl()}/api/auth/callback?next=/${locale}/reset-password`;
+  const error =
+    getAuthProvider() === "neon"
+      ? (
+          await getNeonAuth().requestPasswordReset({
+            email,
+            redirectTo: resetUrl,
+          })
+        ).error
+      : (
+          await (async () => {
+            const supabase = await createClient();
+
+            return supabase.auth.resetPasswordForEmail(email, {
+              redirectTo: resetUrl,
+            });
+          })()
+        ).error;
 
   if (error) {
     return { error: error.message };
@@ -109,8 +150,16 @@ export async function updatePassword(formData: FormData) {
     return { error: "Password must be at least 6 characters." };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.updateUser({ password });
+  const error =
+    getAuthProvider() === "neon"
+      ? (await getNeonAuth().resetPassword({ newPassword: password })).error
+      : (
+          await (async () => {
+            const supabase = await createClient();
+
+            return supabase.auth.updateUser({ password });
+          })()
+        ).error;
 
   if (error) {
     return { error: error.message };
@@ -121,8 +170,12 @@ export async function updatePassword(formData: FormData) {
 }
 
 export async function logout() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  if (getAuthProvider() === "neon") {
+    await getNeonAuth().signOut();
+  } else {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+  }
 
   revalidatePath("/", "layout");
   redirect("/");
@@ -130,8 +183,12 @@ export async function logout() {
 
 export async function logoutFromLocale(formData: FormData) {
   const locale = formData.get("locale") === "ro" ? "ro" : "en";
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  if (getAuthProvider() === "neon") {
+    await getNeonAuth().signOut();
+  } else {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+  }
 
   revalidatePath("/", "layout");
   redirect(`/${locale}`);

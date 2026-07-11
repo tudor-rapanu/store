@@ -10,12 +10,18 @@
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:push": "supabase db push",
+    "db:neon:push": "DRIZZLE_ENV_FILE=.env.neon.local drizzle-kit push",
+    "db:neon:migrate": "DRIZZLE_ENV_FILE=.env.neon.local drizzle-kit migrate",
+    "db:neon:copy-data": "node scripts/copy-supabase-to-neon.mjs",
+    "neon:env:pull": "CI= npx -y neonctl env pull --file .env.neon.local",
     "cloudflare:rate-limits": "node scripts/configure-cloudflare-rate-limits.mjs",
     "gcloud:build": "docker buildx build --platform linux/amd64 -t europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:latest --push .",
-    "gcloud:deploy": "gcloud run deploy todds-threads-service --image=europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:latest --region=europe-west4 --allow-unauthenticated --port=3000 --min-instances=1 --max-instances=5 --concurrency=20 --memory=1024Mi --cpu=1 --timeout=300 --execution-environment=gen2"
+    "gcloud:deploy": "gcloud run deploy todds-threads-service --image=europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:latest --region=europe-west4 --allow-unauthenticated --port=3000 --min-instances=1 --max-instances=5 --concurrency=20 --memory=1024Mi --cpu=1 --timeout=300 --execution-environment=gen2 --startup-probe=httpGet.path=/api/readyz,initialDelaySeconds=5,periodSeconds=5,timeoutSeconds=3,failureThreshold=6 --liveness-probe=httpGet.path=/api/healthz,initialDelaySeconds=10,periodSeconds=30,timeoutSeconds=3,failureThreshold=3"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1068.0",
+    "@neondatabase/auth": "^0.4.2-beta",
+    "@neondatabase/serverless": "^1.1.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.9",
     "@supabase/ssr": "^0.12.0",

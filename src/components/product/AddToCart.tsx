@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import posthog from "posthog-js";
+import { capturePostHog } from "@/lib/analytics/posthog-client";
 import { useCart } from "@/lib/store/useCart";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -109,7 +109,7 @@ export function AddToCart({
         quantity: 1,
         isDigital: Boolean(product.isDigital),
       });
-      posthog.capture("add_to_cart", {
+      capturePostHog("add_to_cart", {
         product_id: product.id,
         product_title: product.title,
         product_slug: product.slug,
@@ -133,7 +133,7 @@ export function AddToCart({
         quantity: 1,
         isDigital: Boolean(product.isDigital),
       });
-      posthog.capture("add_to_cart", {
+      capturePostHog("add_to_cart", {
         product_id: product.id,
         product_title: product.title,
         product_slug: product.slug,

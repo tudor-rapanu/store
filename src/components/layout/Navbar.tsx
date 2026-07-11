@@ -7,17 +7,14 @@ import { PostHogIdentifier } from "./PostHogIdentifier";
 import { SearchBar } from "@/components/search/SearchBar";
 import { logoutFromLocale } from "@/lib/actions/auth";
 import { isAdminUserRecord } from "@/lib/auth/roles";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getCachedPublicCategories } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
 import { readEnvValue } from "@/lib/env";
 import { getTranslatedText } from "@/lib/i18n/text";
-import { createClient } from "@/lib/supabase/server";
 
 export async function Navbar({ locale }: { locale: "en" | "ro" }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const adminEmail = readEnvValue(process.env.ADMIN_EMAIL, "ADMIN_EMAIL");
   const isAdmin = isAdminUserRecord(user, adminEmail);
   const [categoryLinks, currencyPresentation] = await Promise.all([

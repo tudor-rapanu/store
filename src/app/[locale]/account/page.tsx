@@ -15,7 +15,7 @@ import {
 import { db } from "@/lib/db";
 import { orderItems, orders, products } from "@/lib/db/schema";
 import { getProductImageSrc } from "@/lib/product-images";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,10 +36,7 @@ export default async function AccountPage({
   const { locale } = await params;
   const { saved } = await searchParams;
   const activeLocale = locale === "ro" ? "ro" : "en";
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect(`/${activeLocale}/login`);

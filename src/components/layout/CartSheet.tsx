@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import posthog from "posthog-js";
+import { capturePostHog } from "@/lib/analytics/posthog-client";
 import {
   Sheet,
   SheetContent,
@@ -152,7 +152,7 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
                   variant="ghost"
                   onClick={() => {
                     removeItem(item.variantId);
-                    posthog.capture("cart_item_removed", {
+                    capturePostHog("cart_item_removed", {
                       variant_id: item.variantId,
                       product_title: item.title,
                       sku: item.sku,

@@ -9,11 +9,13 @@ import {
   getStoredCookieConsent,
   type CookieConsentValue,
 } from "@/lib/cookie-consent";
+import { POSTHOG_READY_EVENT } from "@/lib/analytics/posthog-client";
 
 type PostHogRuntimeConfig = {
   enabled?: boolean;
   token?: string;
   host?: string;
+  uiHost?: string;
 };
 
 let posthogInitPromise: Promise<boolean> | null = null;
@@ -40,8 +42,9 @@ async function initializePostHog() {
         }
 
         posthog.init(config.token, {
-          api_host: config.host || `${window.location.origin}/ingest`,
-          ui_host: "https://eu.posthog.com",
+          api_host: config.host || "https://v.toddsthreads.com",
+          ui_host: config.uiHost || "https://eu.posthog.com",
+          defaults: "2026-05-30",
           capture_pageview: false,
           capture_pageleave: true,
           person_profiles: "identified_only",
@@ -65,6 +68,9 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
       if (isAccepted) {
         void initializePostHog().then((initialized) => {
           setAnalyticsEnabled(initialized);
+          if (initialized) {
+            window.dispatchEvent(new Event(POSTHOG_READY_EVENT));
+          }
         });
         return;
       }

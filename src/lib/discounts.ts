@@ -84,16 +84,33 @@ function normalizeVoucherCode(value: unknown) {
   return code.length > 0 && code.length <= 64 ? code : null;
 }
 
+function toDate(value: Date | string | null) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function isActiveDiscount(row: typeof discounts.$inferSelect, now: Date) {
   if (!row.enabled) {
     return false;
   }
 
-  if (row.startsAt && row.startsAt > now) {
+  const startsAt = toDate(row.startsAt);
+  const expiresAt = toDate(row.expiresAt);
+
+  if (startsAt && startsAt > now) {
     return false;
   }
 
-  if (row.expiresAt && row.expiresAt < now) {
+  if (expiresAt && expiresAt < now) {
     return false;
   }
 

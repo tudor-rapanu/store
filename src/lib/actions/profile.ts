@@ -7,7 +7,7 @@ import {
   type CustomerProfileAddress,
   upsertCustomerProfile,
 } from "@/lib/customer-profile";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
 
 function readString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -16,10 +16,7 @@ function readString(formData: FormData, key: string) {
 
 export async function updateCustomerProfile(formData: FormData) {
   const locale = readString(formData, "locale") === "ro" ? "ro" : "en";
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect(`/${locale}/login`);

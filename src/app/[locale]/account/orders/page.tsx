@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { orderItems, orders, products } from "@/lib/db/schema";
 import { getProductImageSrc } from "@/lib/product-images";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "My Orders",
@@ -25,10 +25,7 @@ export default async function AccountOrdersPage({
 }: AccountOrdersPageProps) {
   const { locale } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect(`/${activeLocale}/login`);

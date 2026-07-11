@@ -1,0 +1,10 @@
+{
+  "orgId": "org-cool-salad-64236004",
+  "projectId": "wild-dew-44861332",
+  "_init": {
+    "features": [
+      "database",
+      "auth"
+    ]
+  }
+}

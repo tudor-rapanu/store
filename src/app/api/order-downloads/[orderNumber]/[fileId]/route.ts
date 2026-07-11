@@ -8,7 +8,7 @@ import {
   orders,
 } from "@/lib/db/schema";
 import { getDigitalProductFileObject } from "@/lib/storage/digital-products";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
 
 type DownloadRouteProps = {
   params: Promise<{
@@ -40,10 +40,7 @@ export async function GET(request: Request, { params }: DownloadRouteProps) {
   }
 
   const token = new URL(request.url).searchParams.get("token");
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const isAccountOwner = Boolean(user?.id && order.userId === user.id);
   const hasGuestToken = Boolean(token && token === order.accessToken);
 

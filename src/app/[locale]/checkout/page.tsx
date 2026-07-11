@@ -2,9 +2,9 @@ import {
   CheckoutForm,
   type CheckoutInitialCustomer,
 } from "@/components/checkout/CheckoutForm";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getCurrencyPresentation } from "@/lib/currency/display";
 import { getCustomerProfile } from "@/lib/customer-profile";
-import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -18,10 +18,7 @@ export default async function CheckoutPage({
 }) {
   const { locale } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const [profile, currencyPresentation] = await Promise.all([
     user ? getCustomerProfile(user.id) : null,
     getCurrencyPresentation(),

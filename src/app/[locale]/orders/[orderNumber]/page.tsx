@@ -14,7 +14,7 @@ import {
   productVariants,
 } from "@/lib/db/schema";
 import { formatFulfillmentEstimate } from "@/lib/fulfillment/estimate";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
 
 type PublicOrderPageProps = {
   params: Promise<{ locale: string; orderNumber: string }>;
@@ -54,10 +54,7 @@ export default async function PublicOrderPage({
     notFound();
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const isAccountOwner = Boolean(user?.id && order.userId === user.id);
   const hasGuestToken = Boolean(token && token === order.accessToken);
 

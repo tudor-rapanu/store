@@ -312,6 +312,7 @@ export const discountUsages = pgTable("discount_usages", {
 }, (table) => [
   index("discount_usages_discount_email_idx").on(table.discountId, table.email),
   index("discount_usages_discount_user_idx").on(table.discountId, table.userId),
+  index("discount_usages_order_id_idx").on(table.orderId),
 ]);
 
 export const shippingProfiles = pgTable("shipping_profiles", {

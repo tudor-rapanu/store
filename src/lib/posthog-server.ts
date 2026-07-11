@@ -11,7 +11,9 @@ export function getPostHogClient() {
 
   if (!posthogClient) {
     posthogClient = new PostHog(token, {
-      host: process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com",
+      host:
+        process.env.NEXT_PUBLIC_POSTHOG_HOST ||
+        "https://v.toddsthreads.com",
       flushAt: 1,
       flushInterval: 0,
     });

@@ -1,5 +1,8 @@
 export type ProductImageVariant = "large" | "card" | "thumb";
 
+const DEFAULT_R2_PUBLIC_URL =
+  "https://pub-144713e90af247dbb1cb8d0e06c37159.r2.dev";
+
 export function getProductImageSrc(
   imageUrl?: string | null,
   variant: ProductImageVariant = "large",
@@ -97,6 +100,7 @@ function getSingleProductImageSrc(imagePath: string) {
     const baseUrl = (
       process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
       process.env.R2_PUBLIC_URL ||
+      DEFAULT_R2_PUBLIC_URL ||
       (typeof window !== "undefined" ? window.location.origin : "")
     )
       ?.trim()

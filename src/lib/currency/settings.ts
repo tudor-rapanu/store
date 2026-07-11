@@ -12,6 +12,12 @@ export type CurrencySettings = {
   ronToEurRate: number;
 };
 
+function getDefaultCurrencySettings(): CurrencySettings {
+  return {
+    ronToEurRate: DEFAULT_RON_TO_EUR_RATE,
+  };
+}
+
 function normalizeRate(value: unknown) {
   const rate = Number(value);
 
@@ -24,15 +30,20 @@ function normalizeRate(value: unknown) {
 
 export const getCurrencySettings = unstable_cache(
   async (): Promise<CurrencySettings> => {
-  const [row] = await db
-    .select()
-    .from(storeSettings)
-    .where(eq(storeSettings.key, CURRENCY_SETTINGS_KEY))
-    .limit(1);
+    try {
+      const [row] = await db
+        .select()
+        .from(storeSettings)
+        .where(eq(storeSettings.key, CURRENCY_SETTINGS_KEY))
+        .limit(1);
 
-  return {
-    ronToEurRate: normalizeRate(row?.value?.ronToEurRate),
-  };
+      return {
+        ronToEurRate: normalizeRate(row?.value?.ronToEurRate),
+      };
+    } catch (error) {
+      console.error("Currency settings could not be loaded. Using defaults.", error);
+      return getDefaultCurrencySettings();
+    }
   },
   ["settings:currency"],
   {

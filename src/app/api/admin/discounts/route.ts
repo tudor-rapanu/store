@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { revalidateDiscountCache } from "@/lib/discounts";
 import {
   discounts,
   type DiscountKind,
@@ -91,6 +92,8 @@ export async function POST(request: Request) {
         updatedAt: new Date(),
       })
       .returning();
+
+    revalidateDiscountCache();
 
     return NextResponse.json({ ok: true, discount: created });
   } catch (error) {

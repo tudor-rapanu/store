@@ -76,16 +76,21 @@ export async function ensureShippingProfiles() {
 
 export const getShippingProfiles = unstable_cache(
   async (): Promise<ShippingProfile[]> => {
-    await ensureShippingProfiles();
+    try {
+      await ensureShippingProfiles();
 
-    const rows = await db.select().from(shippingProfiles);
-    const profiles = rows.map(normalizeProfile);
+      const rows = await db.select().from(shippingProfiles);
+      const profiles = rows.map(normalizeProfile);
 
-    return DEFAULT_SHIPPING_PROFILES.map(
-      (defaultProfile) =>
-        profiles.find((profile) => profile.id === defaultProfile.id) ??
-        defaultProfile,
-    );
+      return DEFAULT_SHIPPING_PROFILES.map(
+        (defaultProfile) =>
+          profiles.find((profile) => profile.id === defaultProfile.id) ??
+          defaultProfile,
+      );
+    } catch (error) {
+      console.error("Shipping profiles could not be loaded. Using defaults.", error);
+      return DEFAULT_SHIPPING_PROFILES;
+    }
   },
   ["settings:shipping-profiles"],
   {

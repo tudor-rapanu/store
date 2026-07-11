@@ -1,9 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
-import { count, desc } from "drizzle-orm";
+import { count, desc, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DeleteProductButton } from "@/components/product/DeleteProductButton";
 import { DuplicateProductButton } from "@/components/product/DuplicateProductButton";
 import { ImportProductsCsv } from "@/components/product/ImportProductsCsv";
@@ -25,6 +26,7 @@ type AdminProductsPageProps = {
   }>;
   searchParams: Promise<{
     page?: string;
+    q?: string;
   }>;
 };
 
@@ -35,33 +37,63 @@ export default async function AdminProductsPage({
   searchParams,
 }: AdminProductsPageProps) {
   const { locale } = await params;
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, q: queryParam } = await searchParams;
   const activeLocale = locale === "ro" ? "ro" : "en";
-  const [totalResult] = await db.select({ value: count() }).from(products);
+  const searchQuery = queryParam?.trim() ?? "";
+  const searchPattern = `%${searchQuery}%`;
+  const searchWhere = searchQuery
+    ? sql`(
+        ${products.slug} ilike ${searchPattern}
+        or ${products.title}->>'en' ilike ${searchPattern}
+        or ${products.title}->>'ro' ilike ${searchPattern}
+      )`
+    : undefined;
+  const [totalResult] = searchWhere
+    ? await db.select({ value: count() }).from(products).where(searchWhere)
+    : await db.select({ value: count() }).from(products);
   const totalProducts = totalResult?.value ?? 0;
   const totalPages = Math.max(Math.ceil(totalProducts / PRODUCTS_PER_PAGE), 1);
   const requestedPage = Math.max(Number.parseInt(pageParam ?? "1", 10) || 1, 1);
   const currentPage = Math.min(requestedPage, totalPages);
   const offset = (currentPage - 1) * PRODUCTS_PER_PAGE;
-  const items = await db
-    .select({
-      id: products.id,
-      slug: products.slug,
-      title: products.title,
-      basePrice: products.basePrice,
-      salePrice: products.salePrice,
-      saleEnabled: products.saleEnabled,
-      saleStartsAt: products.saleStartsAt,
-      saleEndsAt: products.saleEndsAt,
-      publishAt: products.publishAt,
-      imageUrl: products.imageUrl,
-      isPrivate: products.isPrivate,
-      createdAt: products.createdAt,
-    })
-    .from(products)
-    .orderBy(desc(products.createdAt))
-    .limit(PRODUCTS_PER_PAGE)
-    .offset(offset);
+  const productSelect = {
+    id: products.id,
+    slug: products.slug,
+    title: products.title,
+    basePrice: products.basePrice,
+    salePrice: products.salePrice,
+    saleEnabled: products.saleEnabled,
+    saleStartsAt: products.saleStartsAt,
+    saleEndsAt: products.saleEndsAt,
+    publishAt: products.publishAt,
+    imageUrl: products.imageUrl,
+    isPrivate: products.isPrivate,
+    createdAt: products.createdAt,
+  };
+  const items = searchWhere
+    ? await db
+        .select(productSelect)
+        .from(products)
+        .where(searchWhere)
+        .orderBy(desc(products.createdAt))
+        .limit(PRODUCTS_PER_PAGE)
+        .offset(offset)
+    : await db
+        .select(productSelect)
+        .from(products)
+        .orderBy(desc(products.createdAt))
+        .limit(PRODUCTS_PER_PAGE)
+        .offset(offset);
+  const pageHref = (page: number) => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+
+    if (searchQuery) {
+      params.set("q", searchQuery);
+    }
+
+    return `/${activeLocale}/admin/products?${params.toString()}`;
+  };
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
@@ -84,10 +116,40 @@ export default async function AdminProductsPage({
 
       <ImportProductsCsv />
 
+      <form
+        action={`/${activeLocale}/admin/products`}
+        className="mb-6 grid gap-3 border border-black p-4 md:grid-cols-[1fr_auto_auto] md:items-center"
+      >
+        <Input
+          type="search"
+          name="q"
+          defaultValue={searchQuery}
+          placeholder="Search products by title or slug"
+          className="h-12 rounded-none border-black text-sm"
+        />
+        {searchQuery && (
+          <Button
+            asChild
+            variant="outline"
+            className="h-12 rounded-none border-black text-xs font-bold uppercase tracking-widest"
+          >
+            <Link href={`/${activeLocale}/admin/products`}>Clear</Link>
+          </Button>
+        )}
+        <Button
+          type="submit"
+          className="h-12 rounded-none bg-black text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
+        >
+          Search
+        </Button>
+      </form>
+
       <div className="divide-y divide-black border border-black">
         {items.length === 0 ? (
           <div className="p-6 text-sm font-bold uppercase tracking-widest text-slate-500">
-            No products yet.
+            {searchQuery
+              ? "No products matched your search."
+              : "No products yet."}
           </div>
         ) : (
           items.map((product) => {
@@ -128,7 +190,8 @@ export default async function AdminProductsPage({
                       {title}
                     </h2>
                     <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                      {product.slug} / {(price.effectivePrice / 100).toFixed(2)} RON
+                      {product.slug} /{" "}
+                      {(price.effectivePrice / 100).toFixed(2)} RON
                       {price.isOnSale ? " sale" : ""}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -189,7 +252,7 @@ export default async function AdminProductsPage({
             }`}
           >
             <Link
-              href={`/${activeLocale}/admin/products?page=${Math.max(currentPage - 1, 1)}`}
+              href={pageHref(Math.max(currentPage - 1, 1))}
               aria-disabled={currentPage <= 1}
             >
               Previous
@@ -206,7 +269,7 @@ export default async function AdminProductsPage({
             }`}
           >
             <Link
-              href={`/${activeLocale}/admin/products?page=${Math.min(currentPage + 1, totalPages)}`}
+              href={pageHref(Math.min(currentPage + 1, totalPages))}
               aria-disabled={currentPage >= totalPages}
             >
               Next

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Plus, Save, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -495,16 +495,34 @@ function CategoryRow({
 }
 
 function ProductThumbnail({ product }: { product: ProductSummary }) {
-  const imageSrc = getProductImageSrc(product.imageUrl, "thumb");
+  const imageSrcs = useMemo(
+    () =>
+      [
+        getProductImageSrc(product.imageUrl, "thumb"),
+        getProductImageSrc(product.imageUrl, "card"),
+        getProductImageSrc(product.imageUrl, "large"),
+      ].filter((src, index, sources): src is string =>
+        Boolean(src) && sources.indexOf(src) === index,
+      ),
+    [product.imageUrl],
+  );
+  const [imageIndex, setImageIndex] = useState(0);
+  const imageSrc = imageSrcs[imageIndex];
+
+  useEffect(() => {
+    setImageIndex(0);
+  }, [product.imageUrl]);
 
   return (
     <div className="relative size-12 shrink-0 overflow-hidden border border-slate-200 bg-white">
       {imageSrc ? (
         <Image
+          key={imageSrc}
           src={imageSrc}
           alt={product.title}
           fill
           unoptimized
+          onError={() => setImageIndex((current) => current + 1)}
           className="object-contain p-1.5"
           sizes="48px"
         />

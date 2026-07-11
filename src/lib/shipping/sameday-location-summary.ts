@@ -74,13 +74,21 @@ async function writeSummary(summary: SamedayLocationSummary) {
 }
 
 export async function getSamedayLocationSummary() {
-  const [row] = await db
-    .select()
-    .from(storeSettings)
-    .where(eq(storeSettings.key, SAMEDAY_LOCATION_SUMMARY_KEY))
-    .limit(1);
+  try {
+    const [row] = await db
+      .select()
+      .from(storeSettings)
+      .where(eq(storeSettings.key, SAMEDAY_LOCATION_SUMMARY_KEY))
+      .limit(1);
 
-  return normalizeSummary(row?.value);
+    return normalizeSummary(row?.value);
+  } catch (error) {
+    console.error(
+      "Sameday location summary could not be loaded. Using defaults.",
+      error,
+    );
+    return normalizeSummary(null);
+  }
 }
 
 export async function updateSamedayCountySummary(countyCount: number) {

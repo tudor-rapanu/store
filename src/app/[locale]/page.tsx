@@ -16,6 +16,7 @@ import { getCurrencyPresentation } from "@/lib/currency/display";
 import { getCatalogAutomaticDiscountPrices } from "@/lib/discounts";
 import { getTranslatedText } from "@/lib/i18n/text";
 import { Button } from "@/components/ui/button";
+import type { DisplayCurrency } from "@/lib/currency/preference";
 
 export const metadata: Metadata = {
   title: "Home",
@@ -50,21 +51,71 @@ type PageProps = {
   }>;
 };
 
+const HOME_DATA_TIMEOUT_MS = 5000;
+
+const DEFAULT_CURRENCY_PRESENTATION = {
+  countryCode: "RO",
+  displayCurrency: "RON" as DisplayCurrency,
+  ronToEurRate: 0.2,
+} as const;
+
+type CurrencyPresentation = Awaited<ReturnType<typeof getCurrencyPresentation>>;
+
+async function withHomeDataTimeout<T>(
+  promise: Promise<T>,
+  fallback: T,
+  label: string,
+) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timeoutId = setTimeout(() => {
+          console.error(`${label} timed out after ${HOME_DATA_TIMEOUT_MS}ms.`);
+          resolve(fallback);
+        }, HOME_DATA_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (error) {
+    console.error(`${label} could not be loaded. Using fallback.`, error);
+    return fallback;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
 export default async function HomePage({ params }: PageProps) {
   const { locale } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
   const copy = homeCopy[activeLocale];
+  const currencyPresentationPromise = withHomeDataTimeout(
+    getCurrencyPresentation(),
+    DEFAULT_CURRENCY_PRESENTATION,
+    "Currency presentation",
+  );
 
   return (
     <main className="mx-auto max-w-7xl px-8 py-16">
       <PaymentReturnNotice />
 
       <Suspense fallback={<HomeHeroSkeleton />}>
-        <HomeCustomContent locale={activeLocale} copy={copy} />
+        <HomeCustomContent
+          locale={activeLocale}
+          copy={copy}
+          currencyPresentationPromise={currencyPresentationPromise}
+        />
       </Suspense>
 
       <Suspense fallback={<HomeCatalogSkeleton />}>
-        <HomeCatalogContent locale={activeLocale} copy={copy} />
+        <HomeCatalogContent
+          locale={activeLocale}
+          copy={copy}
+          currencyPresentationPromise={currencyPresentationPromise}
+        />
       </Suspense>
     </main>
   );
@@ -73,18 +124,23 @@ export default async function HomePage({ params }: PageProps) {
 async function HomeCustomContent({
   locale,
   copy,
+  currencyPresentationPromise,
 }: {
   locale: "en" | "ro";
   copy: (typeof homeCopy)["en" | "ro"];
+  currencyPresentationPromise: Promise<CurrencyPresentation>;
 }) {
-  const [homepageContent, currencyPresentation] = await Promise.all([
+  const homepageContent = await withHomeDataTimeout(
     getCachedHomepageContentSections(),
-    getCurrencyPresentation(),
-  ]);
+    { sections: [], featuredProducts: [] },
+    "Homepage content",
+  );
 
   if (homepageContent.sections.length === 0) {
     return <DefaultHomeHero locale={locale} copy={copy} />;
   }
+
+  const currencyPresentation = await currencyPresentationPromise;
 
   return (
     <HomepageContentSections
@@ -127,23 +183,31 @@ function DefaultHomeHero({
 async function HomeCatalogContent({
   locale,
   copy,
+  currencyPresentationPromise,
 }: {
   locale: "en" | "ro";
   copy: (typeof homeCopy)["en" | "ro"];
+  currencyPresentationPromise: Promise<CurrencyPresentation>;
 }) {
   const [products, homepageSliders, categories, currencyPresentation] =
     await Promise.all([
-      getCachedHomepageProducts(4),
-      getCachedHomepageCategorySliders(),
-      getCachedPublicCategories(),
-      getCurrencyPresentation(),
+      withHomeDataTimeout(getCachedHomepageProducts(4), [], "Homepage products"),
+      withHomeDataTimeout(
+        getCachedHomepageCategorySliders(),
+        [],
+        "Homepage category sliders",
+      ),
+      withHomeDataTimeout(getCachedPublicCategories(), [], "Homepage categories"),
+      currencyPresentationPromise,
     ]);
   const sliderProducts = homepageSliders.flatMap((section) => section.products);
   const catalogProductsById = new Map(
     [...products, ...sliderProducts].map((product) => [product.id, product]),
   );
-  const catalogDiscounts = await getCatalogAutomaticDiscountPrices(
-    Array.from(catalogProductsById.values()),
+  const catalogDiscounts = await withHomeDataTimeout(
+    getCatalogAutomaticDiscountPrices(Array.from(catalogProductsById.values())),
+    new Map(),
+    "Homepage discounts",
   );
   const mainCategories = categories.filter((category) => !category.parentId);
 

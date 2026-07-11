@@ -1,3 +1,4 @@
+import { revalidateTag, unstable_cache } from "next/cache";
 import { and, eq, inArray, or } from "drizzle-orm";
 
 import { getAllCategories } from "@/lib/categories";
@@ -48,6 +49,30 @@ const EMPTY_DISCOUNT: DiscountResult = {
   discountAmount: 0,
   discountSnapshot: null,
 };
+
+const DISCOUNT_REVALIDATE_SECONDS = 60;
+
+export const DISCOUNT_CACHE_TAGS = {
+  automatic: "discounts:automatic",
+} as const;
+
+export function revalidateDiscountCache() {
+  revalidateTag(DISCOUNT_CACHE_TAGS.automatic, { expire: 0 });
+}
+
+const getCachedAutomaticDiscountRows = unstable_cache(
+  async () => {
+    return db
+      .select()
+      .from(discounts)
+      .where(eq(discounts.kind, "automatic"));
+  },
+  ["discounts:automatic-rows"],
+  {
+    revalidate: DISCOUNT_REVALIDATE_SECONDS,
+    tags: [DISCOUNT_CACHE_TAGS.automatic],
+  },
+);
 
 function normalizeVoucherCode(value: unknown) {
   if (typeof value !== "string") {
@@ -182,13 +207,7 @@ export async function resolveBestDiscount({
 
   const now = new Date();
   const code = normalizeVoucherCode(voucherCode);
-  const productCategoryMap = await getProductCategoryMap([
-    ...new Set(items.map((item) => item.productId)),
-  ]);
-  const automaticRows = await db
-    .select()
-    .from(discounts)
-    .where(eq(discounts.kind, "automatic"));
+  const automaticRows = await getCachedAutomaticDiscountRows();
   const voucherRows = code
     ? await db
         .select()
@@ -198,6 +217,13 @@ export async function resolveBestDiscount({
   const candidates = [...automaticRows, ...voucherRows].filter((discount) =>
     isActiveDiscount(discount, now),
   );
+  const productCategoryMap = candidates.some(
+    (discount) => discount.scope === "category",
+  )
+    ? await getProductCategoryMap([
+        ...new Set(items.map((item) => item.productId)),
+      ])
+    : new Map<string, Set<string>>();
 
   let best: DiscountResult = code
     ? {
@@ -285,20 +311,19 @@ export async function getCatalogAutomaticDiscountPrices(
   }
 
   const now = new Date();
-  const activeDiscounts = (
-    await db
-      .select()
-      .from(discounts)
-      .where(eq(discounts.kind, "automatic"))
-  ).filter((discount) => isActiveDiscount(discount, now));
+  const activeDiscounts = (await getCachedAutomaticDiscountRows()).filter(
+    (discount) => isActiveDiscount(discount, now),
+  );
 
   if (activeDiscounts.length === 0) {
     return new Map<string, CatalogDiscountPresentation>();
   }
 
-  const productCategoryMap = await getProductCategoryMap(
-    productRows.map((product) => product.id),
-  );
+  const productCategoryMap = activeDiscounts.some(
+    (discount) => discount.scope === "category",
+  )
+    ? await getProductCategoryMap(productRows.map((product) => product.id))
+    : new Map<string, Set<string>>();
   const discountMap = new Map<string, CatalogDiscountPresentation>();
 
   for (const product of productRows) {

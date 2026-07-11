@@ -33,6 +33,14 @@ export type HomepageSettings = {
   productsPerSlider: number;
 };
 
+function getDefaultHomepageSettings(): HomepageSettings {
+  return {
+    categorySections: [],
+    contentSections: [],
+    productsPerSlider: DEFAULT_PRODUCTS_PER_SLIDER,
+  };
+}
+
 function normalizeProductsPerSlider(value: unknown) {
   const parsed = Number(value);
 
@@ -128,17 +136,22 @@ export function normalizeContentSections(value: unknown) {
 }
 
 export async function getHomepageSettings(): Promise<HomepageSettings> {
-  const [row] = await db
-    .select()
-    .from(storeSettings)
-    .where(eq(storeSettings.key, HOMEPAGE_SETTINGS_KEY))
-    .limit(1);
+  try {
+    const [row] = await db
+      .select()
+      .from(storeSettings)
+      .where(eq(storeSettings.key, HOMEPAGE_SETTINGS_KEY))
+      .limit(1);
 
-  return {
-    categorySections: normalizeCategorySections(row?.value?.categorySections),
-    contentSections: normalizeContentSections(row?.value?.contentSections),
-    productsPerSlider: normalizeProductsPerSlider(row?.value?.productsPerSlider),
-  };
+    return {
+      categorySections: normalizeCategorySections(row?.value?.categorySections),
+      contentSections: normalizeContentSections(row?.value?.contentSections),
+      productsPerSlider: normalizeProductsPerSlider(row?.value?.productsPerSlider),
+    };
+  } catch (error) {
+    console.error("Homepage settings could not be loaded. Using defaults.", error);
+    return getDefaultHomepageSettings();
+  }
 }
 
 export async function updateHomepageSettings(settings: HomepageSettings) {

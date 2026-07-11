@@ -10,6 +10,7 @@ import {
   products,
   productVariants,
   sizeGuides,
+  type TranslatedText,
 } from "@/lib/db/schema";
 import {
   type HomepageContentSection,
@@ -25,6 +26,30 @@ export const CATALOG_CACHE_TAGS = {
 } as const;
 
 const CATALOG_LOCALES = ["en", "ro"] as const;
+
+export type CatalogProductCard = {
+  id: string;
+  slug: string;
+  title: TranslatedText;
+  basePrice: number;
+  salePrice: number | null;
+  saleEnabled: boolean;
+  saleStartsAt: Date | null;
+  saleEndsAt: Date | null;
+  imageUrl: string | null;
+};
+
+const productCardSelect = {
+  id: products.id,
+  slug: products.slug,
+  title: products.title,
+  basePrice: products.basePrice,
+  salePrice: products.salePrice,
+  saleEnabled: products.saleEnabled,
+  saleStartsAt: products.saleStartsAt,
+  saleEndsAt: products.saleEndsAt,
+  imageUrl: products.imageUrl,
+};
 
 export function publicProductWhere(now = new Date()) {
   return and(
@@ -146,7 +171,7 @@ export const getCachedHomepageProducts = unstable_cache(
     const safeLimit = Math.min(Math.max(Math.floor(limit), 1), 8);
 
     return db
-      .select()
+      .select(productCardSelect)
       .from(products)
       .where(publicProductWhere())
       .orderBy(desc(products.createdAt))
@@ -187,57 +212,32 @@ export const getCachedHomepageCategorySliders = unstable_cache(
         getCategoryAndDescendantIds(categoryRows, categoryId),
       );
     }
-    const productCategoryIds = Array.from(
-      new Set(Array.from(descendantCategoryIdsById.values()).flat()),
-    );
-    const productRows =
-      productCategoryIds.length > 0
-        ? await db
-            .select({
-              categoryId: productCategories.categoryId,
-              product: products,
-            })
-            .from(productCategories)
-            .innerJoin(products, eq(products.id, productCategories.productId))
-            .where(
-              and(
-                inArray(productCategories.categoryId, productCategoryIds),
-                publicProductWhere(),
-              ),
-            )
-            .orderBy(desc(products.createdAt))
-        : [];
     const categoriesById = new Map(
       categoryRows.map((category) => [category.id, category]),
     );
-    const productsByCategoryId = new Map<string, typeof products.$inferSelect[]>();
-
-    for (const row of productRows) {
-      const current = productsByCategoryId.get(row.categoryId) ?? [];
-
-      if (current.length < settings.productsPerSlider) {
-        productsByCategoryId.set(row.categoryId, [...current, row.product]);
-      }
-    }
-
-    const sections = enabledSections.map((section) => {
+    const sections = await Promise.all(enabledSections.map(async (section) => {
       const category = categoriesById.get(section.categoryId);
       const descendantCategoryIds =
         descendantCategoryIdsById.get(section.categoryId) ?? [
           section.categoryId,
         ];
-      const seenProductIds = new Set<string>();
-      const sectionProducts = descendantCategoryIds
-        .flatMap((categoryId) => productsByCategoryId.get(categoryId) ?? [])
-        .filter((product) => {
-          if (seenProductIds.has(product.id)) {
-            return false;
-          }
 
-          seenProductIds.add(product.id);
-          return true;
-        })
-        .slice(0, settings.productsPerSlider);
+      if (!category || descendantCategoryIds.length === 0) {
+        return null;
+      }
+
+      const sectionProducts = await db
+        .select(productCardSelect)
+        .from(productCategories)
+        .innerJoin(products, eq(products.id, productCategories.productId))
+        .where(
+          and(
+            inArray(productCategories.categoryId, descendantCategoryIds),
+            publicProductWhere(),
+          ),
+        )
+        .orderBy(desc(products.createdAt))
+        .limit(settings.productsPerSlider);
 
       if (!category || sectionProducts.length === 0) {
         return null;
@@ -247,7 +247,7 @@ export const getCachedHomepageCategorySliders = unstable_cache(
         category,
         products: sectionProducts,
       };
-    });
+    }));
 
     return sections.filter(
       (
@@ -288,7 +288,7 @@ export const getCachedHomepageContentSections = unstable_cache(
     const featuredProducts =
       featuredProductIds.length > 0
         ? await db
-            .select()
+            .select(productCardSelect)
             .from(products)
             .where(
               and(

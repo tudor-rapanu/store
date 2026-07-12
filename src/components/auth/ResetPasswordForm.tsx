@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,13 +15,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updatePassword } from "@/lib/actions/auth";
 
-export function ResetPasswordForm({ locale }: { locale: "en" | "ro" }) {
+export function ResetPasswordForm({
+  locale,
+  token,
+}: {
+  locale: "en" | "ro";
+  token?: string;
+}) {
+  const [clientToken, setClientToken] = useState(token ?? "");
   const [state, formAction, isPending] = useActionState(
     async (_prevState: unknown, formData: FormData) => {
       return await updatePassword(formData);
     },
     null,
   );
+
+  useEffect(() => {
+    if (token || typeof window === "undefined") {
+      return;
+    }
+
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const hashToken =
+      hashParams.get("token") ??
+      hashParams.get("code") ??
+      hashParams.get("resetToken") ??
+      "";
+
+    if (hashToken) {
+      setClientToken(hashToken);
+    }
+  }, [token]);
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -31,6 +55,7 @@ export function ResetPasswordForm({ locale }: { locale: "en" | "ro" }) {
       </CardHeader>
       <form action={formAction}>
         <input type="hidden" name="locale" value={locale} />
+        {clientToken && <input type="hidden" name="token" value={clientToken} />}
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="password">New Password</Label>

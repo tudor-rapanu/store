@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { login } from "@/lib/actions/auth";
+import { ResendVerificationEmailForm } from "@/components/auth/ResendVerificationEmailForm";
+import { VerifyEmailCodeForm } from "@/components/auth/VerifyEmailCodeForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +28,18 @@ export function LoginForm({ locale }: { locale: "en" | "ro" }) {
     },
     null,
   );
+  const errorMessage =
+    state && "error" in state && typeof state.error === "string"
+      ? state.error
+      : "";
+  const verificationEmail =
+    state && "email" in state && typeof state.email === "string"
+      ? state.email
+      : "";
+  const verificationRequired =
+    state &&
+    "verificationRequired" in state &&
+    state.verificationRequired === true;
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -60,10 +74,29 @@ export function LoginForm({ locale }: { locale: "en" | "ro" }) {
             <Input id="password" name="password" type="password" required />
           </div>
 
-          {state?.error && (
-            <p className="text-sm font-medium text-destructive bg-destructive/10 p-3 rounded-md">
-              {state.error}
-            </p>
+          {errorMessage && (
+            <div className="space-y-3 rounded-md bg-destructive/10 p-3">
+              <p className="text-sm font-medium text-destructive">
+                {errorMessage}
+              </p>
+              {verificationRequired && verificationEmail && (
+                <div className="space-y-4">
+                  <ResendVerificationEmailForm
+                    email={verificationEmail}
+                    locale={locale}
+                  />
+                  <VerifyEmailCodeForm
+                    email={verificationEmail}
+                    locale={locale}
+                  />
+                  <ResendVerificationEmailForm
+                    email={verificationEmail}
+                    locale={locale}
+                    presentation="link"
+                  />
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
         <CardFooter className="flex flex-col gap-4">

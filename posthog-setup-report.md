@@ -15,8 +15,8 @@ The wizard has completed a deep integration of PostHog analytics into the Todd's
 | `bank_transfer_order_created` | Server-side: bank transfer order successfully recorded in the database | `src/lib/actions/checkout.ts` |
 | `payment_confirmed` | Server-side: Netopia webhook confirms a card payment as paid | `src/app/api/webhooks/netopia/route.ts` |
 | `payment_failed` | Server-side: Netopia webhook reports a rejected payment | `src/app/api/webhooks/netopia/route.ts` |
-| `user_signed_in` | Server-side: user successfully authenticates via Supabase | `src/lib/actions/auth.ts` |
-| `user_signed_up` | Server-side: user successfully creates a new account via Supabase | `src/lib/actions/auth.ts` |
+| `user_signed_in` | Server-side: user successfully authenticates via Neon Auth | `src/lib/actions/auth.ts` |
+| `user_signed_up` | Server-side: user successfully creates a new account via Neon Auth | `src/lib/actions/auth.ts` |
 
 ## Next steps
 

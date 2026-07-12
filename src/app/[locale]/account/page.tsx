@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 import { AccountSidebar } from "@/components/account/AccountSidebar";
+import { DeleteProfileButton } from "@/components/account/DeleteProfileButton";
 import { StatusBadge } from "@/components/order/StatusBadge";
 import { SamedayLocationPicker } from "@/components/shipping/SamedayLocationPicker";
 import { updateCustomerProfile } from "@/lib/actions/profile";
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
 
 type AccountPageProps = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; profileDeleted?: string }>;
 };
 
 export default async function AccountPage({
@@ -34,7 +35,7 @@ export default async function AccountPage({
   searchParams,
 }: AccountPageProps) {
   const { locale } = await params;
-  const { saved } = await searchParams;
+  const { saved, profileDeleted } = await searchParams;
   const activeLocale = locale === "ro" ? "ro" : "en";
   const user = await getCurrentUser();
 
@@ -99,6 +100,11 @@ export default async function AccountPage({
       {saved === "1" && (
         <div className="mb-6 border border-emerald-600 bg-emerald-50 p-4 text-sm font-bold uppercase tracking-wider text-emerald-700">
           Profile saved.
+        </div>
+      )}
+      {saved !== "1" && profileDeleted === "1" && (
+        <div className="mb-6 border border-emerald-600 bg-emerald-50 p-4 text-sm font-bold uppercase tracking-wider text-emerald-700">
+          Profile details deleted.
         </div>
       )}
 
@@ -302,6 +308,20 @@ export default async function AccountPage({
               Save Profile
             </Button>
           </form>
+
+          <section className="space-y-4 border border-red-700 p-4">
+            <div>
+              <h2 className="text-xl font-black tracking-tight text-red-700">
+                Delete Account
+              </h2>
+              <p className="text-sm text-slate-600">
+                This deletes your login account and removes saved profile
+                details. Order records are kept for legal and fulfillment
+                history.
+              </p>
+            </div>
+            <DeleteProfileButton locale={activeLocale} />
+          </section>
         </div>
       </div>
     </main>

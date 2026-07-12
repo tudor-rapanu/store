@@ -1,4 +1,4 @@
-import { getAuthProvider } from "@/lib/auth/provider";
+import { readEnvValue } from "@/lib/env";
 
 export type AppUser = {
   id: string;
@@ -39,18 +39,53 @@ function mapNeonUser(user: unknown): AppUser | null {
 }
 
 export async function getCurrentUser(): Promise<AppUser | null> {
-  if (getAuthProvider() === "neon") {
-    const { getNeonAuth } = await import("@/lib/auth/neon/server");
-    const { data: session } = await getNeonAuth().getSession();
+  const session = await getReadonlyNeonSession();
 
-    return mapNeonUser(session?.user);
+  return mapNeonUser(session?.user);
+}
+
+async function getReadonlyNeonSession(): Promise<{ user?: unknown } | null> {
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore
+    .getAll()
+    .filter((cookie) => cookie.name.startsWith("__Secure-neon-auth"))
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join("; ");
+
+  if (!cookieHeader.includes("__Secure-neon-auth.session_token")) {
+    return null;
   }
 
-  const { createClient } = await import("@/lib/supabase/server");
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const baseUrl = readEnvValue(
+    process.env.NEON_AUTH_BASE_URL,
+    "NEON_AUTH_BASE_URL",
+  );
+  const response = await fetch(
+    new URL("get-session", baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`),
+    {
+      headers: { Cookie: cookieHeader },
+      cache: "no-store",
+      signal: AbortSignal.timeout(3000),
+    },
+  );
 
-  return user;
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json().catch(() => null)) as
+    | { user?: unknown }
+    | { data?: { user?: unknown } }
+    | null;
+
+  if (payload && "data" in payload) {
+    return payload.data ?? null;
+  }
+
+  if (payload && "user" in payload) {
+    return payload;
+  }
+
+  return null;
 }

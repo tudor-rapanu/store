@@ -10,7 +10,7 @@ const databaseUrl =
 
 export default defineConfig({
   schema: "./src/lib/db/schema.ts",
-  out: "./supabase/migrations", // Changed from ./src/lib/db/migrations
+  out: "./drizzle/migrations",
   dialect: "postgresql",
   dbCredentials: {
     url: databaseUrl!,

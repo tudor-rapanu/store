@@ -14,7 +14,6 @@ function getHostname(value: string | undefined) {
 }
 
 const isDev = process.env.NODE_ENV !== "production";
-const supabaseHost = getHostname(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const r2PublicHost = getHostname(process.env.NEXT_PUBLIC_R2_PUBLIC_URL);
 const scriptSrc = [
   "'self'",
@@ -35,8 +34,6 @@ const connectSrc = [
   "wss:",
   isDev ? "http:" : null,
   isDev ? "https:" : null,
-  supabaseHost ? `https://${supabaseHost}` : "https://*.supabase.co",
-  supabaseHost ? `wss://${supabaseHost}` : "wss://*.supabase.co",
 ].filter(Boolean);
 const imgSrc = [
   "'self'",

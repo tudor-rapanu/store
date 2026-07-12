@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { register } from "@/lib/actions/auth";
+import { ResendVerificationEmailForm } from "@/components/auth/ResendVerificationEmailForm";
+import { VerifyEmailCodeForm } from "@/components/auth/VerifyEmailCodeForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +27,22 @@ export function RegisterForm({ locale }: { locale: "en" | "ro" }) {
     },
     null,
   );
+  const errorMessage =
+    state && "error" in state && typeof state.error === "string"
+      ? state.error
+      : "";
+  const successMessage =
+    state && "success" in state && typeof state.success === "string"
+      ? state.success
+      : "";
+  const warningMessage =
+    state && "warning" in state && typeof state.warning === "string"
+      ? state.warning
+      : "";
+  const registeredEmail =
+    state && "email" in state && typeof state.email === "string"
+      ? state.email
+      : "";
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -33,6 +51,7 @@ export function RegisterForm({ locale }: { locale: "en" | "ro" }) {
         <CardDescription>{t("registerDescription")}</CardDescription>
       </CardHeader>
       <form action={formAction}>
+        <input type="hidden" name="locale" value={locale} />
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">{t("email")}</Label>
@@ -49,16 +68,40 @@ export function RegisterForm({ locale }: { locale: "en" | "ro" }) {
             <Input id="password" name="password" type="password" required />
           </div>
 
-          {state?.error && (
+          {errorMessage && (
             <p className="text-sm font-medium text-destructive bg-destructive/10 p-3 rounded-md">
-              {state.error}
+              {errorMessage}
             </p>
           )}
 
-          {state?.success && (
-            <p className="text-sm font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 p-3 rounded-md">
-              {state.success}
-            </p>
+          {successMessage && (
+            <div className="space-y-3 rounded-md bg-emerald-50 p-3 dark:bg-emerald-950/20">
+              <p className="text-sm font-medium text-emerald-600">
+                {successMessage}
+              </p>
+              {warningMessage && (
+                <p className="text-sm font-medium text-amber-700">
+                  {warningMessage}
+                </p>
+              )}
+              {registeredEmail && (
+                <div className="space-y-4">
+                  <ResendVerificationEmailForm
+                    email={registeredEmail}
+                    locale={locale}
+                  />
+                  <VerifyEmailCodeForm
+                    email={registeredEmail}
+                    locale={locale}
+                  />
+                  <ResendVerificationEmailForm
+                    email={registeredEmail}
+                    locale={locale}
+                    presentation="link"
+                  />
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
         <CardFooter className="flex flex-col gap-4">

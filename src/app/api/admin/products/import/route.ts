@@ -467,6 +467,196 @@ async function fetchImportDigitalFile(url: string, rowNumber: number) {
   };
 }
 
+function normalizeImportRows(rows: ImportProductRow[]) {
+  return rows.map((row, index): NormalizedImportRow => {
+    const rowNumber = index + 2;
+    const titleEn = getString(row.titleEn);
+    const titleRo = getString(row.titleRo) || titleEn;
+    const baseSlug = slugify(getString(row.slug) || titleEn);
+
+    return {
+      rowNumber,
+      titleEn,
+      titleRo,
+      slug: baseSlug,
+      baseSlug,
+      descriptionEn: getString(row.descriptionEn),
+      descriptionRo: getString(row.descriptionRo),
+      basePrice: parsePrice(row.price),
+      sourceImageUrls: parseImageUrls(row),
+      sourceDigitalFileUrls: parseDigitalFileUrls(row),
+      isDigital: getImportBoolean(row.isDigital),
+      trackStock: getImportBoolean(row.trackStock),
+      stock: Math.max(Math.floor(parseNumber(row.stock, 0)), 0),
+      isPrivate: getImportPrivateValue(row.isPrivate),
+      categoryNames: parseList(row.categories),
+      productionMinDays: parsePositiveInteger(row.productionMinDays, 1),
+      productionMaxDays: parsePositiveInteger(row.productionMaxDays, 3),
+      publishAt: parseImportDate(row.publishAt, rowNumber, "publishAt"),
+      variants: parseVariants(row, rowNumber),
+      copyIndex: 0,
+    };
+  });
+}
+
+function getImportRowErrors(row: NormalizedImportRow) {
+  const errors: string[] = [];
+
+  if (!row.titleEn) errors.push(`Row ${row.rowNumber}: titleEn is required.`);
+  if (!row.baseSlug) errors.push(`Row ${row.rowNumber}: slug could not be generated.`);
+  if (!row.basePrice) errors.push(`Row ${row.rowNumber}: price must be greater than 0.`);
+  if (row.sourceImageUrls.length === 0) {
+    errors.push(`Row ${row.rowNumber}: imageUrl or imageUrls is required.`);
+  }
+  if (row.productionMinDays > row.productionMaxDays) {
+    errors.push(
+      `Row ${row.rowNumber}: productionMaxDays must be greater than or equal to productionMinDays.`,
+    );
+  }
+  if (row.isDigital && row.sourceDigitalFileUrls.length === 0) {
+    errors.push(
+      `Row ${row.rowNumber}: digitalFileUrl or digitalFileUrls is required for digital products.`,
+    );
+  }
+
+  return errors;
+}
+
+function applyUniqueImportNames(
+  rows: NormalizedImportRow[],
+  usedSlugs: Set<string>,
+  usedSkus: Set<string>,
+) {
+  return rows.map((row) => {
+    const unique = getUniqueSlug(row.baseSlug, usedSlugs);
+    const slug = unique.slug;
+
+    return {
+      ...row,
+      slug,
+      copyIndex: unique.copyIndex,
+      titleEn: getCopyTitle(row.titleEn, unique.copyIndex),
+      titleRo: getCopyTitle(row.titleRo, unique.copyIndex),
+      variants: row.variants.map((variant, index) => ({
+        ...variant,
+        sku: getUniqueSku(getVariantSku(variant, slug, index), usedSkus),
+      })),
+    };
+  });
+}
+
+async function uploadImportImages(row: NormalizedImportRow) {
+  const uploadedImagePaths = await Promise.all(
+    row.sourceImageUrls.map(async (url) => {
+      const image = await fetchImportImage(url, row.rowNumber);
+      return uploadProductImageBuffer(image.buffer, image.contentType, row.slug);
+    }),
+  );
+
+  return uploadedImagePaths.length === 1
+    ? uploadedImagePaths[0]
+    : JSON.stringify(uploadedImagePaths);
+}
+
+async function insertImportedDigitalFiles(row: NormalizedImportRow, productId: string) {
+  if (!row.isDigital) {
+    return;
+  }
+
+  const uploadedDigitalFiles = await Promise.all(
+    row.sourceDigitalFileUrls.map(async (url) => {
+      const file = await fetchImportDigitalFile(url, row.rowNumber);
+
+      return uploadDigitalProductFileBuffer({
+        buffer: file.buffer,
+        contentType: file.contentType,
+        fileName: file.fileName,
+        productId,
+      });
+    }),
+  );
+
+  await db.insert(digitalProductFiles).values(
+    uploadedDigitalFiles.map((file) => ({
+      productId,
+      fileName: file.fileName,
+      storageKey: file.storageKey,
+      contentType: file.contentType,
+      fileSize: file.fileSize,
+    })),
+  );
+}
+
+async function insertImportedVariants(row: NormalizedImportRow, productId: string) {
+  if (row.variants.length === 0) {
+    return;
+  }
+
+  await db.insert(productVariants).values(
+    row.variants.map((variant) => ({
+      productId,
+      name: variant.name,
+      sku: variant.sku,
+      attributes: variant.attributes,
+      price: Math.round((variant.price ?? 0) * 100),
+      priceAdjustment: 0,
+      trackStock: variant.trackStock ?? false,
+      stock: variant.trackStock ? Math.max(Math.floor(variant.stock ?? 0), 0) : 0,
+    })),
+  );
+}
+
+async function insertImportedCategories(row: NormalizedImportRow, productId: string) {
+  const categoryIds = await findOrCreateCategoryIds(row.categoryNames);
+
+  if (categoryIds.length === 0) {
+    return;
+  }
+
+  await db.insert(productCategories).values(
+    categoryIds.map((categoryId) => ({
+      productId,
+      categoryId,
+    })),
+  );
+}
+
+async function createImportedProduct(row: NormalizedImportRow) {
+  const imageUrl = await uploadImportImages(row);
+  const [product] = await db
+    .insert(products)
+    .values({
+      slug: row.slug,
+      title: { en: row.titleEn, ro: row.titleRo },
+      description:
+        row.descriptionEn || row.descriptionRo
+          ? {
+              en: row.descriptionEn,
+              ro: row.descriptionRo || row.descriptionEn,
+            }
+          : null,
+      basePrice: row.basePrice ?? 0,
+      productionMinDays: row.productionMinDays,
+      productionMaxDays: row.productionMaxDays,
+      publishAt: row.publishAt,
+      publishRevalidatedAt:
+        row.publishAt && row.publishAt > new Date() ? null : new Date(),
+      imageUrl,
+      isDigital: row.isDigital,
+      trackStock: row.variants.length === 0 ? row.trackStock : false,
+      stock: row.variants.length === 0 && row.trackStock ? row.stock : 0,
+      isSimple: row.variants.length === 0,
+      isPrivate: row.isPrivate,
+    })
+    .returning({ id: products.id, slug: products.slug });
+
+  await insertImportedDigitalFiles(row, product.id);
+  await insertImportedVariants(row, product.id);
+  await insertImportedCategories(row, product.id);
+
+  return product.slug;
+}
+
 export async function POST(request: Request) {
   if (!(await isAdminUser())) {
     return errorResponse("You are not allowed to import products.", 403);
@@ -488,35 +678,7 @@ export async function POST(request: Request) {
   let normalizedRows: NormalizedImportRow[];
 
   try {
-    normalizedRows = rows.map((row, index) => {
-      const rowNumber = index + 2;
-      const titleEn = getString(row.titleEn);
-      const titleRo = getString(row.titleRo) || titleEn;
-      const baseSlug = slugify(getString(row.slug) || titleEn);
-
-      return {
-        rowNumber,
-        titleEn,
-        titleRo,
-        slug: baseSlug,
-        baseSlug,
-        descriptionEn: getString(row.descriptionEn),
-        descriptionRo: getString(row.descriptionRo),
-        basePrice: parsePrice(row.price),
-        sourceImageUrls: parseImageUrls(row),
-        sourceDigitalFileUrls: parseDigitalFileUrls(row),
-        isDigital: getImportBoolean(row.isDigital),
-        trackStock: getImportBoolean(row.trackStock),
-        stock: Math.max(Math.floor(parseNumber(row.stock, 0)), 0),
-        isPrivate: getImportPrivateValue(row.isPrivate),
-        categoryNames: parseList(row.categories),
-        productionMinDays: parsePositiveInteger(row.productionMinDays, 1),
-        productionMaxDays: parsePositiveInteger(row.productionMaxDays, 3),
-        publishAt: parseImportDate(row.publishAt, rowNumber, "publishAt"),
-        variants: parseVariants(row, rowNumber),
-        copyIndex: 0,
-      };
-    });
+    normalizedRows = normalizeImportRows(rows);
   } catch (error) {
     return NextResponse.json(
       {
@@ -529,37 +691,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const errors: string[] = [];
-
-  normalizedRows.forEach((row) => {
-    if (!row.titleEn) {
-      errors.push(`Row ${row.rowNumber}: titleEn is required.`);
-    }
-
-    if (!row.baseSlug) {
-      errors.push(`Row ${row.rowNumber}: slug could not be generated.`);
-    }
-
-    if (!row.basePrice) {
-      errors.push(`Row ${row.rowNumber}: price must be greater than 0.`);
-    }
-
-    if (row.sourceImageUrls.length === 0) {
-      errors.push(`Row ${row.rowNumber}: imageUrl or imageUrls is required.`);
-    }
-
-    if (row.productionMinDays > row.productionMaxDays) {
-      errors.push(
-        `Row ${row.rowNumber}: productionMaxDays must be greater than or equal to productionMinDays.`,
-      );
-    }
-
-    if (row.isDigital && row.sourceDigitalFileUrls.length === 0) {
-      errors.push(
-        `Row ${row.rowNumber}: digitalFileUrl or digitalFileUrls is required for digital products.`,
-      );
-    }
-  });
+  const errors = normalizedRows.flatMap(getImportRowErrors);
 
   if (errors.length > 0) {
     return NextResponse.json({ ok: false, errors }, { status: 400 });
@@ -572,118 +704,13 @@ export async function POST(request: Request) {
   const usedSlugs = new Set(existingProducts.map((product) => product.slug));
   const usedSkus = new Set(existingVariants.map((variant) => variant.sku));
 
-  normalizedRows = normalizedRows.map((row) => {
-    const unique = getUniqueSlug(row.baseSlug, usedSlugs);
-
-    return {
-      ...row,
-      slug: unique.slug,
-      copyIndex: unique.copyIndex,
-      titleEn: getCopyTitle(row.titleEn, unique.copyIndex),
-      titleRo: getCopyTitle(row.titleRo, unique.copyIndex),
-    };
-  });
-
-  normalizedRows.forEach((row) => {
-    row.variants = row.variants.map((variant, index) => ({
-      ...variant,
-      sku: getUniqueSku(getVariantSku(variant, row.slug, index), usedSkus),
-    }));
-  });
+  normalizedRows = applyUniqueImportNames(normalizedRows, usedSlugs, usedSkus);
 
   const createdSlugs: string[] = [];
 
   try {
     for (const row of normalizedRows) {
-      const uploadedImagePaths = await Promise.all(
-        row.sourceImageUrls.map(async (url) => {
-          const image = await fetchImportImage(url, row.rowNumber);
-          return uploadProductImageBuffer(image.buffer, image.contentType, row.slug);
-        }),
-      );
-      const imageUrl =
-        uploadedImagePaths.length === 1
-          ? uploadedImagePaths[0]
-          : JSON.stringify(uploadedImagePaths);
-      const [product] = await db
-        .insert(products)
-        .values({
-          slug: row.slug,
-          title: { en: row.titleEn, ro: row.titleRo },
-          description:
-            row.descriptionEn || row.descriptionRo
-              ? {
-                  en: row.descriptionEn,
-                  ro: row.descriptionRo || row.descriptionEn,
-                }
-              : null,
-          basePrice: row.basePrice ?? 0,
-          productionMinDays: row.productionMinDays,
-          productionMaxDays: row.productionMaxDays,
-          publishAt: row.publishAt,
-          publishRevalidatedAt:
-            row.publishAt && row.publishAt > new Date() ? null : new Date(),
-          imageUrl,
-          isDigital: row.isDigital,
-          trackStock: row.variants.length === 0 ? row.trackStock : false,
-          stock: row.variants.length === 0 && row.trackStock ? row.stock : 0,
-          isSimple: row.variants.length === 0,
-          isPrivate: row.isPrivate,
-        })
-        .returning({ id: products.id, slug: products.slug });
-
-      if (row.isDigital) {
-        const uploadedDigitalFiles = await Promise.all(
-          row.sourceDigitalFileUrls.map(async (url) => {
-            const file = await fetchImportDigitalFile(url, row.rowNumber);
-
-            return uploadDigitalProductFileBuffer({
-              buffer: file.buffer,
-              contentType: file.contentType,
-              fileName: file.fileName,
-              productId: product.id,
-            });
-          }),
-        );
-
-        await db.insert(digitalProductFiles).values(
-          uploadedDigitalFiles.map((file) => ({
-            productId: product.id,
-            fileName: file.fileName,
-            storageKey: file.storageKey,
-            contentType: file.contentType,
-            fileSize: file.fileSize,
-          })),
-        );
-      }
-
-      if (row.variants.length > 0) {
-        await db.insert(productVariants).values(
-          row.variants.map((variant) => ({
-            productId: product.id,
-            name: variant.name,
-            sku: variant.sku,
-            attributes: variant.attributes,
-            price: Math.round((variant.price ?? 0) * 100),
-            priceAdjustment: 0,
-            trackStock: variant.trackStock ?? false,
-            stock: variant.trackStock ? Math.max(Math.floor(variant.stock ?? 0), 0) : 0,
-          })),
-        );
-      }
-
-      const categoryIds = await findOrCreateCategoryIds(row.categoryNames);
-
-      if (categoryIds.length > 0) {
-        await db.insert(productCategories).values(
-          categoryIds.map((categoryId) => ({
-            productId: product.id,
-            categoryId,
-          })),
-        );
-      }
-
-      createdSlugs.push(product.slug);
+      createdSlugs.push(await createImportedProduct(row));
     }
   } catch (error) {
     return NextResponse.json(

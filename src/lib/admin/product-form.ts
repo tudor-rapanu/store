@@ -35,9 +35,218 @@ export type ProductDetailBlockInput = {
   enabled: boolean;
 };
 
+type ProductDateSettings = {
+  salePrice: number | null;
+  saleStartsAt: Date | null;
+  saleEndsAt: Date | null;
+  preorderShipDate: Date | null;
+  publishAt: Date | null;
+};
+
+type ProductRawForm = {
+  titleEn: string;
+  titleRo: string;
+  descriptionEn: string;
+  descriptionRo: string;
+  slug: string;
+  priceInput: string;
+  saleEnabled: boolean;
+  salePriceInput: string;
+  saleStartsAtInput: string;
+  saleEndsAtInput: string;
+  productionMinDays: number;
+  productionMaxDays: number;
+  preorderEnabled: boolean;
+  preorderShipDateInput: string;
+  isDigital: boolean;
+  sizeGuideId: string | null;
+  trackStock: boolean;
+  stockInput: string;
+  publishAtInput: string;
+  isPrivate: boolean;
+  categoryNames: string[];
+  variantsInput: string;
+  detailsInput: string;
+};
+
+export type ParsedProductForm = ProductDateSettings & {
+  titleEn: string;
+  titleRo: string;
+  descriptionEn: string;
+  descriptionRo: string;
+  slug: string;
+  price: number;
+  basePrice: number;
+  saleEnabled: boolean;
+  productionMinDays: number;
+  productionMaxDays: number;
+  preorderEnabled: boolean;
+  isDigital: boolean;
+  sizeGuideId: string | null;
+  trackStock: boolean;
+  stock: number;
+  isPrivate: boolean;
+  categoryNames: string[];
+  variants: VariantInput[];
+  detailBlocks: ProductDetailBlockInput[];
+  shouldWaitForPublishRevalidation: boolean | null;
+};
+
 export function getString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
+}
+
+export function getUploadedFiles(formData: FormData, key: string) {
+  return formData
+    .getAll(key)
+    .filter((file): file is File => file instanceof File && file.size > 0);
+}
+
+function readProductForm(formData: FormData): ProductRawForm {
+  return {
+    titleEn: getString(formData, "titleEn"),
+    titleRo: getString(formData, "titleRo"),
+    descriptionEn: getString(formData, "descriptionEn"),
+    descriptionRo: getString(formData, "descriptionRo"),
+    slug: slugify(getString(formData, "slug")),
+    priceInput: getString(formData, "price"),
+    saleEnabled: formData.get("saleEnabled") === "on",
+    salePriceInput: getString(formData, "salePrice"),
+    saleStartsAtInput: getString(formData, "saleStartsAt"),
+    saleEndsAtInput: getString(formData, "saleEndsAt"),
+    productionMinDays: parseProductionDays(getString(formData, "productionMinDays"), 1),
+    productionMaxDays: parseProductionDays(getString(formData, "productionMaxDays"), 3),
+    preorderEnabled: formData.get("preorderEnabled") === "on",
+    preorderShipDateInput: getString(formData, "preorderShipDate"),
+    isDigital: formData.get("isDigital") === "on",
+    sizeGuideId: parseOptionalUuid(getString(formData, "sizeGuideId")),
+    trackStock: formData.get("trackStock") === "on",
+    stockInput: getString(formData, "stock"),
+    publishAtInput: getString(formData, "publishAt"),
+    isPrivate: formData.get("isPrivate") === "on",
+    categoryNames: parseCategoryNames(getString(formData, "categories")),
+    variantsInput: getString(formData, "variants"),
+    detailsInput: getString(formData, "productDetails"),
+  };
+}
+
+function parseRequiredPrice(value: string) {
+  const price = Number.parseFloat(value);
+
+  if (!Number.isFinite(price) || price <= 0) {
+    throw new Error("Enter a valid product price.");
+  }
+
+  return price;
+}
+
+function parseStock(value: string, trackStock: boolean) {
+  const stock = Math.max(Number.parseInt(value || "0", 10), 0);
+
+  if (trackStock && !Number.isInteger(stock)) {
+    throw new Error("Enter a valid product stock.");
+  }
+
+  return stock;
+}
+
+function parseProductDateSettings(raw: ProductRawForm): ProductDateSettings {
+  const publishAt = raw.publishAtInput
+    ? parseRomaniaDateTimeLocal(raw.publishAtInput)
+    : null;
+
+  return {
+    salePrice: parseOptionalPriceBani(raw.salePriceInput),
+    saleStartsAt: parseOptionalDate(raw.saleStartsAtInput),
+    saleEndsAt: parseOptionalDate(raw.saleEndsAtInput),
+    preorderShipDate: parseOptionalDate(raw.preorderShipDateInput),
+    publishAt,
+  };
+}
+
+function validateProductFormRules(raw: ProductRawForm, dates: ProductDateSettings) {
+  if (!raw.titleEn || !raw.titleRo || !raw.slug || !raw.priceInput) {
+    throw new Error("All product fields are required.");
+  }
+
+  if (raw.saleEnabled && !dates.salePrice) {
+    throw new Error("Enter a sale price or disable the sale.");
+  }
+
+  if (dates.saleStartsAt && dates.saleEndsAt && dates.saleStartsAt >= dates.saleEndsAt) {
+    throw new Error("Sale end date must be after the start date.");
+  }
+
+  if (raw.productionMinDays > raw.productionMaxDays) {
+    throw new Error(
+      "Maximum business days must be greater than or equal to minimum business days.",
+    );
+  }
+
+  if (raw.preorderEnabled && !dates.preorderShipDate) {
+    throw new Error("Choose a preorder shipping start date or disable preorder.");
+  }
+
+  if (raw.publishAtInput && !dates.publishAt) {
+    throw new Error("Enter a valid publish date.");
+  }
+}
+
+export function validateProductMediaRequirements({
+  isDigital,
+  digitalFiles,
+  images,
+  requireImage,
+}: {
+  isDigital: boolean;
+  digitalFiles: File[];
+  images?: File[];
+  requireImage?: boolean;
+}) {
+  if (requireImage && images?.length === 0) {
+    throw new Error("At least one valid product image is required.");
+  }
+
+  if (isDigital && digitalFiles.length === 0) {
+    throw new Error("Add at least one protected file for digital products.");
+  }
+}
+
+export function parseProductFormData(formData: FormData): ParsedProductForm {
+  const raw = readProductForm(formData);
+  const dates = parseProductDateSettings(raw);
+  const price = parseRequiredPrice(raw.priceInput);
+  const stock = parseStock(raw.stockInput, raw.trackStock);
+  const variants = parseVariants(raw.variantsInput);
+  const detailBlocks = parseProductDetailBlocks(raw.detailsInput);
+
+  validateVariantSales(variants);
+  validateProductFormRules(raw, dates);
+
+  return {
+    titleEn: raw.titleEn,
+    titleRo: raw.titleRo,
+    descriptionEn: raw.descriptionEn,
+    descriptionRo: raw.descriptionRo,
+    slug: raw.slug,
+    price,
+    basePrice: Math.round(price * 100),
+    saleEnabled: raw.saleEnabled,
+    productionMinDays: raw.productionMinDays,
+    productionMaxDays: raw.productionMaxDays,
+    preorderEnabled: raw.preorderEnabled,
+    isDigital: raw.isDigital,
+    sizeGuideId: raw.sizeGuideId,
+    trackStock: raw.trackStock,
+    stock,
+    isPrivate: raw.isPrivate,
+    categoryNames: raw.categoryNames,
+    variants,
+    detailBlocks,
+    shouldWaitForPublishRevalidation: dates.publishAt && dates.publishAt > new Date(),
+    ...dates,
+  };
 }
 
 export function parseOptionalPriceBani(value: string) {

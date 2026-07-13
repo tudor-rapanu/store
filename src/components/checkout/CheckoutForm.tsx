@@ -10,7 +10,7 @@ import {
 } from "react";
 import Script from "next/script";
 import { capturePostHog } from "@/lib/analytics/posthog-client";
-import { useCart } from "@/lib/store/useCart";
+import { useCart, type CartItem } from "@/lib/store/useCart";
 import {
   initiateCheckout,
   createBankTransferOrder,
@@ -115,6 +115,248 @@ type CheckoutFormProps = {
   initialPaymentCurrency: "RON" | "EUR";
 };
 
+type CheckoutLocker = {
+  id: string;
+  name: string;
+  address: string;
+  cityId?: string;
+  city?: string;
+  countyId?: string;
+  county?: string;
+  postalCode?: string;
+  oohType?: number;
+};
+
+type CheckoutDiscountPreview = {
+  discountAmount: number;
+  discount?: {
+    id: string;
+    name: string;
+    code: string | null;
+    amount: number;
+  } | null;
+  message?: string;
+};
+
+type CheckoutSubmitContext = {
+  isDigitalOnlyCart: boolean;
+  shippingMethod: "address" | "easybox" | "international";
+  locker: CheckoutLocker | null;
+  isRomania: boolean;
+  selectedLocation: SamedayLocationSelection;
+  countryCode: string;
+  selectedCountry?: (typeof CHECKOUT_COUNTRIES)[number];
+  paymentCurrency: "RON" | "EUR";
+  voucherCode: string;
+  paymentMethod: "netopia" | "transfer";
+  cartSubtotal: number;
+  items: CartItem[];
+  discountAmount: number;
+  discount: CheckoutDiscountPreview["discount"];
+  shippingAmount: number;
+  orderTotal: number;
+  clearCart: () => void;
+  setErrorMessage: (message: string | null) => void;
+};
+
+function getCheckoutValidationMessage(context: CheckoutSubmitContext) {
+  if (
+    !context.isDigitalOnlyCart &&
+    context.shippingMethod === "easybox" &&
+    !context.locker
+  ) {
+    return "Please select a Sameday Easybox locker.";
+  }
+
+  if (
+    !context.isDigitalOnlyCart &&
+    context.isRomania &&
+    (!context.selectedLocation.countyName || !context.selectedLocation.countyId)
+  ) {
+    return "Please select a county.";
+  }
+
+  if (
+    !context.isDigitalOnlyCart &&
+    context.isRomania &&
+    (!context.selectedLocation.cityName || !context.selectedLocation.cityId)
+  ) {
+    return "Please select a city.";
+  }
+
+  return null;
+}
+
+function getCheckoutLocale() {
+  return window.location.pathname.split("/")[1] === "ro" ? "ro" : "en";
+}
+
+function getEasyboxAddress(
+  formData: FormData,
+  shippingMethod: CheckoutSubmitContext["shippingMethod"],
+  locker: CheckoutLocker | null,
+) {
+  if (shippingMethod === "easybox" && locker) {
+    return `Easybox: ${locker.name} (ID: ${locker.id}) - ${locker.address}`;
+  }
+
+  return formData.get("street") as string;
+}
+
+function getCheckoutLocationFields(
+  formData: FormData,
+  context: CheckoutSubmitContext,
+) {
+  if (context.isRomania) {
+    return {
+      city: context.selectedLocation.cityName,
+      county: context.selectedLocation.countyName,
+      samedayCityId: context.selectedLocation.cityId,
+      samedayCountyId: context.selectedLocation.countyId,
+    };
+  }
+
+  return {
+    city: formData.get("internationalCity") as string,
+    county: formData.get("internationalRegion") as string,
+    samedayCityId: undefined,
+    samedayCountyId: undefined,
+  };
+}
+
+function getCheckoutLockerFields(context: CheckoutSubmitContext) {
+  if (context.shippingMethod !== "easybox" || !context.locker) {
+    return {};
+  }
+
+  return {
+    samedayLockerId: context.locker.id,
+    samedayLockerName: context.locker.name,
+    samedayLockerAddress: context.locker.address,
+    samedayLockerCityId: context.locker.cityId,
+    samedayLockerCity: context.locker.city,
+    samedayLockerCountyId: context.locker.countyId,
+    samedayLockerCounty: context.locker.county,
+    samedayLockerPostalCode: context.locker.postalCode,
+    samedayLockerOohType: context.locker.oohType,
+  };
+}
+
+function buildCheckoutCustomerData(
+  formData: FormData,
+  context: CheckoutSubmitContext,
+): CheckoutCustomerData {
+  const locationFields = getCheckoutLocationFields(formData, context);
+  const lockerFields = getCheckoutLockerFields(context);
+
+  return {
+    email: formData.get("email") as string,
+    firstName: formData.get("firstName") as string,
+    lastName: formData.get("lastName") as string,
+    phone: formData.get("phone") as string,
+    address: {
+      street: getEasyboxAddress(formData, context.shippingMethod, context.locker),
+      city: locationFields.city,
+      county: locationFields.county,
+      zip: formData.get("zip") as string,
+      countryCode: context.countryCode,
+      countryName: context.selectedCountry?.name ?? "Romania",
+      samedayCityId: locationFields.samedayCityId,
+      samedayCountyId: locationFields.samedayCountyId,
+      ...lockerFields,
+    },
+    shippingMethod: context.shippingMethod,
+    paymentCurrency: normalizePaymentCurrency(context.paymentCurrency),
+    voucherCode: context.voucherCode,
+  };
+}
+
+function captureCheckoutStarted(context: CheckoutSubmitContext) {
+  capturePostHog("checkout_started", {
+    payment_method: context.paymentMethod,
+    shipping_method: context.shippingMethod,
+    cart_total: context.cartSubtotal,
+    discount_amount: context.discountAmount,
+    discount: context.discount,
+    item_count: context.items.length,
+    currency: "RON",
+    display_currency: context.paymentCurrency,
+    payment_currency: "RON",
+    country: context.countryCode,
+    shipping_amount: context.shippingAmount,
+    order_total: context.orderTotal,
+    payment_amount: context.orderTotal,
+  });
+}
+
+async function submitNetopiaCheckout(
+  context: CheckoutSubmitContext,
+  customerData: CheckoutCustomerData,
+  locale: "en" | "ro",
+) {
+  const response = await initiateCheckout(
+    context.cartSubtotal,
+    customerData,
+    locale,
+    context.items,
+  );
+
+  if (response?.url) {
+    window.location.href = response.url;
+  } else if (response?.error) {
+    context.setErrorMessage(response.error);
+  }
+
+  return response;
+}
+
+async function submitBankTransferCheckout(
+  context: CheckoutSubmitContext,
+  customerData: CheckoutCustomerData,
+  locale: "en" | "ro",
+) {
+  const response = await createBankTransferOrder(
+    context.cartSubtotal,
+    customerData,
+    locale,
+    context.items,
+  );
+
+  if (response?.success) {
+    context.clearCart();
+    window.location.href = `/${window.location.pathname.split("/")[1]}/checkout/transfer-instructions`;
+  } else {
+    context.setErrorMessage(
+      response?.error || "Failed to process bank transfer order.",
+    );
+  }
+
+  return response;
+}
+
+async function submitCheckoutForm(
+  formData: FormData,
+  context: CheckoutSubmitContext,
+) {
+  context.setErrorMessage(null);
+
+  const validationMessage = getCheckoutValidationMessage(context);
+  if (validationMessage) {
+    context.setErrorMessage(validationMessage);
+    return null;
+  }
+
+  const customerData = buildCheckoutCustomerData(formData, context);
+  const locale = getCheckoutLocale();
+  captureCheckoutStarted(context);
+
+  if (context.paymentMethod === "netopia") {
+    return submitNetopiaCheckout(context, customerData, locale);
+  }
+
+  return submitBankTransferCheckout(context, customerData, locale);
+}
+
 export function CheckoutForm({
   locale,
   initialCustomer,
@@ -153,16 +395,7 @@ export function CheckoutForm({
   const [email, setEmail] = useState(initialCustomer?.email ?? "");
   const [voucherCode, setVoucherCode] = useState("");
   const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
-  const [discountPreview, setDiscountPreview] = useState<{
-    discountAmount: number;
-    discount?: {
-      id: string;
-      name: string;
-      code: string | null;
-      amount: number;
-    } | null;
-    message?: string;
-  }>({
+  const [discountPreview, setDiscountPreview] = useState<CheckoutDiscountPreview>({
     discountAmount: 0,
     discount: null,
   });
@@ -171,17 +404,7 @@ export function CheckoutForm({
   } | null>(null);
 
   // Sameday Locker State
-  const [locker, setLocker] = useState<{
-    id: string;
-    name: string;
-    address: string;
-    cityId?: string;
-    city?: string;
-    countyId?: string;
-    county?: string;
-    postalCode?: string;
-    oohType?: number;
-  } | null>(null);
+  const [locker, setLocker] = useState<CheckoutLocker | null>(null);
 
   const cartSubtotal = total();
   const isDigitalOnlyCart = items.length > 0 && items.every((item) => item.isDigital);
@@ -466,123 +689,27 @@ export function CheckoutForm({
   ]);
 
   const [state, formAction, isPending] = useActionState(
-    async (_prevState: unknown, formData: FormData) => {
-      setErrorMessage(null);
-
-      if (!isDigitalOnlyCart && shippingMethod === "easybox" && !locker) {
-        setErrorMessage("Please select a Sameday Easybox locker.");
-        return null;
-      }
-
-      if (
-        !isDigitalOnlyCart &&
-        isRomania &&
-        (!selectedLocation.countyName || !selectedLocation.countyId)
-      ) {
-        setErrorMessage("Please select a county.");
-        return null;
-      }
-
-      if (
-        !isDigitalOnlyCart &&
-        isRomania &&
-        (!selectedLocation.cityName || !selectedLocation.cityId)
-      ) {
-        setErrorMessage("Please select a city.");
-        return null;
-      }
-
-      const customerData: CheckoutCustomerData = {
-        email: formData.get("email") as string,
-        firstName: formData.get("firstName") as string,
-        lastName: formData.get("lastName") as string,
-        phone: formData.get("phone") as string,
-        address: {
-          street:
-            shippingMethod === "easybox" && locker
-              ? `Easybox: ${locker.name} (ID: ${locker.id}) - ${locker.address}`
-              : (formData.get("street") as string),
-          city: isRomania
-            ? selectedLocation.cityName
-            : (formData.get("internationalCity") as string),
-          county: isRomania
-            ? selectedLocation.countyName
-            : (formData.get("internationalRegion") as string),
-          zip: formData.get("zip") as string,
-          countryCode,
-          countryName: selectedCountry?.name ?? "Romania",
-          samedayCityId: isRomania ? selectedLocation.cityId : undefined,
-          samedayCountyId: isRomania ? selectedLocation.countyId : undefined,
-          samedayLockerId:
-            shippingMethod === "easybox" && locker ? locker.id : undefined,
-          samedayLockerName:
-            shippingMethod === "easybox" && locker ? locker.name : undefined,
-          samedayLockerAddress:
-            shippingMethod === "easybox" && locker ? locker.address : undefined,
-          samedayLockerCityId:
-            shippingMethod === "easybox" && locker ? locker.cityId : undefined,
-          samedayLockerCity:
-            shippingMethod === "easybox" && locker ? locker.city : undefined,
-          samedayLockerCountyId:
-            shippingMethod === "easybox" && locker ? locker.countyId : undefined,
-          samedayLockerCounty:
-            shippingMethod === "easybox" && locker ? locker.county : undefined,
-          samedayLockerPostalCode:
-            shippingMethod === "easybox" && locker ? locker.postalCode : undefined,
-          samedayLockerOohType:
-            shippingMethod === "easybox" && locker ? locker.oohType : undefined,
-        },
+    async (_prevState: unknown, formData: FormData) =>
+      submitCheckoutForm(formData, {
+        isDigitalOnlyCart,
         shippingMethod,
-        paymentCurrency: normalizePaymentCurrency(paymentCurrency),
+        locker,
+        isRomania,
+        selectedLocation,
+        countryCode,
+        selectedCountry,
+        paymentCurrency,
         voucherCode,
-      };
-      const locale = window.location.pathname.split("/")[1] === "ro" ? "ro" : "en";
-
-      capturePostHog("checkout_started", {
-        payment_method: paymentMethod,
-        shipping_method: shippingMethod,
-        cart_total: total(),
-        discount_amount: discountAmount,
+        paymentMethod,
+        cartSubtotal,
+        items,
+        discountAmount,
         discount: discountPreview.discount,
-        item_count: items.length,
-        currency: "RON",
-        display_currency: paymentCurrency,
-        payment_currency: "RON",
-        country: countryCode,
-        shipping_amount: shippingAmount,
-        order_total: orderTotal,
-        payment_amount: orderTotal,
-      });
-
-      if (paymentMethod === "netopia") {
-        const response = await initiateCheckout(
-          cartSubtotal,
-          customerData,
-          locale,
-          items,
-        );
-        if (response?.url) {
-          window.location.href = response.url;
-        } else if (response?.error) {
-          setErrorMessage(response.error);
-        }
-        return response;
-      } else {
-        const response = await createBankTransferOrder(
-          cartSubtotal,
-          customerData,
-          locale,
-          items,
-        );
-        if (response?.success) {
-          clearCart();
-          window.location.href = `/${window.location.pathname.split("/")[1]}/checkout/transfer-instructions`;
-        } else {
-          setErrorMessage(response?.error || "Failed to process bank transfer order.");
-        }
-        return response;
-      }
-    },
+        shippingAmount,
+        orderTotal,
+        clearCart,
+        setErrorMessage,
+      }),
     null,
   );
   const isCheckoutDisabled =

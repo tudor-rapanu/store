@@ -55,6 +55,24 @@ type SamedayAwbPanelProps = {
   };
 };
 
+function getSamedayAwbDescription({
+  awbNumber,
+  paymentStatus,
+  shippingMethod,
+}: Pick<SamedayAwbPanelProps, "awbNumber" | "paymentStatus" | "shippingMethod">) {
+  if (awbNumber) {
+    return `Generated AWB ${awbNumber}`;
+  }
+
+  if (paymentStatus !== "paid") {
+    return "Mark the order as paid before generating an AWB.";
+  }
+
+  return shippingMethod === "easybox"
+    ? "Generate an Easybox delivery AWB for this paid order."
+    : "Generate a home delivery AWB for this paid order.";
+}
+
 export function SamedayAwbPanel({
   orderId,
   paymentStatus,
@@ -298,13 +316,7 @@ export function SamedayAwbPanel({
         <div>
           <h2 className="text-xs font-black uppercase tracking-widest">Sameday AWB</h2>
           <p className="mt-1 text-sm text-slate-600">
-            {awbNumber
-              ? `Generated AWB ${awbNumber}`
-              : paymentStatus === "paid"
-                ? shippingMethod === "easybox"
-                  ? "Generate an Easybox delivery AWB for this paid order."
-                  : "Generate a home delivery AWB for this paid order."
-                : "Mark the order as paid before generating an AWB."}
+            {getSamedayAwbDescription({ awbNumber, paymentStatus, shippingMethod })}
           </p>
         </div>
         {!awbNumber && (

@@ -54,6 +54,68 @@ function getPaymentMethod(value?: string) {
   return paymentMethodOptions.find((option) => option === value);
 }
 
+type OrderFilters = Awaited<AdminOrdersPageProps["searchParams"]>;
+
+function parseOrderFilters(filters: OrderFilters) {
+  const requestedPage = Math.max(Number.parseInt(filters.page ?? "1", 10) || 1, 1);
+  const searchTerm = filters.q?.trim() ?? "";
+
+  return {
+    requestedPage,
+    searchTerm,
+    paymentStatus: getPaymentStatus(filters.paymentStatus),
+    fulfillmentStatus: getFulfillmentStatus(filters.fulfillmentStatus),
+    paymentMethod: getPaymentMethod(filters.paymentMethod),
+  };
+}
+
+function getOrderWhereClause(filters: ReturnType<typeof parseOrderFilters>) {
+  const searchNumber = filters.searchTerm.replace(/^TT-/i, "");
+  const parsedOrderNumber = Number.parseInt(searchNumber, 10);
+  const searchCondition = filters.searchTerm
+    ? or(
+        Number.isFinite(parsedOrderNumber)
+          ? eq(orders.orderNumber, parsedOrderNumber)
+          : undefined,
+        ilike(orders.customerEmail, `%${filters.searchTerm}%`),
+        ilike(orders.customerFirstName, `%${filters.searchTerm}%`),
+        ilike(orders.customerLastName, `%${filters.searchTerm}%`),
+        ilike(orders.customerPhone, `%${filters.searchTerm}%`),
+        ilike(orders.awbNumber, `%${filters.searchTerm}%`),
+      )
+    : undefined;
+  const conditions = [
+    filters.paymentStatus ? eq(orders.paymentStatus, filters.paymentStatus) : undefined,
+    filters.fulfillmentStatus
+      ? eq(orders.fulfillmentStatus, filters.fulfillmentStatus)
+      : undefined,
+    filters.paymentMethod ? eq(orders.paymentMethod, filters.paymentMethod) : undefined,
+    searchCondition,
+  ].filter(Boolean);
+
+  return conditions.length > 0 ? and(...conditions) : undefined;
+}
+
+function getOrderBaseQuery(filters: ReturnType<typeof parseOrderFilters>) {
+  const baseQuery = new URLSearchParams();
+
+  if (filters.searchTerm) baseQuery.set("q", filters.searchTerm);
+  if (filters.paymentStatus) baseQuery.set("paymentStatus", filters.paymentStatus);
+  if (filters.fulfillmentStatus) {
+    baseQuery.set("fulfillmentStatus", filters.fulfillmentStatus);
+  }
+  if (filters.paymentMethod) baseQuery.set("paymentMethod", filters.paymentMethod);
+
+  return baseQuery;
+}
+
+function getPageHref(activeLocale: string, baseQuery: URLSearchParams, page: number) {
+  const query = new URLSearchParams(baseQuery);
+  query.set("page", String(page));
+
+  return `/${activeLocale}/admin/orders?${query.toString()}`;
+}
+
 export default async function AdminOrdersPage({
   params,
   searchParams,
@@ -67,39 +129,15 @@ export default async function AdminOrdersPage({
 
   await markStaleNetopiaOrdersFailed();
 
-  const filters = await searchParams;
-  const requestedPage = Math.max(Number.parseInt(filters.page ?? "1", 10) || 1, 1);
-  const searchTerm = filters.q?.trim() ?? "";
-  const paymentStatus = getPaymentStatus(filters.paymentStatus);
-  const fulfillmentStatus = getFulfillmentStatus(filters.fulfillmentStatus);
-  const paymentMethod = getPaymentMethod(filters.paymentMethod);
-  const searchNumber = searchTerm.replace(/^TT-/i, "");
-  const parsedOrderNumber = Number.parseInt(searchNumber, 10);
-  const conditions = [
-    paymentStatus ? eq(orders.paymentStatus, paymentStatus) : undefined,
-    fulfillmentStatus ? eq(orders.fulfillmentStatus, fulfillmentStatus) : undefined,
-    paymentMethod ? eq(orders.paymentMethod, paymentMethod) : undefined,
-    searchTerm
-      ? or(
-          Number.isFinite(parsedOrderNumber)
-            ? eq(orders.orderNumber, parsedOrderNumber)
-            : undefined,
-          ilike(orders.customerEmail, `%${searchTerm}%`),
-          ilike(orders.customerFirstName, `%${searchTerm}%`),
-          ilike(orders.customerLastName, `%${searchTerm}%`),
-          ilike(orders.customerPhone, `%${searchTerm}%`),
-          ilike(orders.awbNumber, `%${searchTerm}%`),
-        )
-      : undefined,
-  ].filter(Boolean);
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const filters = parseOrderFilters(await searchParams);
+  const whereClause = getOrderWhereClause(filters);
   const [totalResult] = await db
     .select({ value: count() })
     .from(orders)
     .where(whereClause);
   const totalOrders = totalResult?.value ?? 0;
   const totalPages = Math.max(Math.ceil(totalOrders / ORDERS_PER_PAGE), 1);
-  const currentPage = Math.min(requestedPage, totalPages);
+  const currentPage = Math.min(filters.requestedPage, totalPages);
   const offset = (currentPage - 1) * ORDERS_PER_PAGE;
   const items = await db
     .select({
@@ -119,18 +157,7 @@ export default async function AdminOrdersPage({
     .orderBy(desc(orders.createdAt))
     .limit(ORDERS_PER_PAGE)
     .offset(offset);
-  const baseQuery = new URLSearchParams();
-
-  if (searchTerm) baseQuery.set("q", searchTerm);
-  if (paymentStatus) baseQuery.set("paymentStatus", paymentStatus);
-  if (fulfillmentStatus) baseQuery.set("fulfillmentStatus", fulfillmentStatus);
-  if (paymentMethod) baseQuery.set("paymentMethod", paymentMethod);
-
-  function pageHref(page: number) {
-    const query = new URLSearchParams(baseQuery);
-    query.set("page", String(page));
-    return `/${activeLocale}/admin/orders?${query.toString()}`;
-  }
+  const baseQuery = getOrderBaseQuery(filters);
 
   return (
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl px-4 py-16">
@@ -153,25 +180,25 @@ export default async function AdminOrdersPage({
       <form className="mb-6 grid gap-3 border border-black p-4 md:grid-cols-[1fr_180px_180px_180px_auto]">
         <input
           name="q"
-          defaultValue={searchTerm}
+          defaultValue={filters.searchTerm}
           placeholder="Order, email, phone, AWB"
           className="h-10 rounded-none border border-black px-3 text-sm"
         />
         <FilterSelect
           name="paymentStatus"
-          value={paymentStatus}
+          value={filters.paymentStatus}
           label="Payment"
           options={paymentStatusOptions}
         />
         <FilterSelect
           name="fulfillmentStatus"
-          value={fulfillmentStatus}
+          value={filters.fulfillmentStatus}
           label="Status"
           options={fulfillmentStatusOptions}
         />
         <FilterSelect
           name="paymentMethod"
-          value={paymentMethod}
+          value={filters.paymentMethod}
           label="Method"
           options={paymentMethodOptions}
         />
@@ -230,7 +257,9 @@ export default async function AdminOrdersPage({
               currentPage <= 1 ? "pointer-events-none opacity-50" : ""
             }`}
           >
-            <Link href={pageHref(Math.max(currentPage - 1, 1))}>Previous</Link>
+            <Link href={getPageHref(activeLocale, baseQuery, Math.max(currentPage - 1, 1))}>
+              Previous
+            </Link>
           </Button>
           <span className="text-slate-500">
             Page {currentPage} of {totalPages}
@@ -242,7 +271,9 @@ export default async function AdminOrdersPage({
               currentPage >= totalPages ? "pointer-events-none opacity-50" : ""
             }`}
           >
-            <Link href={pageHref(Math.min(currentPage + 1, totalPages))}>Next</Link>
+            <Link href={getPageHref(activeLocale, baseQuery, Math.min(currentPage + 1, totalPages))}>
+              Next
+            </Link>
           </Button>
         </nav>
       )}

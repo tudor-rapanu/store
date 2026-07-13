@@ -20,6 +20,19 @@ type ParsedWebhookBody = {
   parseMode: "json" | "form" | "invalid" | "too_large";
 };
 
+type WebhookPaymentContext = {
+  orderId: string;
+  payment: Record<string, unknown>;
+  status: number;
+  netopiaTxId: string | null;
+};
+
+type WebhookContextResult =
+  | {
+      response: NextResponse;
+    }
+  | WebhookPaymentContext;
+
 const MAX_WEBHOOK_BODY_LENGTH = 64 * 1024;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -280,198 +293,273 @@ function resolveAcceptedPayment({
   };
 }
 
+async function validateNetopiaRequest(request: Request) {
+  const rateLimit = await checkRequestRateLimit(request, {
+    keyPrefix: "webhook:netopia",
+    limit: 120,
+    windowMs: 60 * 1000,
+  });
+
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit);
+  }
+
+  if (!hasValidWebhookSecret(request)) {
+    console.warn("Netopia webhook rejected because the secret is invalid.");
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  return null;
+}
+
+async function getWebhookPaymentContext(
+  request: Request,
+): Promise<WebhookContextResult> {
+  const parsedBody = await parseWebhookBody(request);
+  logNetopiaWebhookShape(request, parsedBody);
+
+  const { order, payment } = parsedBody.body;
+
+  if (!order || !payment) {
+    return {
+      response: NextResponse.json(
+        { error: "Invalid request payload" },
+        { status: 400 },
+      ),
+    };
+  }
+
+  const orderId = getOrderId(order);
+  const status = getNetopiaStatusCode(
+    payment.status ?? payment.statusCode ?? payment.code,
+  );
+  const netopiaTxId = getTransactionId(payment);
+
+  if (!orderId) {
+    console.warn("Netopia webhook missing order id.", {
+      orderKeys: Object.keys(order),
+      paymentKeys: Object.keys(payment),
+    });
+    return {
+      response: NextResponse.json({ error: "Missing order id" }, { status: 400 }),
+    };
+  }
+
+  if (status === null) {
+    console.warn("Netopia webhook missing payment status.", {
+      orderId,
+      paymentKeys: Object.keys(payment),
+    });
+    return {
+      response: NextResponse.json({ error: "Missing payment status" }, { status: 400 }),
+    };
+  }
+
+  return { orderId, payment, status, netopiaTxId };
+}
+
+function getPaidOrderUpdate({
+  acceptedPayment,
+  existingOrder,
+  netopiaTxId,
+}: {
+  acceptedPayment: { paymentAmount: number; paymentCurrency: PaymentCurrency };
+  existingOrder: typeof orders.$inferSelect;
+  netopiaTxId: string | null;
+}) {
+  return {
+    status: "paid" as const,
+    paymentStatus: "paid" as const,
+    fulfillmentStatus:
+      existingOrder.fulfillmentStatus === "new"
+        ? ("processing" as const)
+        : existingOrder.fulfillmentStatus,
+    netopiaTxId: netopiaTxId ?? existingOrder.netopiaTxId,
+    paymentAmount: acceptedPayment.paymentAmount,
+    paymentCurrency: acceptedPayment.paymentCurrency,
+    updatedAt: new Date(),
+  };
+}
+
+function sendFirstPaymentEmail(updatedOrder: typeof orders.$inferSelect) {
+  sendOrderEmail(
+    updatedOrder.customerEmail,
+    updatedOrder.customerFirstName,
+    `TT-${updatedOrder.orderNumber}`,
+    updatedOrder.totalAmount,
+    false,
+    undefined,
+    updatedOrder.estimatedShippingStart && updatedOrder.estimatedShippingEnd
+      ? {
+          start: updatedOrder.estimatedShippingStart,
+          end: updatedOrder.estimatedShippingEnd,
+        }
+      : null,
+  );
+}
+
+function capturePaymentEvent({
+  event,
+  netopiaTxId,
+  order,
+  status,
+}: {
+  event: "payment_confirmed" | "payment_failed";
+  netopiaTxId: string | null;
+  order: typeof orders.$inferSelect;
+  status: number;
+}) {
+  getPostHogClient()?.capture({
+    distinctId: order.customerEmail,
+    event,
+    properties: {
+      order_id: order.id,
+      order_number: order.orderNumber,
+      netopia_transaction_id: netopiaTxId,
+      amount: order.paymentAmount ?? order.totalAmount,
+      currency: order.paymentCurrency,
+      order_total_ron: order.totalAmount,
+      payment_status: status,
+    },
+  });
+}
+
+async function handlePaidPayment({
+  netopiaTxId,
+  orderId,
+  payment,
+  status,
+}: {
+  netopiaTxId: string | null;
+  orderId: string;
+  payment: Record<string, unknown>;
+  status: number;
+}) {
+  const [existingOrder] = await db
+    .select()
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+
+  if (!existingOrder) {
+    console.warn("Netopia webhook order was not found.", { orderId });
+    return NextResponse.json({ error: "Order was not found" }, { status: 404 });
+  }
+
+  const paymentCurrency = getPaymentCurrency(payment);
+  const expectedPaymentCurrency: PaymentCurrency = existingOrder.paymentCurrency ?? "RON";
+  const acceptedPayment = resolveAcceptedPayment({
+    payment,
+    paymentCurrency,
+    expectedPaymentCurrency,
+    expectedPaymentAmount: existingOrder.paymentAmount ?? existingOrder.totalAmount,
+    orderTotalAmount: existingOrder.totalAmount,
+    orderId,
+  });
+
+  if (!acceptedPayment.accepted) {
+    console.warn("Netopia webhook currency mismatch.", {
+      orderId,
+      paymentCurrency,
+      expectedPaymentCurrency,
+    });
+    return NextResponse.json({ error: "Payment currency mismatch" }, { status: 400 });
+  }
+
+  if (!paymentAmountMatchesOrder(payment, acceptedPayment.paymentAmount)) {
+    console.warn("Netopia webhook amount mismatch.", {
+      orderId,
+      expectedAmount: acceptedPayment.paymentAmount,
+      receivedAmount: payment.amount,
+    });
+    return NextResponse.json({ error: "Payment amount mismatch" }, { status: 400 });
+  }
+
+  const wasAlreadyPaid = existingOrder.paymentStatus === "paid";
+
+  if (!wasAlreadyPaid) {
+    await reduceTrackedStockForPaidOrder(existingOrder.id);
+  }
+
+  const [updatedOrder] = await db
+    .update(orders)
+    .set(getPaidOrderUpdate({ acceptedPayment, existingOrder, netopiaTxId }))
+    .where(eq(orders.id, orderId))
+    .returning();
+
+  if (!wasAlreadyPaid) {
+    sendFirstPaymentEmail(updatedOrder);
+  }
+
+  capturePaymentEvent({
+    event: "payment_confirmed",
+    netopiaTxId,
+    order: updatedOrder,
+    status,
+  });
+
+  return null;
+}
+
+async function handleRejectedPayment({
+  netopiaTxId,
+  orderId,
+  status,
+}: {
+  netopiaTxId: string | null;
+  orderId: string;
+  status: number;
+}) {
+  const [failedOrder] = await db
+    .update(orders)
+    .set({
+      status: "failed",
+      paymentStatus: "failed",
+      updatedAt: new Date(),
+    })
+    .where(eq(orders.id, orderId))
+    .returning();
+
+  if (!failedOrder) {
+    console.warn("Netopia webhook order was not found.", { orderId });
+    return NextResponse.json({ error: "Order was not found" }, { status: 404 });
+  }
+
+  capturePaymentEvent({
+    event: "payment_failed",
+    netopiaTxId,
+    order: failedOrder,
+    status,
+  });
+
+  return null;
+}
+
+async function handlePaymentStatus(context: WebhookPaymentContext) {
+  if (context.status === 3 || context.status === 5) {
+    return handlePaidPayment(context);
+  }
+
+  return context.status === 12 ? handleRejectedPayment(context) : null;
+}
+
 export async function POST(request: Request) {
   try {
-    const rateLimit = await checkRequestRateLimit(request, {
-      keyPrefix: "webhook:netopia",
-      limit: 120,
-      windowMs: 60 * 1000,
-    });
+    const rejectedRequest = await validateNetopiaRequest(request);
 
-    if (!rateLimit.allowed) {
-      return rateLimitResponse(rateLimit);
+    if (rejectedRequest) {
+      return rejectedRequest;
     }
 
-    if (!hasValidWebhookSecret(request)) {
-      console.warn("Netopia webhook rejected because the secret is invalid.");
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const context = await getWebhookPaymentContext(request);
+
+    if ("response" in context) {
+      return context.response;
     }
 
-    const parsedBody = await parseWebhookBody(request);
-    logNetopiaWebhookShape(request, parsedBody);
+    const paymentResponse = await handlePaymentStatus(context);
 
-    const body = parsedBody.body;
-    const { order, payment } = body;
-
-    if (!order || !payment) {
-      return NextResponse.json({ error: "Invalid request payload" }, { status: 400 });
-    }
-
-    // You can verify the payment status via the SDK if needed,
-    // or trust the payload if you implement IPN signature validation
-
-    const orderId = getOrderId(order);
-    const status = getNetopiaStatusCode(
-      payment.status ?? payment.statusCode ?? payment.code,
-    ); // V2 statuses e.g., 3 = paid, 5 = confirmed, 12 = rejected
-    const netopiaTxId = getTransactionId(payment);
-
-    if (!orderId) {
-      console.warn("Netopia webhook missing order id.", {
-        orderKeys: Object.keys(order),
-        paymentKeys: Object.keys(payment),
-      });
-      return NextResponse.json({ error: "Missing order id" }, { status: 400 });
-    }
-
-    if (status === null) {
-      console.warn("Netopia webhook missing payment status.", {
-        orderId,
-        paymentKeys: Object.keys(payment),
-      });
-      return NextResponse.json({ error: "Missing payment status" }, { status: 400 });
-    }
-
-    if (status === 3 || status === 5) {
-      // Paid or Confirmed
-      const [existingOrder] = await db
-        .select()
-        .from(orders)
-        .where(eq(orders.id, orderId))
-        .limit(1);
-
-      if (!existingOrder) {
-        console.warn("Netopia webhook order was not found.", { orderId });
-        return NextResponse.json({ error: "Order was not found" }, { status: 404 });
-      }
-
-      const paymentCurrency = getPaymentCurrency(payment);
-
-      const expectedPaymentCurrency: PaymentCurrency =
-        existingOrder.paymentCurrency ?? "RON";
-      const expectedPaymentAmount =
-        existingOrder.paymentAmount ?? existingOrder.totalAmount;
-      const acceptedPayment = resolveAcceptedPayment({
-        payment,
-        paymentCurrency,
-        expectedPaymentCurrency,
-        expectedPaymentAmount,
-        orderTotalAmount: existingOrder.totalAmount,
-        orderId,
-      });
-
-      if (!acceptedPayment.accepted) {
-        console.warn("Netopia webhook currency mismatch.", {
-          orderId,
-          paymentCurrency,
-          expectedPaymentCurrency,
-        });
-        return NextResponse.json(
-          { error: "Payment currency mismatch" },
-          { status: 400 },
-        );
-      }
-
-      if (!paymentAmountMatchesOrder(payment, acceptedPayment.paymentAmount)) {
-        console.warn("Netopia webhook amount mismatch.", {
-          orderId,
-          expectedAmount: acceptedPayment.paymentAmount,
-          receivedAmount: payment.amount,
-        });
-        return NextResponse.json({ error: "Payment amount mismatch" }, { status: 400 });
-      }
-
-      const wasAlreadyPaid = existingOrder.paymentStatus === "paid";
-
-      if (!wasAlreadyPaid) {
-        await reduceTrackedStockForPaidOrder(existingOrder.id);
-      }
-
-      // 1. Update the database
-      const [updatedOrder] = await db
-        .update(orders)
-        .set({
-          status: "paid",
-          paymentStatus: "paid",
-          fulfillmentStatus:
-            existingOrder.fulfillmentStatus === "new"
-              ? "processing"
-              : existingOrder.fulfillmentStatus,
-          netopiaTxId: netopiaTxId ?? existingOrder.netopiaTxId,
-          paymentAmount: acceptedPayment.paymentAmount,
-          paymentCurrency: acceptedPayment.paymentCurrency,
-          updatedAt: new Date(),
-        })
-        .where(eq(orders.id, orderId))
-        .returning(); // Ensure you return the updated row
-
-      if (!wasAlreadyPaid) {
-        // 2. Fire the receipt email only on the first paid notification.
-        sendOrderEmail(
-          updatedOrder.customerEmail,
-          updatedOrder.customerFirstName,
-          `TT-${updatedOrder.orderNumber}`,
-          updatedOrder.totalAmount,
-          false, // isBankTransfer = false
-          undefined,
-          updatedOrder.estimatedShippingStart && updatedOrder.estimatedShippingEnd
-            ? {
-                start: updatedOrder.estimatedShippingStart,
-                end: updatedOrder.estimatedShippingEnd,
-              }
-            : null,
-        );
-      }
-
-      const posthog = getPostHogClient();
-      posthog?.capture({
-        distinctId: updatedOrder.customerEmail,
-        event: "payment_confirmed",
-        properties: {
-          order_id: updatedOrder.id,
-          order_number: updatedOrder.orderNumber,
-          netopia_transaction_id: netopiaTxId,
-          amount: updatedOrder.paymentAmount ?? updatedOrder.totalAmount,
-          currency: updatedOrder.paymentCurrency,
-          order_total_ron: updatedOrder.totalAmount,
-          payment_status: status,
-        },
-      });
-    } else if (status === 12) {
-      // Rejected
-      const [failedOrder] = await db
-        .update(orders)
-        .set({
-          status: "failed",
-          paymentStatus: "failed",
-          updatedAt: new Date(),
-        })
-        .where(eq(orders.id, orderId))
-        .returning();
-
-      if (!failedOrder) {
-        console.warn("Netopia webhook order was not found.", { orderId });
-        return NextResponse.json({ error: "Order was not found" }, { status: 404 });
-      }
-
-      const posthog = getPostHogClient();
-      posthog?.capture({
-        distinctId: failedOrder.customerEmail,
-        event: "payment_failed",
-        properties: {
-          order_id: failedOrder.id,
-          order_number: failedOrder.orderNumber,
-          netopia_transaction_id: netopiaTxId,
-          amount: failedOrder.paymentAmount ?? failedOrder.totalAmount,
-          currency: failedOrder.paymentCurrency,
-          order_total_ron: failedOrder.totalAmount,
-          payment_status: status,
-        },
-      });
-    }
-
-    // V2 requires a simple JSON 200 response with errorCode: 0 to acknowledge receipt
-    return NextResponse.json({ errorCode: 0 });
+    return paymentResponse ?? NextResponse.json({ errorCode: 0 });
   } catch (error) {
     console.error("Netopia Webhook Error:", error);
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });

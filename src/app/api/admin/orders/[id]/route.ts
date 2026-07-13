@@ -42,6 +42,91 @@ function errorResponse(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
+type OrderUpdateBody = {
+  paymentStatus?: PaymentStatus;
+  fulfillmentStatus?: FulfillmentStatus;
+  shippingMethod?: ShippingMethod;
+  awbNumber?: string;
+  trackingUrl?: string;
+  adminNotes?: string;
+  customerNotes?: string;
+  invoiceStatus?: InvoiceStatus;
+  invoiceNumber?: string;
+  invoiceUrl?: string;
+  fgoInvoiceId?: string;
+};
+
+type OrderStatus = "pending" | "paid" | "failed";
+
+function validateOrderUpdateBody(body: OrderUpdateBody) {
+  if (body.paymentStatus && !paymentStatuses.has(body.paymentStatus)) {
+    return "Invalid payment status.";
+  }
+
+  if (body.fulfillmentStatus && !fulfillmentStatuses.has(body.fulfillmentStatus)) {
+    return "Invalid order status.";
+  }
+
+  if (body.shippingMethod && !shippingMethods.has(body.shippingMethod)) {
+    return "Invalid shipping method.";
+  }
+
+  if (body.invoiceStatus && !invoiceStatuses.has(body.invoiceStatus)) {
+    return "Invalid invoice status.";
+  }
+
+  return null;
+}
+
+function getOrderStatusFromPayment(
+  paymentStatus?: PaymentStatus,
+): OrderStatus | undefined {
+  if (paymentStatus === "paid") {
+    return "paid";
+  }
+
+  if (paymentStatus === "failed") {
+    return "failed";
+  }
+
+  return paymentStatus === "pending" ? "pending" : undefined;
+}
+
+async function reduceStockForNewPaidStatus(
+  orderId: string,
+  previousPaymentStatus: PaymentStatus,
+  nextPaymentStatus?: PaymentStatus,
+) {
+  if (nextPaymentStatus !== "paid" || previousPaymentStatus === "paid") {
+    return null;
+  }
+
+  try {
+    await reduceTrackedStockForPaidOrder(orderId);
+    return null;
+  } catch {
+    return "This order cannot be marked as paid because one or more tracked-stock items are no longer available.";
+  }
+}
+
+function getOrderUpdateValues(body: OrderUpdateBody) {
+  return {
+    paymentStatus: body.paymentStatus,
+    fulfillmentStatus: body.fulfillmentStatus,
+    shippingMethod: body.shippingMethod,
+    awbNumber: body.awbNumber?.trim() || null,
+    trackingUrl: body.trackingUrl?.trim() || null,
+    adminNotes: body.adminNotes?.trim() || null,
+    customerNotes: body.customerNotes?.trim() || null,
+    invoiceStatus: body.invoiceStatus,
+    invoiceNumber: body.invoiceNumber?.trim() || null,
+    invoiceUrl: body.invoiceUrl?.trim() || null,
+    fgoInvoiceId: body.fgoInvoiceId?.trim() || null,
+    status: getOrderStatusFromPayment(body.paymentStatus),
+    updatedAt: new Date(),
+  };
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -51,34 +136,11 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const body = (await request.json().catch(() => ({}))) as {
-    paymentStatus?: PaymentStatus;
-    fulfillmentStatus?: FulfillmentStatus;
-    shippingMethod?: ShippingMethod;
-    awbNumber?: string;
-    trackingUrl?: string;
-    adminNotes?: string;
-    customerNotes?: string;
-    invoiceStatus?: InvoiceStatus;
-    invoiceNumber?: string;
-    invoiceUrl?: string;
-    fgoInvoiceId?: string;
-  };
+  const body = (await request.json().catch(() => ({}))) as OrderUpdateBody;
+  const validationError = validateOrderUpdateBody(body);
 
-  if (body.paymentStatus && !paymentStatuses.has(body.paymentStatus)) {
-    return errorResponse("Invalid payment status.");
-  }
-
-  if (body.fulfillmentStatus && !fulfillmentStatuses.has(body.fulfillmentStatus)) {
-    return errorResponse("Invalid order status.");
-  }
-
-  if (body.shippingMethod && !shippingMethods.has(body.shippingMethod)) {
-    return errorResponse("Invalid shipping method.");
-  }
-
-  if (body.invoiceStatus && !invoiceStatuses.has(body.invoiceStatus)) {
-    return errorResponse("Invalid invoice status.");
+  if (validationError) {
+    return errorResponse(validationError);
   }
 
   const [existingOrder] = await db
@@ -94,41 +156,19 @@ export async function PATCH(
     return errorResponse("Order was not found.", 404);
   }
 
-  if (body.paymentStatus === "paid" && existingOrder.paymentStatus !== "paid") {
-    try {
-      await reduceTrackedStockForPaidOrder(existingOrder.id);
-    } catch {
-      return errorResponse(
-        "This order cannot be marked as paid because one or more tracked-stock items are no longer available.",
-        409,
-      );
-    }
+  const stockError = await reduceStockForNewPaidStatus(
+    existingOrder.id,
+    existingOrder.paymentStatus,
+    body.paymentStatus,
+  );
+
+  if (stockError) {
+    return errorResponse(stockError, 409);
   }
 
-  const [updatedOrder] = await db
+  await db
     .update(orders)
-    .set({
-      paymentStatus: body.paymentStatus,
-      fulfillmentStatus: body.fulfillmentStatus,
-      shippingMethod: body.shippingMethod,
-      awbNumber: body.awbNumber?.trim() || null,
-      trackingUrl: body.trackingUrl?.trim() || null,
-      adminNotes: body.adminNotes?.trim() || null,
-      customerNotes: body.customerNotes?.trim() || null,
-      invoiceStatus: body.invoiceStatus,
-      invoiceNumber: body.invoiceNumber?.trim() || null,
-      invoiceUrl: body.invoiceUrl?.trim() || null,
-      fgoInvoiceId: body.fgoInvoiceId?.trim() || null,
-      status:
-        body.paymentStatus === "paid"
-          ? "paid"
-          : body.paymentStatus === "failed"
-            ? "failed"
-            : body.paymentStatus === "pending"
-              ? "pending"
-              : undefined,
-      updatedAt: new Date(),
-    })
+    .set(getOrderUpdateValues(body))
     .where(eq(orders.id, id))
     .returning();
 

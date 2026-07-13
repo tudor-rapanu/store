@@ -12,27 +12,22 @@ import {
 import { isAdminUser } from "@/lib/admin-auth";
 import {
   getString,
+  getUploadedFiles,
   getVariantSku,
-  parseCategoryNames,
-  parseOptionalDate,
-  parseOptionalPriceBani,
-  parseOptionalUuid,
-  parseProductDetailBlocks,
-  parseProductionDays,
-  parseVariants,
-  slugify,
+  parseProductFormData,
   syncProductCategories,
-  validateVariantSales,
+  type ParsedProductForm,
   type ProductDetailBlockInput,
   type VariantInput,
 } from "@/lib/admin/product-form";
 import { getProductImagePaths } from "@/lib/product-images";
 import { revalidateCatalogViews } from "@/lib/catalog/cache";
-import { parseRomaniaDateTimeLocal } from "@/lib/dates/romania";
 import { uploadDigitalProductFile } from "@/lib/storage/digital-products";
 import { deleteProductImages, uploadProductImage } from "@/lib/storage/product-images";
 
 export const runtime = "nodejs";
+
+class VariantRemovalError extends Error {}
 
 function errorResponse(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -68,6 +63,218 @@ async function getImagesSafeToDelete(imagePaths: string[], productId: string) {
   return imagePaths.filter((imagePath) => !imagePathsUsedElsewhere.has(imagePath));
 }
 
+function serializeProductImages(imagePaths: string[]) {
+  if (imagePaths.length === 0) {
+    return null;
+  }
+
+  return imagePaths.length === 1 ? imagePaths[0] : JSON.stringify(imagePaths);
+}
+
+async function validateDigitalProductFiles(productId: string, digitalFiles: File[]) {
+  if (digitalFiles.length > 0) {
+    return;
+  }
+
+  const [existingDigitalFile] = await db
+    .select({ id: digitalProductFiles.id })
+    .from(digitalProductFiles)
+    .where(eq(digitalProductFiles.productId, productId))
+    .limit(1);
+
+  if (!existingDigitalFile) {
+    throw new Error("Add at least one protected file for digital products.");
+  }
+}
+
+async function appendProductImages({
+  existingImages,
+  images,
+  slug,
+}: {
+  existingImages: string[];
+  images: File[];
+  slug: string;
+}) {
+  if (images.length === 0) {
+    return existingImages;
+  }
+
+  const uploadedImages = await Promise.all(
+    images.map((image) => uploadProductImage(image, slug)),
+  );
+
+  return [...existingImages, ...uploadedImages];
+}
+
+async function insertDigitalFiles(productId: string, digitalFiles: File[]) {
+  if (digitalFiles.length === 0) {
+    return;
+  }
+
+  const uploadedFiles = await Promise.all(
+    digitalFiles.map((file) => uploadDigitalProductFile(file, productId)),
+  );
+
+  await db.insert(digitalProductFiles).values(
+    uploadedFiles.map((file) => ({
+      productId,
+      fileName: file.fileName,
+      storageKey: file.storageKey,
+      contentType: file.contentType,
+      fileSize: file.fileSize,
+    })),
+  );
+}
+
+function getVariantValues(variant: VariantInput, slug: string, index: number) {
+  return {
+    name: variant.name,
+    sku: getVariantSku(variant, slug, index),
+    attributes: variant.attributes,
+    price: Math.round((variant.price ?? 0) * 100),
+    salePrice:
+      variant.saleEnabled && variant.salePrice
+        ? Math.round(variant.salePrice * 100)
+        : null,
+    saleEnabled: variant.saleEnabled ?? false,
+    saleStartsAt: variant.saleEnabled ? variant.saleStartsAt : null,
+    saleEndsAt: variant.saleEnabled ? variant.saleEndsAt : null,
+    priceAdjustment: 0,
+    trackStock: variant.trackStock ?? false,
+    stock: variant.trackStock ? Math.max(Math.floor(variant.stock ?? 0), 0) : 0,
+    updatedAt: new Date(),
+  };
+}
+
+async function deleteRemovedVariants(
+  productId: string,
+  existingVariantIds: Set<string>,
+  variants: VariantInput[],
+) {
+  const submittedVariantIds = new Set(
+    variants
+      .map((variant) => variant.id)
+      .filter((variantId): variantId is string =>
+        Boolean(variantId && existingVariantIds.has(variantId)),
+      ),
+  );
+  const removedVariantIds = [...existingVariantIds].filter(
+    (variantId) => !submittedVariantIds.has(variantId),
+  );
+
+  if (removedVariantIds.length === 0) {
+    return;
+  }
+
+  try {
+    await db
+      .delete(productVariants)
+      .where(
+        and(
+          eq(productVariants.productId, productId),
+          inArray(productVariants.id, removedVariantIds),
+        ),
+      );
+  } catch {
+    throw new VariantRemovalError(
+      "One or more removed variants are linked to order history. Keep them on the product instead of deleting them.",
+    );
+  }
+}
+
+async function syncProductVariants(
+  productId: string,
+  slug: string,
+  variants: VariantInput[],
+) {
+  const existingVariants = await db
+    .select({ id: productVariants.id })
+    .from(productVariants)
+    .where(eq(productVariants.productId, productId));
+  const existingVariantIds = new Set(existingVariants.map((variant) => variant.id));
+
+  await deleteRemovedVariants(productId, existingVariantIds, variants);
+
+  for (const [index, variant] of variants.entries()) {
+    const variantValues = getVariantValues(variant, slug, index);
+
+    if (variant.id && existingVariantIds.has(variant.id)) {
+      await db
+        .update(productVariants)
+        .set(variantValues)
+        .where(
+          and(eq(productVariants.id, variant.id), eq(productVariants.productId, productId)),
+        );
+    } else {
+      await db.insert(productVariants).values({
+        productId,
+        ...variantValues,
+      });
+    }
+  }
+}
+
+async function syncProductDetailBlocks(
+  productId: string,
+  detailBlocks: ProductDetailBlockInput[],
+) {
+  await db.delete(productDetailBlocks).where(eq(productDetailBlocks.productId, productId));
+
+  if (detailBlocks.length === 0) {
+    return;
+  }
+
+  await db.insert(productDetailBlocks).values(
+    detailBlocks.map((detail, index) => ({
+      productId,
+      icon: detail.icon,
+      label: detail.label,
+      value: detail.value,
+      sortOrder: index,
+      enabled: detail.enabled,
+    })),
+  );
+}
+
+function getProductUpdateValues(productForm: ParsedProductForm, imageUrl: string | null) {
+  return {
+    slug: productForm.slug,
+    title: { en: productForm.titleEn, ro: productForm.titleRo },
+    description:
+      productForm.descriptionEn || productForm.descriptionRo
+        ? {
+            en: productForm.descriptionEn,
+            ro: productForm.descriptionRo || productForm.descriptionEn,
+          }
+        : null,
+    basePrice: productForm.basePrice,
+    salePrice: productForm.saleEnabled ? productForm.salePrice : null,
+    saleEnabled: productForm.saleEnabled,
+    saleStartsAt: productForm.saleEnabled ? productForm.saleStartsAt : null,
+    saleEndsAt: productForm.saleEnabled ? productForm.saleEndsAt : null,
+    productionMinDays: productForm.productionMinDays,
+    productionMaxDays: productForm.productionMaxDays,
+    preorderEnabled: productForm.preorderEnabled,
+    preorderShipDate: productForm.preorderEnabled ? productForm.preorderShipDate : null,
+    publishAt: productForm.publishAt,
+    publishRevalidatedAt: productForm.shouldWaitForPublishRevalidation
+      ? null
+      : new Date(),
+    isDigital: productForm.isDigital,
+    sizeGuideId: productForm.sizeGuideId,
+    trackStock: productForm.variants.length === 0 ? productForm.trackStock : false,
+    stock:
+      productForm.variants.length === 0 && productForm.trackStock
+        ? productForm.stock
+        : 0,
+    isSimple: productForm.variants.length === 0,
+    isPrivate: productForm.isPrivate,
+    updatedAt: new Date(),
+    imageUrl,
+  };
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -77,179 +284,40 @@ export async function PATCH(
   }
 
   const { id } = await params;
+  const formData = await request.formData();
+  const existingImages = parseExistingImages(getString(formData, "existingImages"));
+  const images = getUploadedFiles(formData, "images");
+  const digitalFiles = getUploadedFiles(formData, "digitalFiles");
+  let productForm: ParsedProductForm;
+
   try {
-    const formData = await request.formData();
-    const titleEn = getString(formData, "titleEn");
-    const titleRo = getString(formData, "titleRo");
-    const descriptionEn = getString(formData, "descriptionEn");
-    const descriptionRo = getString(formData, "descriptionRo");
-    const slug = slugify(getString(formData, "slug"));
-    const priceInput = getString(formData, "price");
-    const saleEnabled = formData.get("saleEnabled") === "on";
-    const salePriceInput = getString(formData, "salePrice");
-    const saleStartsAtInput = getString(formData, "saleStartsAt");
-    const saleEndsAtInput = getString(formData, "saleEndsAt");
-    const productionMinDays = parseProductionDays(
-      getString(formData, "productionMinDays"),
-      1,
+    productForm = parseProductFormData(formData);
+
+    if (productForm.isDigital) {
+      await validateDigitalProductFiles(id, digitalFiles);
+    }
+  } catch (error) {
+    return errorResponse(
+      error instanceof Error ? error.message : "Invalid product form data.",
     );
-    const productionMaxDays = parseProductionDays(
-      getString(formData, "productionMaxDays"),
-      3,
-    );
-    const preorderEnabled = formData.get("preorderEnabled") === "on";
-    const preorderShipDateInput = getString(formData, "preorderShipDate");
-    const isDigital = formData.get("isDigital") === "on";
-    const sizeGuideId = parseOptionalUuid(getString(formData, "sizeGuideId"));
-    const trackStock = formData.get("trackStock") === "on";
-    const stockInput = getString(formData, "stock");
-    const publishAtInput = getString(formData, "publishAt");
-    const isPrivate = formData.get("isPrivate") === "on";
-    const categoryNames = parseCategoryNames(getString(formData, "categories"));
-    const existingImages = parseExistingImages(getString(formData, "existingImages"));
-    const images = formData
-      .getAll("images")
-      .filter((image): image is File => image instanceof File && image.size > 0);
-    const digitalFiles = formData
-      .getAll("digitalFiles")
-      .filter((file): file is File => file instanceof File && file.size > 0);
-    const variantsInput = getString(formData, "variants");
-    const detailsInput = getString(formData, "productDetails");
+  }
 
-    if (!titleEn || !titleRo || !slug || !priceInput) {
-      return errorResponse("All product fields are required.");
-    }
-
-    const price = Number.parseFloat(priceInput);
-
-    if (!Number.isFinite(price) || price <= 0) {
-      return errorResponse("Enter a valid product price.");
-    }
-    const stock = Math.max(Number.parseInt(stockInput || "0", 10), 0);
-
-    if (trackStock && !Number.isInteger(stock)) {
-      return errorResponse("Enter a valid product stock.");
-    }
-
-    let variants: VariantInput[];
-    let detailBlocks: ProductDetailBlockInput[];
-
-    try {
-      variants = parseVariants(variantsInput);
-      validateVariantSales(variants);
-      detailBlocks = parseProductDetailBlocks(detailsInput);
-    } catch (error) {
-      return errorResponse(
-        error instanceof Error ? error.message : "Invalid product form data.",
-      );
-    }
-
-    let salePrice: number | null = null;
-    let saleStartsAt: Date | null = null;
-    let saleEndsAt: Date | null = null;
-    let preorderShipDate: Date | null = null;
-    let publishAt: Date | null = null;
-
-    try {
-      salePrice = parseOptionalPriceBani(salePriceInput);
-      saleStartsAt = parseOptionalDate(saleStartsAtInput);
-      saleEndsAt = parseOptionalDate(saleEndsAtInput);
-      preorderShipDate = parseOptionalDate(preorderShipDateInput);
-      publishAt = publishAtInput ? parseRomaniaDateTimeLocal(publishAtInput) : null;
-    } catch (error) {
-      return errorResponse(
-        error instanceof Error ? error.message : "Invalid sale settings.",
-      );
-    }
-
-    if (saleEnabled && !salePrice) {
-      return errorResponse("Enter a sale price or disable the sale.");
-    }
-
-    if (saleStartsAt && saleEndsAt && saleStartsAt >= saleEndsAt) {
-      return errorResponse("Sale end date must be after the start date.");
-    }
-
-    if (productionMinDays > productionMaxDays) {
-      return errorResponse(
-        "Maximum business days must be greater than or equal to minimum business days.",
-      );
-    }
-
-    if (preorderEnabled && !preorderShipDate) {
-      return errorResponse(
-        "Choose a preorder shipping start date or disable preorder.",
-      );
-    }
-
-    if (publishAtInput && !publishAt) {
-      return errorResponse("Enter a valid publish date.");
-    }
-
-    if (isDigital && digitalFiles.length === 0) {
-      const [existingDigitalFile] = await db
-        .select({ id: digitalProductFiles.id })
-        .from(digitalProductFiles)
-        .where(eq(digitalProductFiles.productId, id))
-        .limit(1);
-
-      if (!existingDigitalFile) {
-        return errorResponse("Add at least one protected file for digital products.");
-      }
-    }
-
-    const shouldWaitForPublishRevalidation = publishAt && publishAt > new Date();
-
+  try {
     const [existingProduct] = await db
       .select({ imageUrl: products.imageUrl, slug: products.slug })
       .from(products)
       .where(eq(products.id, id))
       .limit(1);
-    let orderedImages = existingImages;
-
-    if (images.length > 0) {
-      const uploadedImages = await Promise.all(
-        images.map((image) => uploadProductImage(image, slug)),
-      );
-      orderedImages = [...existingImages, ...uploadedImages];
-    }
-
-    const imageUrl =
-      orderedImages.length === 0
-        ? null
-        : orderedImages.length === 1
-          ? orderedImages[0]
-          : JSON.stringify(orderedImages);
+    const orderedImages = await appendProductImages({
+      existingImages,
+      images,
+      slug: productForm.slug,
+    });
+    const imageUrl = serializeProductImages(orderedImages);
 
     const [updatedProduct] = await db
       .update(products)
-      .set({
-        slug,
-        title: { en: titleEn, ro: titleRo },
-        description:
-          descriptionEn || descriptionRo
-            ? { en: descriptionEn, ro: descriptionRo || descriptionEn }
-            : null,
-        basePrice: Math.round(price * 100),
-        salePrice: saleEnabled ? salePrice : null,
-        saleEnabled,
-        saleStartsAt: saleEnabled ? saleStartsAt : null,
-        saleEndsAt: saleEnabled ? saleEndsAt : null,
-        productionMinDays,
-        productionMaxDays,
-        preorderEnabled,
-        preorderShipDate: preorderEnabled ? preorderShipDate : null,
-        publishAt,
-        publishRevalidatedAt: shouldWaitForPublishRevalidation ? null : new Date(),
-        isDigital,
-        sizeGuideId,
-        trackStock: variants.length === 0 ? trackStock : false,
-        stock: variants.length === 0 && trackStock ? stock : 0,
-        isSimple: variants.length === 0,
-        isPrivate,
-        updatedAt: new Date(),
-        imageUrl,
-      })
+      .set(getProductUpdateValues(productForm, imageUrl))
       .where(eq(products.id, id))
       .returning();
 
@@ -257,21 +325,7 @@ export async function PATCH(
       return errorResponse("Product was not found.", 404);
     }
 
-    if (isDigital && digitalFiles.length > 0) {
-      const uploadedFiles = await Promise.all(
-        digitalFiles.map((file) => uploadDigitalProductFile(file, id)),
-      );
-
-      await db.insert(digitalProductFiles).values(
-        uploadedFiles.map((file) => ({
-          productId: id,
-          fileName: file.fileName,
-          storageKey: file.storageKey,
-          contentType: file.contentType,
-          fileSize: file.fileSize,
-        })),
-      );
-    }
+    await insertDigitalFiles(id, digitalFiles);
 
     const previousImages = getProductImagePaths(existingProduct?.imageUrl);
     const removedImages = previousImages.filter(
@@ -283,90 +337,10 @@ export async function PATCH(
       await deleteProductImages(imagesSafeToDelete);
     }
 
-    const existingVariants = await db
-      .select({ id: productVariants.id })
-      .from(productVariants)
-      .where(eq(productVariants.productId, id));
-    const existingVariantIds = new Set(existingVariants.map((variant) => variant.id));
-    const submittedExistingVariantIds = new Set(
-      variants
-        .map((variant) => variant.id)
-        .filter((variantId): variantId is string =>
-          Boolean(variantId && existingVariantIds.has(variantId)),
-        ),
-    );
-    const removedVariantIds = existingVariants
-      .map((variant) => variant.id)
-      .filter((variantId) => !submittedExistingVariantIds.has(variantId));
+    await syncProductVariants(id, productForm.slug, productForm.variants);
+    await syncProductDetailBlocks(id, productForm.detailBlocks);
 
-    if (removedVariantIds.length > 0) {
-      try {
-        await db
-          .delete(productVariants)
-          .where(
-            and(
-              eq(productVariants.productId, id),
-              inArray(productVariants.id, removedVariantIds),
-            ),
-          );
-      } catch {
-        return errorResponse(
-          "One or more removed variants are linked to order history. Keep them on the product instead of deleting them.",
-          409,
-        );
-      }
-    }
-
-    for (const [index, variant] of variants.entries()) {
-      const variantValues = {
-        name: variant.name,
-        sku: getVariantSku(variant, slug, index),
-        attributes: variant.attributes,
-        price: Math.round((variant.price ?? 0) * 100),
-        salePrice:
-          variant.saleEnabled && variant.salePrice
-            ? Math.round(variant.salePrice * 100)
-            : null,
-        saleEnabled: variant.saleEnabled ?? false,
-        saleStartsAt: variant.saleEnabled ? variant.saleStartsAt : null,
-        saleEndsAt: variant.saleEnabled ? variant.saleEndsAt : null,
-        priceAdjustment: 0,
-        trackStock: variant.trackStock ?? false,
-        stock: variant.trackStock ? Math.max(Math.floor(variant.stock ?? 0), 0) : 0,
-        updatedAt: new Date(),
-      };
-
-      if (variant.id && existingVariantIds.has(variant.id)) {
-        await db
-          .update(productVariants)
-          .set(variantValues)
-          .where(
-            and(eq(productVariants.id, variant.id), eq(productVariants.productId, id)),
-          );
-      } else {
-        await db.insert(productVariants).values({
-          productId: id,
-          ...variantValues,
-        });
-      }
-    }
-
-    await db.delete(productDetailBlocks).where(eq(productDetailBlocks.productId, id));
-
-    if (detailBlocks.length > 0) {
-      await db.insert(productDetailBlocks).values(
-        detailBlocks.map((detail, index) => ({
-          productId: id,
-          icon: detail.icon,
-          label: detail.label,
-          value: detail.value,
-          sortOrder: index,
-          enabled: detail.enabled,
-        })),
-      );
-    }
-
-    await syncProductCategories(id, categoryNames, { replace: true });
+    await syncProductCategories(id, productForm.categoryNames, { replace: true });
 
     revalidateCatalogViews({
       productSlugs: [existingProduct?.slug, updatedProduct.slug],
@@ -374,6 +348,10 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof VariantRemovalError) {
+      return errorResponse(error.message, 409);
+    }
+
     console.error("Product update failed:", error);
     return errorResponse(
       error instanceof Error ? error.message : "Product could not be updated.",

@@ -17,6 +17,8 @@ import {
 import { formatFulfillmentEstimate } from "@/lib/fulfillment/estimate";
 import { getCurrentUser } from "@/lib/auth/session";
 
+type OrderRow = typeof orders.$inferSelect;
+
 type PublicOrderPageProps = Readonly<{
   params: Promise<Readonly<{ locale: string; orderNumber: string }>>;
   searchParams: Promise<Readonly<{ token?: string }>>;
@@ -32,6 +34,75 @@ export async function generateMetadata({
   };
 }
 
+function parseOrderNumberParam(orderNumber: string) {
+  const parsedOrderNumber = Number.parseInt(orderNumber, 10);
+
+  return Number.isFinite(parsedOrderNumber) ? parsedOrderNumber : null;
+}
+
+function getOrderAccess({
+  order,
+  token,
+  userId,
+}: {
+  order: OrderRow;
+  token?: string;
+  userId?: string;
+}) {
+  const isAccountOwner = Boolean(userId && order.userId === userId);
+  const hasGuestToken = Boolean(token && token === order.accessToken);
+
+  return {
+    hasAccess: isAccountOwner || hasGuestToken,
+    hasGuestToken,
+    isGuestView: !isAccountOwner,
+  };
+}
+
+async function getPublicOrderItems(orderId: string) {
+  return db
+    .select({
+      item: orderItems,
+      variant: productVariants,
+      product: products,
+    })
+    .from(orderItems)
+    .leftJoin(productVariants, eq(productVariants.id, orderItems.variantId))
+    .leftJoin(products, eq(products.id, orderItems.productId))
+    .where(eq(orderItems.orderId, orderId));
+}
+
+async function getPublicOrderDownloadFiles(order: OrderRow) {
+  if (order.paymentStatus !== "paid") {
+    return [];
+  }
+
+  return db
+    .select({
+      id: digitalProductFiles.id,
+      fileName: digitalProductFiles.fileName,
+      fileSize: digitalProductFiles.fileSize,
+    })
+    .from(digitalProductFiles)
+    .innerJoin(orderItems, eq(orderItems.productId, digitalProductFiles.productId))
+    .where(eq(orderItems.orderId, order.id));
+}
+
+function canCancelOrder(order: OrderRow) {
+  return !["shipped", "delivered", "cancelled", "refunded"].includes(
+    order.fulfillmentStatus,
+  );
+}
+
+function getOrderFulfillmentEstimate(order: OrderRow) {
+  return order.estimatedShippingStart && order.estimatedShippingEnd
+    ? {
+        start: order.estimatedShippingStart,
+        end: order.estimatedShippingEnd,
+      }
+    : null;
+}
+
 export default async function PublicOrderPage({
   params,
   searchParams,
@@ -39,9 +110,9 @@ export default async function PublicOrderPage({
   const { locale, orderNumber } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
   const { token } = await searchParams;
-  const parsedOrderNumber = Number.parseInt(orderNumber, 10);
+  const parsedOrderNumber = parseOrderNumberParam(orderNumber);
 
-  if (!Number.isFinite(parsedOrderNumber)) {
+  if (!parsedOrderNumber) {
     notFound();
   }
 
@@ -56,39 +127,20 @@ export default async function PublicOrderPage({
   }
 
   const user = await getCurrentUser();
-  const isAccountOwner = Boolean(user?.id && order.userId === user.id);
-  const hasGuestToken = Boolean(token && token === order.accessToken);
+  const { hasAccess, hasGuestToken, isGuestView } = getOrderAccess({
+    order,
+    token,
+    userId: user?.id,
+  });
 
-  if (!isAccountOwner && !hasGuestToken) {
+  if (!hasAccess) {
     redirect(`/${activeLocale}/login`);
   }
 
-  const isGuestView = !isAccountOwner;
-  const items = await db
-    .select({
-      item: orderItems,
-      variant: productVariants,
-      product: products,
-    })
-    .from(orderItems)
-    .leftJoin(productVariants, eq(productVariants.id, orderItems.variantId))
-    .leftJoin(products, eq(products.id, orderItems.productId))
-    .where(eq(orderItems.orderId, order.id));
-  const downloadFiles =
-    order.paymentStatus === "paid"
-      ? await db
-          .select({
-            id: digitalProductFiles.id,
-            fileName: digitalProductFiles.fileName,
-            fileSize: digitalProductFiles.fileSize,
-          })
-          .from(digitalProductFiles)
-          .innerJoin(
-            orderItems,
-            eq(orderItems.productId, digitalProductFiles.productId),
-          )
-          .where(eq(orderItems.orderId, order.id))
-      : [];
+  const [items, downloadFiles] = await Promise.all([
+    getPublicOrderItems(order.id),
+    getPublicOrderDownloadFiles(order),
+  ]);
   const address = order.shippingAddress as {
     street?: string;
     city?: string;
@@ -96,18 +148,8 @@ export default async function PublicOrderPage({
     zip?: string;
     countryName?: string;
   };
-  const canCancel = !["shipped", "delivered", "cancelled", "refunded"].includes(
-    order.fulfillmentStatus,
-  );
-  const fulfillmentEstimate =
-    order.estimatedShippingStart && order.estimatedShippingEnd
-      ? {
-          start: order.estimatedShippingStart,
-          end: order.estimatedShippingEnd,
-        }
-      : null;
   const estimatedShippingWindow = formatFulfillmentEstimate(
-    fulfillmentEstimate,
+    getOrderFulfillmentEstimate(order),
     activeLocale,
   );
 
@@ -241,7 +283,7 @@ export default async function PublicOrderPage({
           <CancelOrderButton
             orderId={order.id}
             accessToken={hasGuestToken ? token : undefined}
-            disabled={!canCancel}
+            disabled={!canCancelOrder(order)}
           />
         </aside>
       </div>

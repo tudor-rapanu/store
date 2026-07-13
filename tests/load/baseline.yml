@@ -1,0 +1,46 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - name: "Warm up"
+      duration: 60
+      arrivalRate: 1
+      rampTo: 3
+    - name: "Expected steady traffic"
+      duration: 300
+      arrivalRate: 5
+  defaults:
+    headers:
+      User-Agent: "todds-threads-artillery-baseline"
+  ensure:
+    maxErrorRate: 1
+    thresholds:
+      - http.response_time.p95: 2500
+      - http.response_time.p99: 6000
+
+scenarios:
+  - name: "Public browsing mix"
+    weight: 8
+    flow:
+      - get:
+          url: "/en"
+      - think: 1
+      - get:
+          url: "/en/products"
+      - think: 2
+      - get:
+          url: "/en/search?q=shirt"
+      - think: 1
+      - get:
+          url: "/ro/products"
+
+  - name: "Public API mix"
+    weight: 2
+    flow:
+      - get:
+          url: "/api/healthz"
+      - get:
+          url: "/api/readyz"
+      - get:
+          url: "/api/currency/presentation"
+      - get:
+          url: "/api/shipping/profiles"

@@ -94,6 +94,10 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  if (!analyticsEnabled || !posthog.__loaded) {
+    return <>{children}</>;
+  }
+
   return (
     <PostHogReactProvider client={posthog}>
       <Suspense fallback={null}>

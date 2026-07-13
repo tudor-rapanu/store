@@ -1,11 +1,12 @@
 # 1. Base stage
-FROM node:22-alpine AS base
+FROM node:26.5.0-alpine AS base
 WORKDIR /app
 # Install dependencies only when needed
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json ./
-RUN npm ci
+#RUN npm install -g npm@12.0.1
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # 2. Build stage
 FROM base AS builder

@@ -1,0 +1,39 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - name: "Baseline before spike"
+      duration: 60
+      arrivalRate: 3
+    - name: "Product drop spike"
+      duration: 60
+      arrivalRate: 30
+    - name: "Recovery"
+      duration: 120
+      arrivalRate: 5
+  defaults:
+    headers:
+      User-Agent: "todds-threads-artillery-spike"
+  ensure:
+    maxErrorRate: 5
+    thresholds:
+      - http.response_time.p95: 5000
+      - http.response_time.p99: 12000
+
+scenarios:
+  - name: "Spike public pages"
+    weight: 9
+    flow:
+      - get:
+          url: "/en"
+      - get:
+          url: "/en/products"
+      - get:
+          url: "/en/search?q=tshirt"
+
+  - name: "Spike health and lightweight APIs"
+    weight: 1
+    flow:
+      - get:
+          url: "/api/healthz"
+      - get:
+          url: "/api/currency/presentation"

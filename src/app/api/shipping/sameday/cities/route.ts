@@ -3,10 +3,14 @@ import { NextResponse } from "next/server";
 import { checkRequestRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { searchSamedayCities } from "@/lib/shipping/sameday";
 
+const PUBLIC_LOOKUP_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+};
+
 export async function GET(request: Request) {
   const rateLimit = await checkRequestRateLimit(request, {
     keyPrefix: "shipping:sameday:cities",
-    limit: 120,
+    limit: 600,
     windowMs: 60 * 1000,
   });
 
@@ -34,7 +38,10 @@ export async function GET(request: Request) {
 
   try {
     const cities = await searchSamedayCities(countyId, name);
-    return NextResponse.json({ cities });
+    return NextResponse.json(
+      { cities },
+      { headers: PUBLIC_LOOKUP_CACHE_HEADERS },
+    );
   } catch {
     return NextResponse.json(
       { error: "Could not load cities." },

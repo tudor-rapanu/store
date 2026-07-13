@@ -1,0 +1,44 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - name: "Ramp to find current ceiling"
+      duration: 420
+      arrivalRate: 2
+      rampTo: 50
+    - name: "Hold near ceiling"
+      duration: 120
+      arrivalRate: 50
+  defaults:
+    headers:
+      User-Agent: "todds-threads-artillery-stress"
+  ensure:
+    maxErrorRate: 10
+    thresholds:
+      - http.response_time.p95: 8000
+      - http.response_time.p99: 15000
+
+scenarios:
+  - name: "Stress public catalog surface"
+    weight: 8
+    flow:
+      - get:
+          url: "/en"
+      - get:
+          url: "/en/products"
+      - get:
+          url: "/ro/products"
+
+  - name: "Stress public API surface"
+    weight: 2
+    flow:
+      - get:
+          url: "/api/readyz"
+      - get:
+          url: "/api/shipping/profiles"
+      - post:
+          url: "/api/discounts/preview"
+          headers:
+            Content-Type: "application/json"
+          json:
+            items: []
+            email: "stress-test@example.com"

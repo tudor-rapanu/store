@@ -1,0 +1,51 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - name: "Warm up"
+      duration: 30
+      arrivalRate: 1
+    - name: "Baseline browsing"
+      duration: 90
+      arrivalRate: 3
+    - name: "Small spike"
+      duration: 30
+      arrivalRate: 8
+  defaults:
+    headers:
+      User-Agent: "todds-threads-artillery-smoke-test"
+  ensure:
+    maxErrorRate: 1
+    thresholds:
+      - http.response_time.p95: 2500
+      - http.response_time.p99: 6000
+
+scenarios:
+  - name: "Homepage and catalog browsing"
+    weight: 7
+    flow:
+      - get:
+          url: "/en"
+      - think: 1
+      - get:
+          url: "/en/products"
+      - think: 1
+      - get:
+          url: "/ro"
+      - think: 1
+      - get:
+          url: "/ro/products"
+
+  - name: "Read-only public APIs"
+    weight: 3
+    flow:
+      - get:
+          url: "/api/healthz"
+      - think: 1
+      - get:
+          url: "/api/readyz"
+      - think: 1
+      - get:
+          url: "/api/currency/presentation"
+      - think: 1
+      - get:
+          url: "/api/shipping/profiles"

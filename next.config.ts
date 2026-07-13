@@ -44,14 +44,20 @@ const imgSrc = [
   "https://pub-144713e90af247dbb1cb8d0e06c37159.r2.dev",
   r2PublicHost ? `https://${r2PublicHost}` : null,
 ].filter(Boolean);
+const styleSrc = [
+  "'self'",
+  "'unsafe-inline'",
+  "https://cdn.sameday.ro",
+].filter(Boolean);
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src ${scriptSrc.join(" ")}`,
-  "style-src 'self' 'unsafe-inline'",
+  `style-src ${styleSrc.join(" ")}`,
   `img-src ${imgSrc.join(" ")}`,
   "font-src 'self' data:",
   `connect-src ${connectSrc.join(" ")}`,
   "frame-src 'self' https://lockerplugin.sameday.ro https://*.sameday.ro",
+  "child-src 'self' https://lockerplugin.sameday.ro https://*.sameday.ro",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self' https://secure.mobilpay.ro https://secure.sandbox.netopia-payments.com",

@@ -122,7 +122,7 @@ async function resolvePreviewItems(cartItems: PreviewCartItem[]) {
 export async function POST(request: Request) {
   const rateLimit = await checkRequestRateLimit(request, {
     keyPrefix: "discounts:preview",
-    limit: 60,
+    limit: 300,
     windowMs: 60 * 1000,
   });
 

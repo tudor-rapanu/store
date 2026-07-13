@@ -16,9 +16,9 @@ export const metadata: Metadata = {
   title: "My Orders",
 };
 
-type AccountOrdersPageProps = {
-  params: Promise<{ locale: string }>;
-};
+type AccountOrdersPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string }>>;
+}>;
 
 export default async function AccountOrdersPage({ params }: AccountOrdersPageProps) {
   const { locale } = await params;

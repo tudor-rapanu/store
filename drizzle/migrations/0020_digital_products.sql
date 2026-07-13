@@ -24,5 +24,5 @@ create policy "Admin full access for digital_product_files"
 on "digital_product_files"
 for all
 to authenticated
-using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN')
-with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN');
+using (public.jwt_is_admin())
+with check (public.jwt_is_admin());

@@ -6,7 +6,7 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json ./
 #RUN npm install -g npm@12.0.1
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
 
 # 2. Build stage
 FROM base AS builder
@@ -22,8 +22,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Don't run production as root
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
 
 # Copy the standalone output and static files
 COPY --from=builder /app/public ./public

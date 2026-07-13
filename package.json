@@ -20,8 +20,11 @@
     "load:flow": "node scripts/run-artillery-docker.mjs tests/load/storefront-flow.yml",
     "load:spike": "node scripts/run-artillery-docker.mjs tests/load/spike.yml",
     "load:stress": "node scripts/run-artillery-docker.mjs tests/load/stress.yml",
+    "load:stress:catalog": "node scripts/run-artillery-docker.mjs tests/load/stress-catalog.yml",
+    "load:stress:api": "node scripts/run-artillery-docker.mjs tests/load/stress-api.yml",
+    "load:stress:mixed": "node scripts/run-artillery-docker.mjs tests/load/stress-mixed-realistic.yml",
     "gcloud:build": "docker buildx build --platform linux/amd64 --cache-from=type=registry,ref=europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:buildcache --cache-to=type=registry,ref=europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:buildcache,mode=min -t europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:latest --push .",
-    "gcloud:deploy": "gcloud run deploy todds-threads-service --image=europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:latest --region=europe-west4 --allow-unauthenticated --port=3000 --min-instances=1 --max-instances=5 --concurrency=20 --memory=1024Mi --cpu=1 --timeout=300 --execution-environment=gen2 --startup-probe=httpGet.path=/api/readyz,initialDelaySeconds=5,periodSeconds=5,timeoutSeconds=3,failureThreshold=6 --liveness-probe=httpGet.path=/api/healthz,initialDelaySeconds=10,periodSeconds=30,timeoutSeconds=3,failureThreshold=3"
+    "gcloud:deploy": "gcloud run deploy todds-threads-service --image=europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:latest --region=europe-west4 --allow-unauthenticated --port=3000 --min-instances=1 --max-instances=10 --concurrency=20 --memory=1024Mi --cpu=1 --timeout=300 --execution-environment=gen2 --startup-probe=httpGet.path=/api/readyz,initialDelaySeconds=5,periodSeconds=5,timeoutSeconds=3,failureThreshold=6 --liveness-probe=httpGet.path=/api/healthz,initialDelaySeconds=10,periodSeconds=30,timeoutSeconds=3,failureThreshold=3"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1068.0",

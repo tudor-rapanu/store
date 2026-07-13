@@ -19,6 +19,9 @@ file read errors.
 | `npm run load:flow` | Realistic funnel shape without creating orders | `http://host.docker.internal:3000` |
 | `npm run load:spike` | Sudden product-drop style burst and recovery | `http://host.docker.internal:3000` |
 | `npm run load:stress` | Gradual ramp to find the current ceiling | `http://host.docker.internal:3000` |
+| `npm run load:stress:catalog` | Public page/catalog rendering ceiling | `http://host.docker.internal:3000` |
+| `npm run load:stress:api` | Checkout-adjacent API protection ceiling | `http://host.docker.internal:3000` |
+| `npm run load:stress:mixed` | More human-like mixed browsing/checkout reads | `http://host.docker.internal:3000` |
 
 ## Local Tests
 
@@ -46,6 +49,14 @@ Run the stress profile only when you are ready to watch metrics closely:
 
 ```bash
 npm run load:stress
+```
+
+To isolate the bottleneck, run the split stress profiles:
+
+```bash
+npm run load:stress:catalog
+npm run load:stress:api
+npm run load:stress:mixed
 ```
 
 ## Test Another Environment

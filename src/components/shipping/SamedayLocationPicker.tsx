@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { fetchCachedJson } from "@/lib/client/api-cache";
 
 type SamedayCounty = {
   id: number;
@@ -71,15 +72,12 @@ export function SamedayLocationPicker({
       setIsLoadingCounties(true);
 
       try {
-        const response = await fetch("/api/shipping/sameday/counties");
-        const data = (await response.json()) as {
+        const data = await fetchCachedJson<{
           counties?: SamedayCounty[];
           error?: string;
-        };
-
-        if (!response.ok) {
-          throw new Error(data.error ?? "Could not load counties.");
-        }
+        }>("shipping:sameday:counties", "/api/shipping/sameday/counties", {
+          ttlMs: 60 * 60 * 1000,
+        });
 
         setCounties(data.counties ?? []);
       } catch (error) {
@@ -99,35 +97,38 @@ export function SamedayLocationPicker({
       return;
     }
 
-    const controller = new AbortController();
+    let isCancelled = false;
     const timeout = window.setTimeout(async () => {
       setIsLoadingCities(true);
       setErrorMessage(null);
 
       try {
+        const citySearch = cityQuery.trim();
+        const requestSearch = citySearch && citySearch !== cityName ? citySearch : "";
         const url = new URL(
           "/api/shipping/sameday/cities",
           window.location.origin,
         );
         url.searchParams.set("countyId", countyId);
 
-        if (cityQuery.trim() && cityQuery.trim() !== cityName) {
-          url.searchParams.set("name", cityQuery.trim());
+        if (requestSearch) {
+          url.searchParams.set("name", requestSearch);
         }
 
-        const response = await fetch(url, { signal: controller.signal });
-        const data = (await response.json()) as {
+        const data = await fetchCachedJson<{
           cities?: SamedayCity[];
           error?: string;
-        };
+        }>(`shipping:sameday:cities:${countyId}:${requestSearch}`, url, {
+          ttlMs: 10 * 60 * 1000,
+        });
 
-        if (!response.ok) {
-          throw new Error(data.error ?? "Could not load cities.");
+        if (isCancelled) {
+          return;
         }
 
         setCities(data.cities ?? []);
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
+        if (isCancelled) {
           return;
         }
 
@@ -140,8 +141,8 @@ export function SamedayLocationPicker({
     }, 200);
 
     return () => {
+      isCancelled = true;
       window.clearTimeout(timeout);
-      controller.abort();
     };
   }, [cityName, cityQuery, countyId]);
 

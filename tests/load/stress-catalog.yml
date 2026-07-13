@@ -1,0 +1,30 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - name: "Catalog ramp"
+      duration: 420
+      arrivalRate: 2
+      rampTo: 60
+    - name: "Catalog hold"
+      duration: 120
+      arrivalRate: 60
+  defaults:
+    headers:
+      User-Agent: "todds-threads-artillery-stress-catalog"
+  ensure:
+    maxErrorRate: 5
+    thresholds:
+      - http.response_time.p95: 5000
+      - http.response_time.p99: 12000
+
+scenarios:
+  - name: "Stress public pages only"
+    flow:
+      - get:
+          url: "/en"
+      - get:
+          url: "/en/products"
+      - get:
+          url: "/en/search?q=tshirt"
+      - get:
+          url: "/ro/products"

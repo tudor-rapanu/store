@@ -1,0 +1,66 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - name: "Realistic mixed ramp"
+      duration: 420
+      arrivalRate: 2
+      rampTo: 50
+    - name: "Realistic mixed hold"
+      duration: 120
+      arrivalRate: 50
+  defaults:
+    headers:
+      User-Agent: "todds-threads-artillery-stress-mixed-realistic"
+  ensure:
+    maxErrorRate: 10
+    thresholds:
+      - http.response_time.p95: 5000
+      - http.response_time.p99: 12000
+
+scenarios:
+  - name: "Human-like catalog browsing"
+    weight: 7
+    flow:
+      - get:
+          url: "/en"
+      - think: 3
+      - get:
+          url: "/en/products"
+      - think: 5
+      - get:
+          url: "/en/search?q=patch"
+      - think: 4
+      - get:
+          url: "/ro/products"
+
+  - name: "Human-like checkout reads"
+    weight: 2
+    flow:
+      - get:
+          url: "/en/checkout"
+      - think: 4
+      - get:
+          url: "/api/shipping/profiles"
+      - think: 3
+      - post:
+          url: "/api/discounts/preview"
+          headers:
+            Content-Type: "application/json"
+          json:
+            items: []
+            email: "stress-test@example.com"
+      - think: 4
+      - get:
+          url: "/api/shipping/sameday/counties"
+      - think: 3
+      - get:
+          url: "/api/shipping/sameday/cities?countyId=1"
+
+  - name: "Human-like lightweight APIs"
+    weight: 1
+    flow:
+      - get:
+          url: "/api/readyz"
+      - think: 3
+      - get:
+          url: "/api/currency/presentation"

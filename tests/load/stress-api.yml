@@ -1,0 +1,39 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - name: "API ramp"
+      duration: 420
+      arrivalRate: 2
+      rampTo: 50
+    - name: "API hold"
+      duration: 120
+      arrivalRate: 50
+  defaults:
+    headers:
+      User-Agent: "todds-threads-artillery-stress-api"
+  ensure:
+    maxErrorRate: 20
+    thresholds:
+      - http.response_time.p95: 3000
+      - http.response_time.p99: 8000
+
+scenarios:
+  - name: "Stress checkout-adjacent public APIs"
+    flow:
+      - get:
+          url: "/api/readyz"
+      - get:
+          url: "/api/currency/presentation"
+      - get:
+          url: "/api/shipping/profiles"
+      - post:
+          url: "/api/discounts/preview"
+          headers:
+            Content-Type: "application/json"
+          json:
+            items: []
+            email: "stress-test@example.com"
+      - get:
+          url: "/api/shipping/sameday/counties"
+      - get:
+          url: "/api/shipping/sameday/cities?countyId=1"

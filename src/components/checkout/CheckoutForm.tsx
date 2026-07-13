@@ -31,6 +31,7 @@ import {
   isRomaniaCountry,
   normalizeCheckoutCountry,
 } from "@/lib/geo/checkout-countries";
+import { fetchCachedJson } from "@/lib/client/api-cache";
 
 declare global {
   interface Window {
@@ -237,17 +238,12 @@ export function CheckoutForm({
       setIsLoadingShippingProfiles(true);
 
       try {
-        const response = await fetch("/api/shipping/profiles", {
-          cache: "no-store",
-        });
-        const data = (await response.json()) as {
+        const data = await fetchCachedJson<{
           profiles?: ShippingProfile[];
           error?: string;
-        };
-
-        if (!response.ok) {
-          throw new Error(data.error ?? "Could not load shipping profiles.");
-        }
+        }>("shipping:profiles", "/api/shipping/profiles", {
+          ttlMs: 2 * 60 * 1000,
+        });
 
         setShippingProfiles(data.profiles ?? []);
       } catch (error) {
@@ -276,17 +272,20 @@ export function CheckoutForm({
     setIsApplyingVoucher(true);
     setErrorMessage(null);
 
+    const previewItems = items.map((item) => ({
+      productId: item.productId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+      price: item.price,
+    }));
+    const body = JSON.stringify({
+      items: previewItems,
+      email,
+      voucherCode,
+    });
+
     try {
-      const response = await fetch("/api/discounts/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items,
-          email,
-          voucherCode,
-        }),
-      });
-      const data = (await response.json()) as {
+      const data = await fetchCachedJson<{
         discountAmount?: number;
         discount?: {
           id: string;
@@ -296,11 +295,12 @@ export function CheckoutForm({
         } | null;
         message?: string;
         error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Could not apply voucher.");
-      }
+      }>(`discounts:preview:${body}`, "/api/discounts/preview", {
+        ttlMs: 30 * 1000,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
 
       setDiscountPreview({
         discountAmount: data.discountAmount ?? 0,
@@ -334,18 +334,25 @@ export function CheckoutForm({
         return;
       }
 
+      const estimateItems = items.map((item) => ({
+        productId: item.productId,
+        variantId: item.variantId,
+        quantity: item.quantity,
+      }));
+      const body = JSON.stringify({ items: estimateItems, locale });
+
       try {
-        const response = await fetch("/api/fulfillment/estimate", {
+        const data = await fetchCachedJson<{
+          estimate?: { label?: string } | null;
+        }>(`fulfillment:estimate:${body}`, "/api/fulfillment/estimate", {
+          ttlMs: 60 * 1000,
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items, locale }),
+          body,
         });
-        const data = (await response.json()) as {
-          estimate?: { label?: string } | null;
-        };
 
         setFulfillmentEstimate(
-          response.ok && data.estimate?.label
+          data.estimate?.label
             ? { label: data.estimate.label }
             : null,
         );
@@ -373,16 +380,15 @@ export function CheckoutForm({
       setIsLoadingLockerConfig(true);
 
       try {
-        const response = await fetch("/api/shipping/sameday/locker-config", {
-          cache: "no-store",
-        });
-        const data = (await response.json()) as {
+        const data = await fetchCachedJson<{
           clientId?: string;
           apiUsername?: string;
           error?: string;
-        };
+        }>("shipping:sameday:locker-config", "/api/shipping/sameday/locker-config", {
+          ttlMs: 10 * 60 * 1000,
+        });
 
-        if (!response.ok || !data.clientId || !data.apiUsername) {
+        if (!data.clientId || !data.apiUsername) {
           throw new Error(data.error ?? "Sameday map is not configured.");
         }
 

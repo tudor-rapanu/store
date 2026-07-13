@@ -14,6 +14,7 @@ import { useCart } from "@/lib/store/useCart";
 import { ShoppingBag, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatEur, formatRon } from "@/lib/currency/format";
+import { fetchCachedJson } from "@/lib/client/api-cache";
 
 export function CartSheet({ locale }: { locale: "en" | "ro" }) {
   const { items, removeItem, total } = useCart();
@@ -35,15 +36,14 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
   useEffect(() => {
     async function loadCurrencyPresentation() {
       try {
-        const response = await fetch("/api/currency/presentation", {
-          cache: "no-store",
-        });
-        const data = (await response.json()) as {
+        const data = await fetchCachedJson<{
           displayCurrency?: "RON" | "EUR";
           ronToEurRate?: number;
-        };
+        }>("currency:presentation", "/api/currency/presentation", {
+          ttlMs: 60 * 1000,
+        });
 
-        if (response.ok && data.displayCurrency && data.ronToEurRate) {
+        if (data.displayCurrency && data.ronToEurRate) {
           setCurrencyPresentation({
             displayCurrency: data.displayCurrency,
             ronToEurRate: data.ronToEurRate,
@@ -67,22 +67,26 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
         return;
       }
 
+      const previewItems = items.map((item) => ({
+        productId: item.productId,
+        variantId: item.variantId,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+      const body = JSON.stringify({ items: previewItems });
+
       try {
-        const response = await fetch("/api/discounts/preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items }),
-        });
-        const data = (await response.json()) as {
+        const data = await fetchCachedJson<{
           discountAmount?: number;
           discount?: {
             name?: string;
           } | null;
-        };
-
-        if (!response.ok) {
-          throw new Error("Could not preview discount.");
-        }
+        }>(`discounts:preview:${body}`, "/api/discounts/preview", {
+          ttlMs: 30 * 1000,
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+        });
 
         setDiscountPreview({
           discountAmount: data.discountAmount ?? 0,

@@ -104,7 +104,8 @@ async function checkRedisRateLimit(
       return null;
     }
 
-    const resetAt = now + Math.max(Number.isFinite(ttl) ? ttl : windowSeconds, 1) * 1000;
+    const resetAt =
+      now + Math.max(Number.isFinite(ttl) ? ttl : windowSeconds, 1) * 1000;
     const retryAfter = Math.max(Math.ceil((resetAt - now) / 1000), 1);
     const remaining = Math.max(limit - count, 0);
 

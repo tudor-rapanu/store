@@ -145,9 +145,7 @@ export function ImportProductsCsv() {
       router.refresh();
     } catch (error) {
       setErrors([
-        error instanceof Error
-          ? error.message
-          : "The import could not be completed.",
+        error instanceof Error ? error.message : "The import could not be completed.",
       ]);
     } finally {
       setIsPending(false);
@@ -195,26 +193,24 @@ export function ImportProductsCsv() {
         <div className="text-xs leading-6 text-slate-600">
           Required columns: <code>titleEn</code>, <code>price</code>,{" "}
           <code>imageUrl</code> or <code>imageUrls</code>. Optional:{" "}
-          <code>titleRo</code>, <code>descriptionEn</code>,{" "}
-          <code>descriptionRo</code>, <code>slug</code>, <code>categories</code>
-          , <code>productionMinDays</code>, <code>productionMaxDays</code>,{" "}
-          <code>publishAt</code>, <code>isDigital</code>,{" "}
-          <code>trackStock</code>, <code>stock</code>, <code>digitalFileUrl</code>,{" "}
+          <code>titleRo</code>, <code>descriptionEn</code>, <code>descriptionRo</code>,{" "}
+          <code>slug</code>, <code>categories</code>, <code>productionMinDays</code>,{" "}
+          <code>productionMaxDays</code>, <code>publishAt</code>, <code>isDigital</code>
+          , <code>trackStock</code>, <code>stock</code>, <code>digitalFileUrl</code>,{" "}
           <code>digitalFileUrls</code>, <code>isPrivate</code>, <code>variants</code>,{" "}
           <code>variantType1</code>, <code>variantValues1</code>,{" "}
           <code>variantType2</code>, <code>variantValues2</code>,{" "}
           <code>variantType3</code>, <code>variantValues3</code>,{" "}
           <code>variantPrice</code>, <code>variantTrackStock</code>,{" "}
-          <code>variantStock</code>. Use <code>|</code> between multiple image
-          URLs, categories, or variant values. Use <code>&gt;</code> inside a
-          category value to create a subcategory path, for example{" "}
-          <code>Patches &gt; F1</code>. Use Romanian local time for{" "}
-          <code>publishAt</code>, for example <code>2026-07-20T10:00</code>.
-          For digital products, set{" "}
-          <code>isDigital</code> to <code>true</code> and provide protected file
-          URLs in <code>digitalFileUrl</code> or <code>digitalFileUrls</code>.
-          Imported products are private unless <code>isPrivate</code> is set to{" "}
-          <code>false</code>. Duplicate slugs are imported as copy products.
+          <code>variantStock</code>. Use <code>|</code> between multiple image URLs,
+          categories, or variant values. Use <code>&gt;</code> inside a category value
+          to create a subcategory path, for example <code>Patches &gt; F1</code>. Use
+          Romanian local time for <code>publishAt</code>, for example{" "}
+          <code>2026-07-20T10:00</code>. For digital products, set{" "}
+          <code>isDigital</code> to <code>true</code> and provide protected file URLs in{" "}
+          <code>digitalFileUrl</code> or <code>digitalFileUrls</code>. Imported products
+          are private unless <code>isPrivate</code> is set to <code>false</code>.
+          Duplicate slugs are imported as copy products.
         </div>
 
         {message && (
@@ -228,9 +224,7 @@ export function ImportProductsCsv() {
             {errors.slice(0, 8).map((error) => (
               <div key={error}>{error}</div>
             ))}
-            {errors.length > 8 && (
-              <div>And {errors.length - 8} more errors.</div>
-            )}
+            {errors.length > 8 && <div>And {errors.length - 8} more errors.</div>}
           </div>
         )}
       </div>

@@ -15,9 +15,7 @@ export async function GET() {
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Could not load Sameday counties.",
+          error instanceof Error ? error.message : "Could not load Sameday counties.",
       },
       { status: 500 },
     );

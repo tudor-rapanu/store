@@ -20,9 +20,7 @@ type AccountOrdersPageProps = {
   params: Promise<{ locale: string }>;
 };
 
-export default async function AccountOrdersPage({
-  params,
-}: AccountOrdersPageProps) {
+export default async function AccountOrdersPage({ params }: AccountOrdersPageProps) {
   const { locale } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
   const user = await getCurrentUser();
@@ -67,9 +65,7 @@ export default async function AccountOrdersPage({
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl px-4 py-16">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-black pb-4">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter">
-            My Orders
-          </h1>
+          <h1 className="text-4xl font-black uppercase tracking-tighter">My Orders</h1>
           <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
             Order history
           </p>
@@ -100,18 +96,13 @@ export default async function AccountOrdersPage({
                 </h2>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <StatusBadge value={order.paymentStatus} className="px-2 py-1" />
-                  <StatusBadge
-                    value={order.fulfillmentStatus}
-                    className="px-2 py-1"
-                  />
+                  <StatusBadge value={order.fulfillmentStatus} className="px-2 py-1" />
                 </div>
                 <p className="mt-3 text-2xl font-black tracking-tight">
                   {(order.totalAmount / 100).toFixed(2)} RON
                 </p>
               </div>
-              <OrderPreviewStrip
-                items={previewsByOrderId.get(order.id) ?? []}
-              />
+              <OrderPreviewStrip items={previewsByOrderId.get(order.id) ?? []} />
               <div className="flex flex-wrap gap-2">
                 <Button
                   asChild
@@ -123,12 +114,9 @@ export default async function AccountOrdersPage({
                 </Button>
                 <CancelOrderButton
                   orderId={order.id}
-                  disabled={[
-                    "shipped",
-                    "delivered",
-                    "cancelled",
-                    "refunded",
-                  ].includes(order.fulfillmentStatus)}
+                  disabled={["shipped", "delivered", "cancelled", "refunded"].includes(
+                    order.fulfillmentStatus,
+                  )}
                 />
               </div>
             </div>

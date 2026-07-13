@@ -9,9 +9,7 @@ type DateTimeParts = {
 };
 
 function parseDateTimeLocal(value: string): DateTimeParts | null {
-  const match = value.match(
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2})?$/,
-  );
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2})?$/);
 
   if (!match) {
     return null;
@@ -76,13 +74,7 @@ function getRomaniaParts(date: Date): DateTimeParts {
 }
 
 function partsToUtcMs(parts: DateTimeParts) {
-  return Date.UTC(
-    parts.year,
-    parts.month - 1,
-    parts.day,
-    parts.hour,
-    parts.minute,
-  );
+  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
 }
 
 export function parseRomaniaDateTimeLocal(value: string) {

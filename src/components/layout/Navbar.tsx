@@ -53,14 +53,14 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
                 {categoryLinks
                   .filter((category) => !category.parentId)
                   .map((category) => (
-                  <Link
-                    key={category.slug}
-                    href={`/${locale}/category/${category.slug}`}
-                    className="hover:text-slate-500 transition-colors"
-                  >
-                    {category.name}
-                  </Link>
-                ))}
+                    <Link
+                      key={category.slug}
+                      href={`/${locale}/category/${category.slug}`}
+                      className="hover:text-slate-500 transition-colors"
+                    >
+                      {category.name}
+                    </Link>
+                  ))}
               </div>
             )}
             <div className="hidden md:block">

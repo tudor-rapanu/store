@@ -105,10 +105,7 @@ export function SamedayLocationPicker({
       try {
         const citySearch = cityQuery.trim();
         const requestSearch = citySearch && citySearch !== cityName ? citySearch : "";
-        const url = new URL(
-          "/api/shipping/sameday/cities",
-          window.location.origin,
-        );
+        const url = new URL("/api/shipping/sameday/cities", window.location.origin);
         url.searchParams.set("countyId", countyId);
 
         if (requestSearch) {
@@ -152,8 +149,7 @@ export function SamedayLocationPicker({
       countyName,
       cityId,
       cityName,
-      cityPostalCode: cities.find((city) => String(city.id) === cityId)
-        ?.postalCode,
+      cityPostalCode: cities.find((city) => String(city.id) === cityId)?.postalCode,
     });
   }, [cities, cityId, cityName, countyId, countyName, onSelectionChange]);
 
@@ -183,9 +179,7 @@ export function SamedayLocationPicker({
       <input type="hidden" name={cityNameName} value={cityName} />
 
       <div className="space-y-2">
-        <Label className="uppercase text-xs font-bold tracking-widest">
-          County
-        </Label>
+        <Label className="uppercase text-xs font-bold tracking-widest">County</Label>
         <Select
           value={countyId}
           onValueChange={selectCounty}
@@ -194,9 +188,7 @@ export function SamedayLocationPicker({
         >
           <SelectTrigger id="county" className="rounded-none border-black h-12">
             <SelectValue
-              placeholder={
-                isLoadingCounties ? "Loading counties" : "Select county"
-              }
+              placeholder={isLoadingCounties ? "Loading counties" : "Select county"}
             />
           </SelectTrigger>
           <SelectContent className="rounded-none border-black bg-white">
@@ -264,9 +256,7 @@ export function SamedayLocationPicker({
                     onClick={() => selectCity(city)}
                     className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs font-bold uppercase tracking-widest hover:bg-slate-100"
                   >
-                    {city.postalCode
-                      ? `${city.name} (${city.postalCode})`
-                      : city.name}
+                    {city.postalCode ? `${city.name} (${city.postalCode})` : city.name}
                   </button>
                 ))
               )}

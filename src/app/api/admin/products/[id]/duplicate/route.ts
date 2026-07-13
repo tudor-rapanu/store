@@ -106,11 +106,7 @@ export async function POST(
     "en",
     sourceProduct.slug,
   );
-  const sourceTitleRo = getTranslatedText(
-    sourceProduct.title,
-    "ro",
-    sourceTitleEn,
-  );
+  const sourceTitleRo = getTranslatedText(sourceProduct.title, "ro", sourceTitleEn);
   const [duplicatedProduct] = await db
     .insert(products)
     .values({

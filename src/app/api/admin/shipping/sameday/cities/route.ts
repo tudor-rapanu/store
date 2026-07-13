@@ -26,9 +26,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Could not load Sameday cities.",
+          error instanceof Error ? error.message : "Could not load Sameday cities.",
       },
       { status: 500 },
     );

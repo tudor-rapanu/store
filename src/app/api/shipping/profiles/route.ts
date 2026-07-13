@@ -20,10 +20,7 @@ export async function GET(request: Request) {
 
   try {
     const profiles = await getShippingProfiles();
-    return NextResponse.json(
-      { profiles },
-      { headers: PUBLIC_SETTINGS_CACHE_HEADERS },
-    );
+    return NextResponse.json({ profiles }, { headers: PUBLIC_SETTINGS_CACHE_HEADERS });
   } catch {
     return NextResponse.json(
       { error: "Could not load shipping profiles." },

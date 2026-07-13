@@ -49,9 +49,9 @@ export function CookieConsentBanner({ locale }: CookieConsentBannerProps) {
             Cookie preferences
           </h2>
           <p className="max-w-3xl text-sm leading-6 text-slate-600">
-            We use essential cookies for login, cart and checkout. With your
-            consent, we also use analytics cookies to understand site usage and
-            improve Todd&apos;s Threads.
+            We use essential cookies for login, cart and checkout. With your consent, we
+            also use analytics cookies to understand site usage and improve Todd&apos;s
+            Threads.
           </p>
           <Link
             href={`/${locale}/legal/privacy`}

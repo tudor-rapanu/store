@@ -150,12 +150,11 @@ function parseVariants(value: string) {
 
     return {
       name: variant.name.trim(),
-      sku: "sku" in variant && typeof variant.sku === "string" ? variant.sku.trim() : "",
+      sku:
+        "sku" in variant && typeof variant.sku === "string" ? variant.sku.trim() : "",
       attributes: variant.attributes as Record<string, string>,
       price:
-        "price" in variant && typeof variant.price === "number"
-          ? variant.price
-          : 0,
+        "price" in variant && typeof variant.price === "number" ? variant.price : 0,
       salePrice:
         "salePrice" in variant && typeof variant.salePrice === "number"
           ? variant.salePrice
@@ -177,9 +176,7 @@ function parseVariants(value: string) {
           ? variant.trackStock
           : false,
       stock:
-        "stock" in variant && typeof variant.stock === "number"
-          ? variant.stock
-          : 0,
+        "stock" in variant && typeof variant.stock === "number" ? variant.stock : 0,
     };
   });
 }
@@ -226,14 +223,10 @@ function parseProductDetailBlocks(value: string) {
         !Array.isArray(detail.value)
           ? (detail.value as Record<string, unknown>)
           : {};
-      const labelEn =
-        typeof label.en === "string" ? label.en.trim() : "";
-      const labelRo =
-        typeof label.ro === "string" ? label.ro.trim() : "";
-      const valueEn =
-        typeof detailValue.en === "string" ? detailValue.en.trim() : "";
-      const valueRo =
-        typeof detailValue.ro === "string" ? detailValue.ro.trim() : "";
+      const labelEn = typeof label.en === "string" ? label.en.trim() : "";
+      const labelRo = typeof label.ro === "string" ? label.ro.trim() : "";
+      const valueEn = typeof detailValue.en === "string" ? detailValue.en.trim() : "";
+      const valueRo = typeof detailValue.ro === "string" ? detailValue.ro.trim() : "";
 
       if ((!labelEn && !labelRo) || (!valueEn && !valueRo)) {
         return null;
@@ -261,7 +254,9 @@ function parseProductDetailBlocks(value: string) {
 function validateVariantSales(variants: VariantInput[]) {
   for (const variant of variants) {
     if (variant.saleEnabled && (!variant.salePrice || variant.salePrice <= 0)) {
-      throw new Error(`Enter a sale price for ${variant.name || "each enabled variant sale"}.`);
+      throw new Error(
+        `Enter a sale price for ${variant.name || "each enabled variant sale"}.`,
+      );
     }
 
     if (
@@ -381,9 +376,7 @@ export async function POST(request: Request) {
     saleStartsAt = parseOptionalDate(saleStartsAtInput);
     saleEndsAt = parseOptionalDate(saleEndsAtInput);
     preorderShipDate = parseOptionalDate(preorderShipDateInput);
-    publishAt = publishAtInput
-      ? parseRomaniaDateTimeLocal(publishAtInput)
-      : null;
+    publishAt = publishAtInput ? parseRomaniaDateTimeLocal(publishAtInput) : null;
   } catch (error) {
     return errorResponse(
       error instanceof Error ? error.message : "Invalid sale settings.",
@@ -399,7 +392,9 @@ export async function POST(request: Request) {
   }
 
   if (productionMinDays > productionMaxDays) {
-    return errorResponse("Maximum business days must be greater than or equal to minimum business days.");
+    return errorResponse(
+      "Maximum business days must be greater than or equal to minimum business days.",
+    );
   }
 
   if (preorderEnabled && !preorderShipDate) {
@@ -418,32 +413,35 @@ export async function POST(request: Request) {
   const imageUrl =
     uploadedImages.length === 1 ? uploadedImages[0] : JSON.stringify(uploadedImages);
 
-  const [product] = await db.insert(products).values({
-    slug,
-    title: { en: titleEn, ro: titleRo },
-    description:
-      descriptionEn || descriptionRo
-        ? { en: descriptionEn, ro: descriptionRo || descriptionEn }
-        : null,
-    basePrice,
-    salePrice: saleEnabled ? salePrice : null,
-    saleEnabled,
-    saleStartsAt: saleEnabled ? saleStartsAt : null,
-    saleEndsAt: saleEnabled ? saleEndsAt : null,
-    productionMinDays,
-    productionMaxDays,
-    preorderEnabled,
-    preorderShipDate: preorderEnabled ? preorderShipDate : null,
-    publishAt,
-    publishRevalidatedAt: shouldWaitForPublishRevalidation ? null : new Date(),
-    imageUrl,
-    isDigital,
-    sizeGuideId,
-    trackStock: variants.length === 0 ? trackStock : false,
-    stock: variants.length === 0 && trackStock ? stock : 0,
-    isSimple: variants.length === 0,
-    isPrivate,
-  }).returning();
+  const [product] = await db
+    .insert(products)
+    .values({
+      slug,
+      title: { en: titleEn, ro: titleRo },
+      description:
+        descriptionEn || descriptionRo
+          ? { en: descriptionEn, ro: descriptionRo || descriptionEn }
+          : null,
+      basePrice,
+      salePrice: saleEnabled ? salePrice : null,
+      saleEnabled,
+      saleStartsAt: saleEnabled ? saleStartsAt : null,
+      saleEndsAt: saleEnabled ? saleEndsAt : null,
+      productionMinDays,
+      productionMaxDays,
+      preorderEnabled,
+      preorderShipDate: preorderEnabled ? preorderShipDate : null,
+      publishAt,
+      publishRevalidatedAt: shouldWaitForPublishRevalidation ? null : new Date(),
+      imageUrl,
+      isDigital,
+      sizeGuideId,
+      trackStock: variants.length === 0 ? trackStock : false,
+      stock: variants.length === 0 && trackStock ? stock : 0,
+      isSimple: variants.length === 0,
+      isPrivate,
+    })
+    .returning();
 
   if (isDigital && digitalFiles.length > 0) {
     const uploadedFiles = await Promise.all(

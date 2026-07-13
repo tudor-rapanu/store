@@ -57,10 +57,7 @@ async function getReadonlyNeonSession(): Promise<{ user?: unknown } | null> {
     return null;
   }
 
-  const baseUrl = readEnvValue(
-    process.env.NEON_AUTH_BASE_URL,
-    "NEON_AUTH_BASE_URL",
-  );
+  const baseUrl = readEnvValue(process.env.NEON_AUTH_BASE_URL, "NEON_AUTH_BASE_URL");
   const response = await fetch(
     new URL("get-session", baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`),
     {
@@ -75,9 +72,7 @@ async function getReadonlyNeonSession(): Promise<{ user?: unknown } | null> {
   }
 
   const payload = (await response.json().catch(() => null)) as
-    | { user?: unknown }
-    | { data?: { user?: unknown } }
-    | null;
+    { user?: unknown } | { data?: { user?: unknown } } | null;
 
   if (payload && "data" in payload) {
     return payload.data ?? null;

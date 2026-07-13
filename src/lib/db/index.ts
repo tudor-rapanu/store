@@ -23,10 +23,7 @@ function getOptionalDatabaseTimeout(name: string) {
 }
 
 function createDb() {
-  const connectionString = readEnvValue(
-    process.env.DATABASE_URL,
-    "DATABASE_URL",
-  );
+  const connectionString = readEnvValue(process.env.DATABASE_URL, "DATABASE_URL");
 
   // Disable prefetch as it is not supported for "Transaction" pool mode.
   const connection: Record<string, string | number> = {
@@ -36,9 +33,7 @@ function createDb() {
     "DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS",
   );
   const lockTimeout = getOptionalDatabaseTimeout("DATABASE_LOCK_TIMEOUT_MS");
-  const statementTimeout = getOptionalDatabaseTimeout(
-    "DATABASE_STATEMENT_TIMEOUT_MS",
-  );
+  const statementTimeout = getOptionalDatabaseTimeout("DATABASE_STATEMENT_TIMEOUT_MS");
 
   if (idleInTransactionTimeout) {
     connection.idle_in_transaction_session_timeout = idleInTransactionTimeout;

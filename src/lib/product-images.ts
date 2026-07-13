@@ -1,7 +1,6 @@
 export type ProductImageVariant = "large" | "card" | "thumb";
 
-const DEFAULT_R2_PUBLIC_URL =
-  "https://pub-144713e90af247dbb1cb8d0e06c37159.r2.dev";
+const DEFAULT_R2_PUBLIC_URL = "https://pub-144713e90af247dbb1cb8d0e06c37159.r2.dev";
 
 export function getProductImageSrc(
   imageUrl?: string | null,
@@ -15,9 +14,7 @@ export function getProductImageSrcs(
   variant: ProductImageVariant = "large",
 ) {
   return getProductImagePaths(imageUrl)
-    .map((path) =>
-      getSingleProductImageSrc(getProductImageVariantPath(path, variant)),
-    )
+    .map((path) => getSingleProductImageSrc(getProductImageVariantPath(path, variant)))
     .filter((src): src is string => Boolean(src));
 }
 
@@ -56,17 +53,10 @@ export function getProductImageStorageKeys(imagePath: string) {
     return [storageKey];
   }
 
-  return [
-    `${match[1]}/large.webp`,
-    `${match[1]}/card.webp`,
-    `${match[1]}/thumb.webp`,
-  ];
+  return [`${match[1]}/large.webp`, `${match[1]}/card.webp`, `${match[1]}/thumb.webp`];
 }
 
-function getProductImageVariantPath(
-  imagePath: string,
-  variant: ProductImageVariant,
-) {
+function getProductImageVariantPath(imagePath: string, variant: ProductImageVariant) {
   const trimmedPath = imagePath.trim();
   const match = trimmedPath.match(
     /^(.*(?:^|\/)catalog\/normalized\/[^/]+)\/large\.webp$/,

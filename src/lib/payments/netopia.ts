@@ -2,7 +2,10 @@ import { Netopia } from "netopia-card";
 import { readEnvValue } from "@/lib/env";
 
 function normalizeAbsoluteUrl(value: string) {
-  const cleaned = value.trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
+  const cleaned = value
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/\/+$/, "");
 
   if (/^https?:\/\//i.test(cleaned)) {
     return cleaned;
@@ -73,10 +76,7 @@ export function createNetopiaClient(redirectPath = "/en", orderId?: string) {
       process.env.NETOPIA_CONFIRM_URL,
       "/api/webhooks/netopia",
     ),
-    posSignature: readEnvValue(
-      process.env.NETOPIA_SIGNATURE,
-      "NETOPIA_SIGNATURE",
-    ),
+    posSignature: readEnvValue(process.env.NETOPIA_SIGNATURE, "NETOPIA_SIGNATURE"),
     redirectUrl: getNetopiaReturnUrl(
       process.env.NETOPIA_RETURN_URL,
       redirectPath,

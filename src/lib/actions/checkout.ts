@@ -99,11 +99,7 @@ function getValidatedString(
   return trimmed;
 }
 
-function getOptionalValidatedString(
-  value: unknown,
-  fieldName: string,
-  max: number,
-) {
+function getOptionalValidatedString(value: unknown, fieldName: string, max: number) {
   if (value === undefined || value === null || value === "") {
     return undefined;
   }
@@ -152,9 +148,7 @@ function validateCheckoutCustomerData(
     throw new Error("Select a valid shipping method.");
   }
   const countryCode = normalizeCheckoutCountry(customerData.address.countryCode);
-  const paymentCurrency = normalizePaymentCurrency(
-    customerData.paymentCurrency,
-  );
+  const paymentCurrency = normalizePaymentCurrency(customerData.paymentCurrency);
 
   if (!isDigitalOnly && countryCode === "RO" && shippingMethod === "international") {
     throw new Error("Select a valid Romanian shipping method.");
@@ -174,26 +168,25 @@ function validateCheckoutCustomerData(
     max: 32,
   });
   const street = isDigitalOnly
-    ? getOptionalValidatedString(customerData.address.street, "Address", 240) ??
-      "Digital delivery"
+    ? (getOptionalValidatedString(customerData.address.street, "Address", 240) ??
+      "Digital delivery")
     : getValidatedString(customerData.address.street, "Address", {
         max: 240,
       });
   const city = isDigitalOnly
-    ? getOptionalValidatedString(customerData.address.city, "City", 120) ??
-      "Digital"
+    ? (getOptionalValidatedString(customerData.address.city, "City", 120) ?? "Digital")
     : getValidatedString(customerData.address.city, "City", {
         max: 120,
       });
   const county = isDigitalOnly
-    ? getOptionalValidatedString(customerData.address.county, "County", 120) ??
-      "Digital"
+    ? (getOptionalValidatedString(customerData.address.county, "County", 120) ??
+      "Digital")
     : getValidatedString(customerData.address.county, "County", {
         max: 120,
       });
   const zip = isDigitalOnly
-    ? getOptionalValidatedString(customerData.address.zip, "Postal code", 20) ??
-      "000000"
+    ? (getOptionalValidatedString(customerData.address.zip, "Postal code", 20) ??
+      "000000")
     : getValidatedString(customerData.address.zip, "Postal code", {
         max: 20,
       });
@@ -217,20 +210,16 @@ function validateCheckoutCustomerData(
       zip,
       countryCode,
       countryName:
-        getOptionalValidatedString(
-          customerData.address.countryName,
-          "Country",
-          120,
-        ) ?? (countryCode === "RO" ? "Romania" : countryCode),
-      samedayCityId: !isDigitalOnly && isRomaniaCountry(countryCode)
-        ? getOptionalNumericId(customerData.address.samedayCityId, "Sameday city")
-        : undefined,
-      samedayCountyId: !isDigitalOnly && isRomaniaCountry(countryCode)
-        ? getOptionalNumericId(
-            customerData.address.samedayCountyId,
-            "Sameday county",
-          )
-        : undefined,
+        getOptionalValidatedString(customerData.address.countryName, "Country", 120) ??
+        (countryCode === "RO" ? "Romania" : countryCode),
+      samedayCityId:
+        !isDigitalOnly && isRomaniaCountry(countryCode)
+          ? getOptionalNumericId(customerData.address.samedayCityId, "Sameday city")
+          : undefined,
+      samedayCountyId:
+        !isDigitalOnly && isRomaniaCountry(countryCode)
+          ? getOptionalNumericId(customerData.address.samedayCountyId, "Sameday county")
+          : undefined,
       samedayLockerId: getOptionalNumericId(
         customerData.address.samedayLockerId,
         "Sameday locker",
@@ -387,41 +376,38 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
     throw new Error("Cart contents are invalid.");
   }
 
-  const normalizedItems = cartItems
-    .map((item) => {
-      if (!isRecord(item)) {
-        throw new Error("Cart contents are invalid.");
-      }
+  const normalizedItems = cartItems.map((item) => {
+    if (!isRecord(item)) {
+      throw new Error("Cart contents are invalid.");
+    }
 
-      const productId =
-        typeof item.productId === "string" ? item.productId.trim() : undefined;
-      const variantId =
-        typeof item.variantId === "string" ? item.variantId.trim() : undefined;
-      const resolvedProductId = productId ?? variantId;
+    const productId =
+      typeof item.productId === "string" ? item.productId.trim() : undefined;
+    const variantId =
+      typeof item.variantId === "string" ? item.variantId.trim() : undefined;
+    const resolvedProductId = productId ?? variantId;
 
-      if (
-        !resolvedProductId ||
-        !variantId ||
-        !UUID_PATTERN.test(resolvedProductId) ||
-        !UUID_PATTERN.test(variantId)
-      ) {
-        throw new Error("Cart contains an invalid product.");
-      }
+    if (
+      !resolvedProductId ||
+      !variantId ||
+      !UUID_PATTERN.test(resolvedProductId) ||
+      !UUID_PATTERN.test(variantId)
+    ) {
+      throw new Error("Cart contains an invalid product.");
+    }
 
-      return {
-        productId: resolvedProductId,
-        variantId,
-        quantity: getCartQuantity(item.quantity),
-      };
-    });
+    return {
+      productId: resolvedProductId,
+      variantId,
+      quantity: getCartQuantity(item.quantity),
+    };
+  });
 
   if (normalizedItems.length === 0) {
     throw new Error("Your cart is empty.");
   }
 
-  const productIds = Array.from(
-    new Set(normalizedItems.map((item) => item.productId)),
-  );
+  const productIds = Array.from(new Set(normalizedItems.map((item) => item.productId)));
   const variantIds = Array.from(
     new Set(
       normalizedItems
@@ -443,9 +429,7 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
           .from(productVariants)
           .where(inArray(productVariants.id, variantIds))
       : [];
-  const variantById = new Map(
-    variantRows.map((variant) => [variant.id, variant]),
-  );
+  const variantById = new Map(variantRows.map((variant) => [variant.id, variant]));
   const resolvedByKey = new Map<string, ResolvedOrderItem>();
 
   for (const item of normalizedItems) {
@@ -493,10 +477,7 @@ async function resolveCheckoutCart(cartItems: CheckoutCartItem[]) {
   }
 
   const items = Array.from(resolvedByKey.values());
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.unitPrice * item.quantity,
-    0,
-  );
+  const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const fulfillmentProducts = Array.from(
     new Set(items.map((item) => item.productId)),
   ).flatMap((productId) => {
@@ -576,10 +557,7 @@ export async function initiateCheckout(
       0,
     );
     const shippingAmount = resolvedCart.hasPhysicalItems
-      ? await calculateShippingAmount(
-          customerData.shippingMethod,
-          discountedSubtotal,
-        )
+      ? await calculateShippingAmount(customerData.shippingMethod, discountedSubtotal)
       : 0;
     const orderTotal = discountedSubtotal + shippingAmount;
     const payment = resolvePaymentAmount(orderTotal);
@@ -684,10 +662,7 @@ export async function initiateCheckout(
         });
         return { url: paymentResponse.payment.paymentURL };
       } else {
-        console.error(
-          "Netopia returned an unexpected response:",
-          paymentResponse,
-        );
+        console.error("Netopia returned an unexpected response:", paymentResponse);
         return { error: "Failed to generate Netopia payment link." };
       }
     } catch (error: unknown) {
@@ -738,10 +713,7 @@ export async function createBankTransferOrder(
       0,
     );
     const shippingAmount = resolvedCart.hasPhysicalItems
-      ? await calculateShippingAmount(
-          customerData.shippingMethod,
-          discountedSubtotal,
-        )
+      ? await calculateShippingAmount(customerData.shippingMethod, discountedSubtotal)
       : 0;
     const orderTotal = discountedSubtotal + shippingAmount;
     const payment = resolvePaymentAmount(orderTotal);

@@ -80,10 +80,7 @@ export async function POST(
     unitPrice,
   });
 
-  await db
-    .update(orders)
-    .set({ updatedAt: new Date() })
-    .where(eq(orders.id, order.id));
+  await db.update(orders).set({ updatedAt: new Date() }).where(eq(orders.id, order.id));
 
   revalidatePath("/", "layout");
 

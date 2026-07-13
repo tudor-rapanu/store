@@ -108,11 +108,7 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function PostHogPageView({
-  analyticsEnabled,
-}: {
-  analyticsEnabled: boolean;
-}) {
+function PostHogPageView({ analyticsEnabled }: { analyticsEnabled: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 

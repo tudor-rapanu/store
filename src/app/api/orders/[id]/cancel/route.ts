@@ -43,11 +43,7 @@ export async function POST(
       ? body.token
       : undefined;
   const user = await getCurrentUser();
-  const [order] = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.id, id))
-    .limit(1);
+  const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
 
   if (!order) {
     return errorResponse("Order was not found.", 404);
@@ -62,9 +58,7 @@ export async function POST(
   }
 
   if (
-    ["shipped", "delivered", "cancelled", "refunded"].includes(
-      order.fulfillmentStatus,
-    )
+    ["shipped", "delivered", "cancelled", "refunded"].includes(order.fulfillmentStatus)
   ) {
     return errorResponse("This order can no longer be cancelled.", 409);
   }

@@ -26,10 +26,7 @@ function toDate(value: MaybeDate) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export function isSaleWindowActive(
-  item: SalePriceFields,
-  now: Date = new Date(),
-) {
+export function isSaleWindowActive(item: SalePriceFields, now: Date = new Date()) {
   if (!item.saleEnabled || !item.salePrice || item.salePrice <= 0) {
     return false;
   }
@@ -64,13 +61,9 @@ export function getEffectiveProductPrice(
   now: Date = new Date(),
 ) {
   const salePrice =
-    isSaleWindowActive(product, now) && product.salePrice
-      ? product.salePrice
-      : null;
+    isSaleWindowActive(product, now) && product.salePrice ? product.salePrice : null;
 
-  return salePrice && salePrice < product.basePrice
-    ? salePrice
-    : product.basePrice;
+  return salePrice && salePrice < product.basePrice ? salePrice : product.basePrice;
 }
 
 export function getEffectiveVariantPrice(

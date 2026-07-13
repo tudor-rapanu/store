@@ -18,9 +18,7 @@ export function DeleteProfileButton({ locale }: DeleteProfileButtonProps) {
     null,
   );
   const errorMessage =
-    state && "error" in state && typeof state.error === "string"
-      ? state.error
-      : "";
+    state && "error" in state && typeof state.error === "string" ? state.error : "";
 
   return (
     <div className="space-y-3">
@@ -34,9 +32,7 @@ export function DeleteProfileButton({ locale }: DeleteProfileButtonProps) {
         {isPending ? "Deleting..." : "Delete Account"}
       </Button>
       {errorMessage && (
-        <p className="max-w-xl text-sm font-bold text-red-700">
-          {errorMessage}
-        </p>
+        <p className="max-w-xl text-sm font-bold text-red-700">{errorMessage}</p>
       )}
 
       {open && (
@@ -55,15 +51,14 @@ export function DeleteProfileButton({ locale }: DeleteProfileButtonProps) {
                 Delete your account?
               </h3>
               <p className="text-sm text-slate-700">
-                This permanently deletes your login account and saved profile
-                details. You will lose access to account login, saved personal
-                details, saved delivery address, account order history, and
-                protected digital downloads.
+                This permanently deletes your login account and saved profile details.
+                You will lose access to account login, saved personal details, saved
+                delivery address, account order history, and protected digital
+                downloads.
               </p>
               <p className="text-sm font-semibold text-slate-700">
-                Order records are kept for legal, payment, and fulfillment
-                history, but they will no longer be attached to an active
-                account.
+                Order records are kept for legal, payment, and fulfillment history, but
+                they will no longer be attached to an active account.
               </p>
             </div>
 

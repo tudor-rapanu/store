@@ -17,9 +17,7 @@ export function VerifyEmailCodeForm({ email, locale }: VerifyEmailCodeFormProps)
   const [state, setState] = useState<{ error?: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const errorMessage =
-    state && "error" in state && typeof state.error === "string"
-      ? state.error
-      : "";
+    state && "error" in state && typeof state.error === "string" ? state.error : "";
 
   function handleVerify() {
     const formData = new FormData();

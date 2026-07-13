@@ -92,16 +92,10 @@ export function SamedayAwbPanel({
   );
   const selectedPickupPointContactIds = useMemo(
     () =>
-      new Set(
-        (selectedPickupPoint?.contactPersons ?? []).map(
-          (contact) => contact.id,
-        ),
-      ),
+      new Set((selectedPickupPoint?.contactPersons ?? []).map((contact) => contact.id)),
     [selectedPickupPoint],
   );
-  const activeContactPersonId = selectedPickupPointContactIds.has(
-    contactPersonId,
-  )
+  const activeContactPersonId = selectedPickupPointContactIds.has(contactPersonId)
     ? contactPersonId
     : "";
   const canGenerate = paymentStatus === "paid" && !awbNumber;
@@ -131,12 +125,7 @@ export function SamedayAwbPanel({
   );
 
   useEffect(() => {
-    if (
-      isInternational ||
-      !isOpen ||
-      pickupPoints.length > 0 ||
-      counties.length > 0
-    ) {
+    if (isInternational || !isOpen || pickupPoints.length > 0 || counties.length > 0) {
       return;
     }
 
@@ -159,9 +148,7 @@ export function SamedayAwbPanel({
         };
 
         if (!pickupResponse.ok) {
-          throw new Error(
-            pickupData.error ?? "Could not load Sameday pickup points.",
-          );
+          throw new Error(pickupData.error ?? "Could not load Sameday pickup points.");
         }
 
         if (!countiesResponse.ok) {
@@ -179,8 +166,7 @@ export function SamedayAwbPanel({
 
         if (!countyId && address.county) {
           const matchedCounty = nextCounties.find(
-            (county) =>
-              county.name.toLowerCase() === address.county?.toLowerCase(),
+            (county) => county.name.toLowerCase() === address.county?.toLowerCase(),
           );
           if (matchedCounty) {
             setCountyId(String(matchedCounty.id));
@@ -188,9 +174,7 @@ export function SamedayAwbPanel({
         }
       } catch (error) {
         setMessage(
-          error instanceof Error
-            ? error.message
-            : "Could not load Sameday data.",
+          error instanceof Error ? error.message : "Could not load Sameday data.",
         );
       } finally {
         setIsLoadingData(false);
@@ -224,10 +208,7 @@ export function SamedayAwbPanel({
     }
 
     setMessage(null);
-    const url = new URL(
-      "/api/admin/shipping/sameday/cities",
-      window.location.origin,
-    );
+    const url = new URL("/api/admin/shipping/sameday/cities", window.location.origin);
     url.searchParams.set("countyId", countyId);
     if (citySearch.trim()) {
       url.searchParams.set("name", citySearch.trim());
@@ -271,14 +252,11 @@ export function SamedayAwbPanel({
     });
 
     try {
-      const response = await fetch(
-        `/api/admin/orders/${orderId}/generate-awb`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
+      const response = await fetch(`/api/admin/orders/${orderId}/generate-awb`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       const data = (await response.json()) as {
         ok?: boolean;
         error?: string;
@@ -296,9 +274,7 @@ export function SamedayAwbPanel({
       setMessage("AWB generated and tracking email sent.");
       router.refresh();
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not generate AWB.",
-      );
+      setMessage(error instanceof Error ? error.message : "Could not generate AWB.");
     } finally {
       setIsGenerating(false);
     }
@@ -307,12 +283,10 @@ export function SamedayAwbPanel({
   if (isInternational) {
     return (
       <section className="space-y-3 border border-black p-4">
-        <h2 className="text-sm font-black uppercase tracking-widest">
-          Shipping Label
-        </h2>
+        <h2 className="text-sm font-black uppercase tracking-widest">Shipping Label</h2>
         <p className="text-sm font-bold uppercase tracking-wider text-slate-500">
-          Posta Romana international shipping is selected. Sameday AWB
-          generation is not available for this order.
+          Posta Romana international shipping is selected. Sameday AWB generation is not
+          available for this order.
         </p>
       </section>
     );
@@ -322,9 +296,7 @@ export function SamedayAwbPanel({
     <section className="space-y-4 border border-black p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xs font-black uppercase tracking-widest">
-            Sameday AWB
-          </h2>
+          <h2 className="text-xs font-black uppercase tracking-widest">Sameday AWB</h2>
           <p className="mt-1 text-sm text-slate-600">
             {awbNumber
               ? `Generated AWB ${awbNumber}`
@@ -413,8 +385,7 @@ export function SamedayAwbPanel({
                       Contact person
                     </Label>
                     <div className="border border-red-200 bg-red-50 p-3 text-xs font-bold uppercase tracking-wider text-red-700">
-                      This pickup point has no contact person returned by
-                      Sameday.
+                      This pickup point has no contact person returned by Sameday.
                     </div>
                   </div>
                 )}
@@ -479,22 +450,10 @@ export function SamedayAwbPanel({
                     { value: "2", label: "Large" },
                   ]}
                 />
-                <NumberField
-                  label="Weight"
-                  value={weight}
-                  onChange={setWeight}
-                />
+                <NumberField label="Weight" value={weight} onChange={setWeight} />
                 <NumberField label="Width" value={width} onChange={setWidth} />
-                <NumberField
-                  label="Length"
-                  value={length}
-                  onChange={setLength}
-                />
-                <NumberField
-                  label="Height"
-                  value={height}
-                  onChange={setHeight}
-                />
+                <NumberField label="Length" value={length} onChange={setLength} />
+                <NumberField label="Height" value={height} onChange={setHeight} />
               </div>
 
               <div className="space-y-2">
@@ -512,9 +471,7 @@ export function SamedayAwbPanel({
                 <input
                   type="checkbox"
                   checked={personalEasyboxLoad}
-                  onChange={(event) =>
-                    setPersonalEasyboxLoad(event.target.checked)
-                  }
+                  onChange={(event) => setPersonalEasyboxLoad(event.target.checked)}
                   className="size-4 border-black"
                 />
                 I will personally load this package in an Easybox.
@@ -522,8 +479,7 @@ export function SamedayAwbPanel({
 
               {personalEasyboxLoad && (
                 <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                  The PDO service tax id will be fetched from your Sameday
-                  services.
+                  The PDO service tax id will be fetched from your Sameday services.
                 </p>
               )}
 
@@ -562,9 +518,7 @@ function SelectField({
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold uppercase tracking-widest">{label}</Label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="h-10 rounded-none border-black">
           <SelectValue placeholder="Select" />
@@ -592,9 +546,7 @@ function NumberField({
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold uppercase tracking-widest">{label}</Label>
       <Input
         type="number"
         step="0.1"

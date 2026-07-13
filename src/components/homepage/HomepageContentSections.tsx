@@ -53,9 +53,8 @@ function isRenderableImageSrc(value: string | null | undefined) {
 
 function getSlides(content: Record<string, unknown>) {
   return Array.isArray(content.slides)
-    ? content.slides.filter(
-        (slide): slide is Record<string, unknown> =>
-          Boolean(slide && typeof slide === "object" && !Array.isArray(slide)),
+    ? content.slides.filter((slide): slide is Record<string, unknown> =>
+        Boolean(slide && typeof slide === "object" && !Array.isArray(slide)),
       )
     : [];
 }
@@ -71,21 +70,19 @@ export function HomepageContentSections({
     return null;
   }
 
-  const productsById = new Map(featuredProducts.map((product) => [product.id, product]));
+  const productsById = new Map(
+    featuredProducts.map((product) => [product.id, product]),
+  );
 
   return (
     <div className="space-y-12">
       {sections.map((section) => {
         if (section.type === "promoStrip") {
-          return (
-            <PromoStrip key={section.id} section={section} locale={locale} />
-          );
+          return <PromoStrip key={section.id} section={section} locale={locale} />;
         }
 
         if (section.type === "bannerSlider") {
-          return (
-            <BannerSlider key={section.id} section={section} locale={locale} />
-          );
+          return <BannerSlider key={section.id} section={section} locale={locale} />;
         }
 
         if (section.type === "featuredProduct") {
@@ -138,7 +135,9 @@ function PromoStrip({
         )}
         {body && <p className="text-sm text-white/80">{body}</p>}
       </div>
-      {cta && <span className="text-xs font-black uppercase tracking-widest">{cta}</span>}
+      {cta && (
+        <span className="text-xs font-black uppercase tracking-widest">{cta}</span>
+      )}
     </div>
   );
 
@@ -249,13 +248,17 @@ function SlideImage({
   return (
     <>
       {isRenderableImageSrc(imageUrl) && (
-        <Image src={imageUrl} alt="" fill unoptimized className="object-cover opacity-70" />
+        <Image
+          src={imageUrl}
+          alt=""
+          fill
+          unoptimized
+          className="object-cover opacity-70"
+        />
       )}
       <div className="absolute inset-0 flex flex-col justify-end gap-4 p-6">
         {title && (
-          <h2 className="text-3xl font-black uppercase tracking-tight">
-            {title}
-          </h2>
+          <h2 className="text-3xl font-black uppercase tracking-tight">{title}</h2>
         )}
         {body && <p className="max-w-md text-sm leading-7 text-white/85">{body}</p>}
         {href && cta && (
@@ -319,13 +322,7 @@ function FeaturedProduct({
   );
 }
 
-function HomepageImage({
-  imageUrl,
-  title,
-}: {
-  imageUrl: string;
-  title: string;
-}) {
+function HomepageImage({ imageUrl, title }: { imageUrl: string; title: string }) {
   const normalizedSrc = getProductImageSrc(imageUrl) ?? imageUrl;
 
   return (

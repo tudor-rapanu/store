@@ -86,9 +86,7 @@ export function HomepageSectionsSettings({
     updater: (section: HomepageContentSection) => HomepageContentSection,
   ) {
     setDraftSections((current) =>
-      current.map((section) =>
-        section.id === sectionId ? updater(section) : section,
-      ),
+      current.map((section) => (section.id === sectionId ? updater(section) : section)),
     );
   }
 
@@ -148,9 +146,7 @@ export function HomepageSectionsSettings({
       });
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Could not save homepage sections.";
+        error instanceof Error ? error.message : "Could not save homepage sections.";
 
       setMessage(message);
       showToast({
@@ -181,10 +177,7 @@ export function HomepageSectionsSettings({
               type="button"
               variant="outline"
               onClick={() =>
-                setDraftSections((current) => [
-                  ...current,
-                  createSection(type.value),
-                ])
+                setDraftSections((current) => [...current, createSection(type.value)])
               }
               className="h-9 rounded-none border-black text-xs font-bold uppercase tracking-widest"
             >
@@ -208,8 +201,8 @@ export function HomepageSectionsSettings({
             >
               <summary className="flex cursor-pointer items-center justify-between gap-4 p-3 text-sm font-black uppercase tracking-widest">
                 <span>
-                  {sectionTypes.find((type) => type.value === section.type)
-                    ?.label ?? section.type}
+                  {sectionTypes.find((type) => type.value === section.type)?.label ??
+                    section.type}
                 </span>
                 <span className="text-xs text-slate-500">Edit</span>
               </summary>
@@ -293,9 +286,7 @@ export function HomepageSectionsSettings({
                 <SectionFields
                   section={section}
                   products={products}
-                  onChange={(key, value) =>
-                    updateContent(section.id, key, value)
-                  }
+                  onChange={(key, value) => updateContent(section.id, key, value)}
                   onReplaceContent={(content) =>
                     updateSection(section.id, (current) => ({
                       ...current,
@@ -545,9 +536,7 @@ function TextField({
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold uppercase tracking-widest">{label}</Label>
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -570,9 +559,7 @@ function SelectField({
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold uppercase tracking-widest">{label}</Label>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -600,9 +587,7 @@ function TextAreaField({
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold uppercase tracking-widest">{label}</Label>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}

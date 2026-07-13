@@ -37,10 +37,7 @@ export async function sendOrderEmail(
         totalAmount,
         isBankTransfer,
         orderUrl,
-        estimatedShippingWindow: formatFulfillmentEstimate(
-          fulfillmentEstimate,
-          locale,
-        ),
+        estimatedShippingWindow: formatFulfillmentEstimate(fulfillmentEstimate, locale),
       }),
     });
 

@@ -44,9 +44,7 @@ export function CancelOrderButton({
       router.refresh();
     } catch (error) {
       window.alert(
-        error instanceof Error
-          ? error.message
-          : "The order could not be cancelled.",
+        error instanceof Error ? error.message : "The order could not be cancelled.",
       );
     } finally {
       setIsPending(false);

@@ -33,7 +33,7 @@ export default async function CheckoutPage({
         preferredShippingMethod:
           profile?.preferredShippingMethod === "international"
             ? "address"
-            : profile?.preferredShippingMethod ?? "address",
+            : (profile?.preferredShippingMethod ?? "address"),
         address,
       }
     : undefined;

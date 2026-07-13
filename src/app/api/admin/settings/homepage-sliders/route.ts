@@ -3,10 +3,7 @@ import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
 import { revalidateCatalogCache } from "@/lib/catalog/cache";
-import {
-  getHomepageSettings,
-  updateHomepageSettings,
-} from "@/lib/homepage/settings";
+import { getHomepageSettings, updateHomepageSettings } from "@/lib/homepage/settings";
 
 type HomepageSliderPayload = {
   categorySections?: Array<{
@@ -26,9 +23,7 @@ export async function POST(request: Request) {
     ? body.categorySections
         .map((section) => ({
           categoryId:
-            typeof section.categoryId === "string"
-              ? section.categoryId.trim()
-              : "",
+            typeof section.categoryId === "string" ? section.categoryId.trim() : "",
           enabled: section.enabled !== false,
         }))
         .filter((section) => section.categoryId)

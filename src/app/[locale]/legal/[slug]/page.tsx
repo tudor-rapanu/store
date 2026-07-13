@@ -9,9 +9,7 @@ interface LegalPageProps {
   }>;
 }
 
-export async function generateMetadata({
-  params,
-}: LegalPageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: LegalPageProps): Promise<Metadata> {
   const { slug, locale } = await params;
   const doc = await getLegalDocBySlug(`${slug}-${locale}`);
 

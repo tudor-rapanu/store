@@ -78,9 +78,7 @@ export default async function CategoryPage({
         <p className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">
           Category
         </p>
-        <h1 className="text-4xl font-black tracking-tighter uppercase">
-          {title}
-        </h1>
+        <h1 className="text-4xl font-black tracking-tighter uppercase">{title}</h1>
       </div>
 
       {subcategories.length > 0 && (
@@ -95,11 +93,7 @@ export default async function CategoryPage({
                 href={`/${activeLocale}/category/${subcategory.slug}`}
                 className="border border-black p-4 text-sm font-black uppercase tracking-widest transition-colors hover:bg-black hover:text-white"
               >
-                {getTranslatedText(
-                  subcategory.name,
-                  activeLocale,
-                  subcategory.slug,
-                )}
+                {getTranslatedText(subcategory.name, activeLocale, subcategory.slug)}
               </a>
             ))}
           </div>

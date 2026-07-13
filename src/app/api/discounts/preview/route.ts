@@ -25,18 +25,14 @@ type PreviewCartItem = {
 function getQuantity(value: unknown) {
   const quantity = Number(value);
 
-  return Number.isInteger(quantity) && quantity > 0 && quantity <= 99
-    ? quantity
-    : 0;
+  return Number.isInteger(quantity) && quantity > 0 && quantity <= 99 ? quantity : 0;
 }
 
 async function resolvePreviewItems(cartItems: PreviewCartItem[]) {
   const normalized = cartItems
     .map((item) => {
-      const productId =
-        typeof item.productId === "string" ? item.productId.trim() : "";
-      const variantId =
-        typeof item.variantId === "string" ? item.variantId.trim() : "";
+      const productId = typeof item.productId === "string" ? item.productId.trim() : "";
+      const variantId = typeof item.variantId === "string" ? item.variantId.trim() : "";
       const resolvedProductId = productId || variantId;
       const quantity = getQuantity(item.quantity);
 
@@ -76,16 +72,11 @@ async function resolvePreviewItems(cartItems: PreviewCartItem[]) {
       .from(products)
       .where(and(inArray(products.id, productIds), publicProductWhere())),
     variantIds.length > 0
-      ? db
-          .select()
-          .from(productVariants)
-          .where(inArray(productVariants.id, variantIds))
+      ? db.select().from(productVariants).where(inArray(productVariants.id, variantIds))
       : [],
   ]);
   const productById = new Map(productRows.map((product) => [product.id, product]));
-  const variantById = new Map(
-    variantRows.map((variant) => [variant.id, variant]),
-  );
+  const variantById = new Map(variantRows.map((variant) => [variant.id, variant]));
   const resolvedItems: DiscountCartItem[] = [];
 
   for (const item of normalized) {
@@ -156,9 +147,6 @@ export async function POST(request: Request) {
       message: discount.message,
     });
   } catch {
-    return NextResponse.json(
-      { error: "Could not preview discount." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Could not preview discount." }, { status: 400 });
   }
 }

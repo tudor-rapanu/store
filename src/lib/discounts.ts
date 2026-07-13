@@ -12,7 +12,10 @@ import {
   type DiscountScope,
   type DiscountType,
 } from "@/lib/db/schema";
-import { getEffectiveProductPrice, type ProductPriceFields } from "@/lib/product-pricing";
+import {
+  getEffectiveProductPrice,
+  type ProductPriceFields,
+} from "@/lib/product-pricing";
 
 export type DiscountCartItem = {
   productId: string;
@@ -62,10 +65,7 @@ export function revalidateDiscountCache() {
 
 const getCachedAutomaticDiscountRows = unstable_cache(
   async () => {
-    return db
-      .select()
-      .from(discounts)
-      .where(eq(discounts.kind, "automatic"));
+    return db.select().from(discounts).where(eq(discounts.kind, "automatic"));
   },
   ["discounts:automatic-rows"],
   {
@@ -196,12 +196,7 @@ async function voucherWasUsed({
   const [usage] = await db
     .select({ id: discountUsages.id })
     .from(discountUsages)
-    .where(
-      and(
-        eq(discountUsages.discountId, discountId),
-        identityCondition,
-      ),
-    )
+    .where(and(eq(discountUsages.discountId, discountId), identityCondition))
     .limit(1);
 
   return Boolean(usage);
@@ -237,9 +232,7 @@ export async function resolveBestDiscount({
   const productCategoryMap = candidates.some(
     (discount) => discount.scope === "category",
   )
-    ? await getProductCategoryMap([
-        ...new Set(items.map((item) => item.productId)),
-      ])
+    ? await getProductCategoryMap([...new Set(items.map((item) => item.productId))])
     : new Map<string, Set<string>>();
 
   let best: DiscountResult = code
@@ -262,11 +255,7 @@ export async function resolveBestDiscount({
       }
     }
 
-    const eligibleSubtotal = getEligibleSubtotal(
-      discount,
-      items,
-      productCategoryMap,
-    );
+    const eligibleSubtotal = getEligibleSubtotal(discount, items, productCategoryMap);
     const amount = calculateDiscountAmount(discount, eligibleSubtotal);
 
     if (amount > best.discountAmount) {
@@ -328,8 +317,8 @@ export async function getCatalogAutomaticDiscountPrices(
   }
 
   const now = new Date();
-  const activeDiscounts = (await getCachedAutomaticDiscountRows()).filter(
-    (discount) => isActiveDiscount(discount, now),
+  const activeDiscounts = (await getCachedAutomaticDiscountRows()).filter((discount) =>
+    isActiveDiscount(discount, now),
   );
 
   if (activeDiscounts.length === 0) {

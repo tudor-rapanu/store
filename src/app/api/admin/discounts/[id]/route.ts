@@ -66,10 +66,7 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const body = (await request.json().catch(() => ({}))) as Record<
-    string,
-    unknown
-  >;
+  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 
   try {
     const isEnableOnlyUpdate =
@@ -127,8 +124,7 @@ function getDiscountUpdateValues(body: Record<string, unknown>) {
     enabled: body.enabled !== false,
     expiresAt: readDate(body.expiresAt),
     productId: scope === "product" ? readString(body.productId) || null : null,
-    categoryId:
-      scope === "category" ? readString(body.categoryId) || null : null,
+    categoryId: scope === "category" ? readString(body.categoryId) || null : null,
     updatedAt: new Date(),
   };
 }
@@ -142,10 +138,7 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  const [deleted] = await db
-    .delete(discounts)
-    .where(eq(discounts.id, id))
-    .returning();
+  const [deleted] = await db.delete(discounts).where(eq(discounts.id, id)).returning();
 
   if (!deleted) {
     return errorResponse("Discount not found.", 404);

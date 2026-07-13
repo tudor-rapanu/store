@@ -35,8 +35,7 @@ export function SamedayLocationSync({
 
     try {
       const syncedCounties = await syncCounties();
-      const countiesToSync =
-        syncedCounties.length > 0 ? syncedCounties : counties;
+      const countiesToSync = syncedCounties.length > 0 ? syncedCounties : counties;
       let syncedCities = 0;
       let skippedCounties = 0;
       let skippedCachedCities = 0;
@@ -72,21 +71,16 @@ export function SamedayLocationSync({
           ? `${force ? "Refreshed" : "Synced"} ${countiesToSync.length} counties and ${syncedCities} new cities. Skipped ${skippedCounties} complete counties with ${skippedCachedCities} cached cities. First skipped: ${skippedDetails[0] ?? "none"}. ${failures.length} counties failed. First failure: ${failures[0]}`
           : `${force ? "Refreshed" : "Synced"} ${countiesToSync.length} counties and ${syncedCities} new cities. Skipped ${skippedCounties} complete counties with ${skippedCachedCities} cached cities. First skipped: ${skippedDetails[0] ?? "none"}.`;
 
-      setDisplayCountyCount((current) =>
-        Math.max(current, countiesToSync.length),
-      );
+      setDisplayCountyCount((current) => Math.max(current, countiesToSync.length));
       setMessage(finalMessage);
       showToast({
-        title:
-          failures.length > 0 ? "Sync completed with issues" : "Sync complete",
+        title: failures.length > 0 ? "Sync completed with issues" : "Sync complete",
         description: finalMessage,
         variant: failures.length > 0 ? "error" : "success",
       });
     } catch (error) {
       const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Could not sync Sameday locations.";
+        error instanceof Error ? error.message : "Could not sync Sameday locations.";
 
       setMessage(errorMessage);
       showToast({
@@ -199,9 +193,7 @@ export function SamedayLocationSync({
           <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
             Cities
           </div>
-          <div className="text-2xl font-black tracking-tighter">
-            {displayCityCount}
-          </div>
+          <div className="text-2xl font-black tracking-tighter">{displayCityCount}</div>
         </div>
       </div>
 

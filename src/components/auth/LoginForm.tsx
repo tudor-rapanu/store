@@ -29,17 +29,11 @@ export function LoginForm({ locale }: { locale: "en" | "ro" }) {
     null,
   );
   const errorMessage =
-    state && "error" in state && typeof state.error === "string"
-      ? state.error
-      : "";
+    state && "error" in state && typeof state.error === "string" ? state.error : "";
   const verificationEmail =
-    state && "email" in state && typeof state.email === "string"
-      ? state.email
-      : "";
+    state && "email" in state && typeof state.email === "string" ? state.email : "";
   const verificationRequired =
-    state &&
-    "verificationRequired" in state &&
-    state.verificationRequired === true;
+    state && "verificationRequired" in state && state.verificationRequired === true;
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -76,19 +70,14 @@ export function LoginForm({ locale }: { locale: "en" | "ro" }) {
 
           {errorMessage && (
             <div className="space-y-3 rounded-md bg-destructive/10 p-3">
-              <p className="text-sm font-medium text-destructive">
-                {errorMessage}
-              </p>
+              <p className="text-sm font-medium text-destructive">{errorMessage}</p>
               {verificationRequired && verificationEmail && (
                 <div className="space-y-4">
                   <ResendVerificationEmailForm
                     email={verificationEmail}
                     locale={locale}
                   />
-                  <VerifyEmailCodeForm
-                    email={verificationEmail}
-                    locale={locale}
-                  />
+                  <VerifyEmailCodeForm email={verificationEmail} locale={locale} />
                   <ResendVerificationEmailForm
                     email={verificationEmail}
                     locale={locale}

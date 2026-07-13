@@ -215,44 +215,43 @@ export const getCachedHomepageCategorySliders = unstable_cache(
     const categoriesById = new Map(
       categoryRows.map((category) => [category.id, category]),
     );
-    const sections = await Promise.all(enabledSections.map(async (section) => {
-      const category = categoriesById.get(section.categoryId);
-      const descendantCategoryIds =
-        descendantCategoryIdsById.get(section.categoryId) ?? [
+    const sections = await Promise.all(
+      enabledSections.map(async (section) => {
+        const category = categoriesById.get(section.categoryId);
+        const descendantCategoryIds = descendantCategoryIdsById.get(
           section.categoryId,
-        ];
+        ) ?? [section.categoryId];
 
-      if (!category || descendantCategoryIds.length === 0) {
-        return null;
-      }
+        if (!category || descendantCategoryIds.length === 0) {
+          return null;
+        }
 
-      const sectionProducts = await db
-        .select(productCardSelect)
-        .from(productCategories)
-        .innerJoin(products, eq(products.id, productCategories.productId))
-        .where(
-          and(
-            inArray(productCategories.categoryId, descendantCategoryIds),
-            publicProductWhere(),
-          ),
-        )
-        .orderBy(desc(products.createdAt))
-        .limit(settings.productsPerSlider);
+        const sectionProducts = await db
+          .select(productCardSelect)
+          .from(productCategories)
+          .innerJoin(products, eq(products.id, productCategories.productId))
+          .where(
+            and(
+              inArray(productCategories.categoryId, descendantCategoryIds),
+              publicProductWhere(),
+            ),
+          )
+          .orderBy(desc(products.createdAt))
+          .limit(settings.productsPerSlider);
 
-      if (!category || sectionProducts.length === 0) {
-        return null;
-      }
+        if (!category || sectionProducts.length === 0) {
+          return null;
+        }
 
-      return {
-        category,
-        products: sectionProducts,
-      };
-    }));
+        return {
+          category,
+          products: sectionProducts,
+        };
+      }),
+    );
 
     return sections.filter(
-      (
-        section,
-      ): section is NonNullable<(typeof sections)[number]> =>
+      (section): section is NonNullable<(typeof sections)[number]> =>
         Boolean(section && section.products.length > 0),
     );
   },
@@ -267,13 +266,9 @@ function getHomepageFeaturedProductIds(sections: HomepageContentSection[]) {
   return Array.from(
     new Set(
       sections
-        .filter(
-          (section) => section.enabled && section.type === "featuredProduct",
-        )
+        .filter((section) => section.enabled && section.type === "featuredProduct")
         .map((section) => section.content.productId)
-        .filter(
-          (productId): productId is string => typeof productId === "string",
-        ),
+        .filter((productId): productId is string => typeof productId === "string"),
     ),
   );
 }
@@ -290,12 +285,7 @@ export const getCachedHomepageContentSections = unstable_cache(
         ? await db
             .select(productCardSelect)
             .from(products)
-            .where(
-              and(
-                inArray(products.id, featuredProductIds),
-                publicProductWhere(),
-              ),
-            )
+            .where(and(inArray(products.id, featuredProductIds), publicProductWhere()))
         : [];
 
     return {
@@ -340,10 +330,7 @@ export const getCachedPublicCategoryProducts = unstable_cache(
     const [totalResult] = await db
       .select({ value: count() })
       .from(products)
-      .innerJoin(
-        productCategories,
-        eq(productCategories.productId, products.id),
-      )
+      .innerJoin(productCategories, eq(productCategories.productId, products.id))
       .innerJoin(categories, eq(categories.id, productCategories.categoryId))
       .where(where);
     const total = totalResult?.value ?? 0;
@@ -353,10 +340,7 @@ export const getCachedPublicCategoryProducts = unstable_cache(
     const rows = await db
       .select({ product: products })
       .from(products)
-      .innerJoin(
-        productCategories,
-        eq(productCategories.productId, products.id),
-      )
+      .innerJoin(productCategories, eq(productCategories.productId, products.id))
       .innerJoin(categories, eq(categories.id, productCategories.categoryId))
       .where(where)
       .orderBy(desc(products.createdAt))

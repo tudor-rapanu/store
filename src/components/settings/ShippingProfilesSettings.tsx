@@ -33,12 +33,8 @@ export function ShippingProfilesSettings({
   profiles,
   currencySettings,
 }: ShippingProfilesSettingsProps) {
-  const easyboxProfile = profiles.find(
-    (profile) => profile.method === "easybox",
-  );
-  const addressProfile = profiles.find(
-    (profile) => profile.method === "address",
-  );
+  const easyboxProfile = profiles.find((profile) => profile.method === "easybox");
+  const addressProfile = profiles.find((profile) => profile.method === "address");
   const internationalProfile = profiles.find(
     (profile) => profile.method === "international",
   );
@@ -100,9 +96,7 @@ export function ShippingProfilesSettings({
       });
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Could not save shipping profiles.";
+        error instanceof Error ? error.message : "Could not save shipping profiles.";
 
       setMessage(message);
       showToast({
@@ -198,9 +192,7 @@ function AmountField({
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold uppercase tracking-widest">{label}</Label>
       <div className="flex items-center border border-black">
         <Input
           type="number"
@@ -210,9 +202,7 @@ function AmountField({
           onChange={(event) => onChange(event.target.value)}
           className="h-12 rounded-none border-0"
         />
-        <span className="px-3 text-xs font-black uppercase tracking-widest">
-          RON
-        </span>
+        <span className="px-3 text-xs font-black uppercase tracking-widest">RON</span>
       </div>
     </div>
   );

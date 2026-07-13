@@ -188,9 +188,7 @@ export async function updatePassword(formData: FormData) {
   const locale = formData.get("locale") === "ro" ? "ro" : "en";
   const token = formData.get("token");
   const passwordResetToken =
-    typeof token === "string" && token.trim().length > 0
-      ? token.trim()
-      : undefined;
+    typeof token === "string" && token.trim().length > 0 ? token.trim() : undefined;
 
   if (!password || password.length < 6) {
     return { error: "Password must be at least 6 characters." };

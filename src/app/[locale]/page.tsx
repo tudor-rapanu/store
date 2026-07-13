@@ -61,11 +61,7 @@ const DEFAULT_CURRENCY_PRESENTATION = {
 
 type CurrencyPresentation = Awaited<ReturnType<typeof getCurrencyPresentation>>;
 
-async function withHomeDataTimeout<T>(
-  promise: Promise<T>,
-  fallback: T,
-  label: string,
-) {
+async function withHomeDataTimeout<T>(promise: Promise<T>, fallback: T, label: string) {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   try {

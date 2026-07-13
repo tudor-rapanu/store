@@ -10,10 +10,7 @@ export function isPostHogReady() {
   return posthog.__loaded && !posthog.has_opted_out_capturing();
 }
 
-export function capturePostHog(
-  eventName: string,
-  properties?: PostHogProperties,
-) {
+export function capturePostHog(eventName: string, properties?: PostHogProperties) {
   if (!isPostHogReady()) {
     return;
   }
@@ -21,10 +18,7 @@ export function capturePostHog(
   posthog.capture(eventName, properties);
 }
 
-export function identifyPostHog(
-  distinctId: string,
-  properties?: PostHogProperties,
-) {
+export function identifyPostHog(distinctId: string, properties?: PostHogProperties) {
   if (!isPostHogReady()) {
     return;
   }

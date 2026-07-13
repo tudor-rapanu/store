@@ -7,10 +7,7 @@ import { db } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
 import { sendTrackingEmail } from "@/lib/email";
 import { SAMEDAY_SERVICE_IDS } from "@/lib/shipping/constants";
-import {
-  createSamedayAwb,
-  getSamedayTrackingUrl,
-} from "@/lib/shipping/sameday";
+import { createSamedayAwb, getSamedayTrackingUrl } from "@/lib/shipping/sameday";
 
 type GenerateAwbBody = {
   pickupPointId?: string;
@@ -85,11 +82,7 @@ export async function POST(
     cityId: body.cityId,
     personalEasyboxLoad: Boolean(body.personalEasyboxLoad),
   });
-  const [order] = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.id, id))
-    .limit(1);
+  const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
 
   if (!order) {
     return errorResponse("Order was not found.", 404);
@@ -113,38 +106,20 @@ export async function POST(
 
   try {
     const pickupPointId = requiredString(body.pickupPointId, "Pickup point");
-    const contactPersonId = requiredString(
-      body.contactPersonId,
-      "Contact person",
-    );
-    const packageType = requiredString(
-      body.packageType ?? "1",
-      "Package type",
-    );
-    const packageWeight = requiredString(
-      body.packageWeight ?? "1",
-      "Package weight",
-    );
-    const packageWidth = requiredString(
-      body.packageWidth ?? "18",
-      "Package width",
-    );
+    const contactPersonId = requiredString(body.contactPersonId, "Contact person");
+    const packageType = requiredString(body.packageType ?? "1", "Package type");
+    const packageWeight = requiredString(body.packageWeight ?? "1", "Package weight");
+    const packageWidth = requiredString(body.packageWidth ?? "18", "Package width");
     const packageLength = requiredString(
       body.packageLength ?? "26.5",
       "Package length",
     );
-    const packageHeight = requiredString(
-      body.packageHeight ?? "1",
-      "Package height",
-    );
+    const packageHeight = requiredString(body.packageHeight ?? "1", "Package height");
     const countyId = requiredString(
       body.countyId ?? address.samedayCountyId,
       "Sameday county",
     );
-    const cityId = requiredString(
-      body.cityId ?? address.samedayCityId,
-      "Sameday city",
-    );
+    const cityId = requiredString(body.cityId ?? address.samedayCityId, "Sameday city");
     const oohLastMile =
       order.shippingMethod === "easybox"
         ? requiredString(

@@ -10,9 +10,7 @@ export async function GET() {
   return NextResponse.json({
     enabled: true,
     token,
-    host:
-      process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() ||
-      "https://v.toddsthreads.com",
+    host: process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || "https://v.toddsthreads.com",
     uiHost: "https://eu.posthog.com",
   });
 }

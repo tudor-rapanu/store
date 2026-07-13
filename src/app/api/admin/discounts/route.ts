@@ -67,8 +67,7 @@ export async function POST(request: Request) {
       throw new Error("Discount configuration is invalid.");
     }
 
-    const code =
-      kind === "voucher" ? readString(body.code).toUpperCase() : null;
+    const code = kind === "voucher" ? readString(body.code).toUpperCase() : null;
 
     if (kind === "voucher" && !code) {
       throw new Error("Voucher code is required.");
@@ -85,10 +84,8 @@ export async function POST(request: Request) {
         value: readValue(body.value, type),
         enabled: body.enabled !== false,
         expiresAt: readDate(body.expiresAt),
-        productId:
-          scope === "product" ? readString(body.productId) || null : null,
-        categoryId:
-          scope === "category" ? readString(body.categoryId) || null : null,
+        productId: scope === "product" ? readString(body.productId) || null : null,
+        categoryId: scope === "category" ? readString(body.categoryId) || null : null,
         updatedAt: new Date(),
       })
       .returning();
@@ -99,8 +96,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Could not create discount.",
+        error: error instanceof Error ? error.message : "Could not create discount.",
       },
       { status: 400 },
     );

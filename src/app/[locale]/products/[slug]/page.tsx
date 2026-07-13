@@ -97,19 +97,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <p className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">
               Product
             </p>
-            <h1 className="text-4xl font-black uppercase tracking-tight">
-              {title}
-            </h1>
+            <h1 className="text-4xl font-black uppercase tracking-tight">{title}</h1>
           </div>
 
           {description && (
             <p className="text-sm leading-7 text-slate-600">{description}</p>
           )}
 
-          <ProductDetailHighlights
-            details={detailBlocks}
-            locale={activeLocale}
-          />
+          <ProductDetailHighlights details={detailBlocks} locale={activeLocale} />
 
           <div className="border border-black p-4 text-sm">
             {product.isDigital ? (

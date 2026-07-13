@@ -40,9 +40,7 @@ export function DuplicateProductButton({
       router.refresh();
     } catch (error) {
       window.alert(
-        error instanceof Error
-          ? error.message
-          : "Product could not be duplicated.",
+        error instanceof Error ? error.message : "Product could not be duplicated.",
       );
     } finally {
       setIsPending(false);

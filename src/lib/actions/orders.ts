@@ -20,9 +20,7 @@ export async function markStaleNetopiaOrdersFailed() {
     process.env.NETOPIA_PENDING_TIMEOUT_MINUTES ?? "60",
     10,
   );
-  const timeoutMinutes = Number.isFinite(staleAfterMinutes)
-    ? staleAfterMinutes
-    : 60;
+  const timeoutMinutes = Number.isFinite(staleAfterMinutes) ? staleAfterMinutes : 60;
   const staleCutoff = new Date(Date.now() - timeoutMinutes * 60 * 1000);
 
   await db

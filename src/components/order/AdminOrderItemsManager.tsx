@@ -120,10 +120,9 @@ export function AdminOrderItemsManager({
     setPendingKey(itemId);
 
     try {
-      const response = await fetch(
-        `/api/admin/orders/${orderId}/items/${itemId}`,
-        { method: "DELETE" },
-      );
+      const response = await fetch(`/api/admin/orders/${orderId}/items/${itemId}`, {
+        method: "DELETE",
+      });
       const result = (await response.json()) as {
         ok?: boolean;
         error?: string;
@@ -168,9 +167,7 @@ export function AdminOrderItemsManager({
       {isAddFormOpen && (
         <div className="grid gap-3 border border-slate-200 p-3 md:grid-cols-[1fr_1fr_90px_120px_auto] md:items-end">
           <label className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest">
-              Product
-            </span>
+            <span className="text-xs font-bold uppercase tracking-widest">Product</span>
             <select
               value={productId}
               onChange={(event) => selectProduct(event.target.value)}
@@ -184,9 +181,7 @@ export function AdminOrderItemsManager({
             </select>
           </label>
           <label className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest">
-              Variant
-            </span>
+            <span className="text-xs font-bold uppercase tracking-widest">Variant</span>
             <select
               value={variantId}
               disabled={!hasVariants}
@@ -247,17 +242,13 @@ export function AdminOrderItemsManager({
               className="grid gap-2 p-3 md:grid-cols-[1fr_auto_auto_auto] md:items-center"
             >
               <div>
-                <div className="font-bold uppercase tracking-tight">
-                  {item.title}
-                </div>
+                <div className="font-bold uppercase tracking-tight">{item.title}</div>
                 <div className="text-xs uppercase tracking-widest text-slate-500">
                   {item.sku}
                 </div>
               </div>
               <div className="font-bold">x{item.quantity}</div>
-              <div className="font-bold">
-                {(item.unitPrice / 100).toFixed(2)} RON
-              </div>
+              <div className="font-bold">{(item.unitPrice / 100).toFixed(2)} RON</div>
               <Button
                 type="button"
                 variant="outline"

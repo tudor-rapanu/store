@@ -28,9 +28,7 @@ export function RegisterForm({ locale }: { locale: "en" | "ro" }) {
     null,
   );
   const errorMessage =
-    state && "error" in state && typeof state.error === "string"
-      ? state.error
-      : "";
+    state && "error" in state && typeof state.error === "string" ? state.error : "";
   const successMessage =
     state && "success" in state && typeof state.success === "string"
       ? state.success
@@ -40,9 +38,7 @@ export function RegisterForm({ locale }: { locale: "en" | "ro" }) {
       ? state.warning
       : "";
   const registeredEmail =
-    state && "email" in state && typeof state.email === "string"
-      ? state.email
-      : "";
+    state && "email" in state && typeof state.email === "string" ? state.email : "";
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -76,13 +72,9 @@ export function RegisterForm({ locale }: { locale: "en" | "ro" }) {
 
           {successMessage && (
             <div className="space-y-3 rounded-md bg-emerald-50 p-3 dark:bg-emerald-950/20">
-              <p className="text-sm font-medium text-emerald-600">
-                {successMessage}
-              </p>
+              <p className="text-sm font-medium text-emerald-600">{successMessage}</p>
               {warningMessage && (
-                <p className="text-sm font-medium text-amber-700">
-                  {warningMessage}
-                </p>
+                <p className="text-sm font-medium text-amber-700">{warningMessage}</p>
               )}
               {registeredEmail && (
                 <div className="space-y-4">
@@ -90,10 +82,7 @@ export function RegisterForm({ locale }: { locale: "en" | "ro" }) {
                     email={registeredEmail}
                     locale={locale}
                   />
-                  <VerifyEmailCodeForm
-                    email={registeredEmail}
-                    locale={locale}
-                  />
+                  <VerifyEmailCodeForm email={registeredEmail} locale={locale} />
                   <ResendVerificationEmailForm
                     email={registeredEmail}
                     locale={locale}

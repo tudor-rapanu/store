@@ -1,0 +1,8 @@
+.next
+node_modules
+out
+build
+coverage
+artillery-results
+package-lock.json
+tsconfig.tsbuildinfo

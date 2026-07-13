@@ -95,12 +95,9 @@ export default async function PublicOrderPage({
     zip?: string;
     countryName?: string;
   };
-  const canCancel = ![
-    "shipped",
-    "delivered",
-    "cancelled",
-    "refunded",
-  ].includes(order.fulfillmentStatus);
+  const canCancel = !["shipped", "delivered", "cancelled", "refunded"].includes(
+    order.fulfillmentStatus,
+  );
   const fulfillmentEstimate =
     order.estimatedShippingStart && order.estimatedShippingEnd
       ? {
@@ -136,9 +133,7 @@ export default async function PublicOrderPage({
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           <section className="space-y-3 border border-black p-4">
-            <h2 className="text-sm font-black uppercase tracking-widest">
-              Products
-            </h2>
+            <h2 className="text-sm font-black uppercase tracking-widest">Products</h2>
             {items.length === 0 ? (
               <div className="text-sm text-slate-500">
                 Product details are not available for this order yet.
@@ -201,16 +196,8 @@ export default async function PublicOrderPage({
             <p>
               {order.customerFirstName} {order.customerLastName}
             </p>
-            <p>
-              {isGuestView
-                ? maskEmail(order.customerEmail)
-                : order.customerEmail}
-            </p>
-            <p>
-              {isGuestView
-                ? maskPhone(order.customerPhone)
-                : order.customerPhone}
-            </p>
+            <p>{isGuestView ? maskEmail(order.customerEmail) : order.customerEmail}</p>
+            <p>{isGuestView ? maskPhone(order.customerPhone) : order.customerPhone}</p>
           </InfoBox>
 
           <InfoBox title="Shipping">
@@ -223,10 +210,8 @@ export default async function PublicOrderPage({
             <p>{address.zip}</p>
             {order.awbNumber && (
               <p>
-                {order.shippingMethod === "international"
-                  ? "Tracking"
-                  : "AWB"}
-                : {order.awbNumber}
+                {order.shippingMethod === "international" ? "Tracking" : "AWB"}:{" "}
+                {order.awbNumber}
               </p>
             )}
             {order.trackingUrl && (
@@ -286,13 +271,7 @@ function maskAddress(address?: string) {
   return `${address.slice(0, 8)}...`;
 }
 
-function InfoBox({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function InfoBox({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2 border border-black p-4 text-sm">
       <h2 className="text-xs font-black uppercase tracking-widest">{title}</h2>

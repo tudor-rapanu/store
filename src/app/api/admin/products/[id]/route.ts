@@ -16,10 +16,7 @@ import { getProductImagePaths } from "@/lib/product-images";
 import { revalidateCatalogViews } from "@/lib/catalog/cache";
 import { parseRomaniaDateTimeLocal } from "@/lib/dates/romania";
 import { uploadDigitalProductFile } from "@/lib/storage/digital-products";
-import {
-  deleteProductImages,
-  uploadProductImage,
-} from "@/lib/storage/product-images";
+import { deleteProductImages, uploadProductImage } from "@/lib/storage/product-images";
 
 export const runtime = "nodejs";
 
@@ -157,12 +154,11 @@ function parseVariants(value: string) {
     return {
       id: "id" in variant && typeof variant.id === "string" ? variant.id : null,
       name: variant.name.trim(),
-      sku: "sku" in variant && typeof variant.sku === "string" ? variant.sku.trim() : "",
+      sku:
+        "sku" in variant && typeof variant.sku === "string" ? variant.sku.trim() : "",
       attributes: variant.attributes as Record<string, string>,
       price:
-        "price" in variant && typeof variant.price === "number"
-          ? variant.price
-          : 0,
+        "price" in variant && typeof variant.price === "number" ? variant.price : 0,
       salePrice:
         "salePrice" in variant && typeof variant.salePrice === "number"
           ? variant.salePrice
@@ -184,9 +180,7 @@ function parseVariants(value: string) {
           ? variant.trackStock
           : false,
       stock:
-        "stock" in variant && typeof variant.stock === "number"
-          ? variant.stock
-          : 0,
+        "stock" in variant && typeof variant.stock === "number" ? variant.stock : 0,
     };
   });
 }
@@ -233,14 +227,10 @@ function parseProductDetailBlocks(value: string) {
         !Array.isArray(detail.value)
           ? (detail.value as Record<string, unknown>)
           : {};
-      const labelEn =
-        typeof label.en === "string" ? label.en.trim() : "";
-      const labelRo =
-        typeof label.ro === "string" ? label.ro.trim() : "";
-      const valueEn =
-        typeof detailValue.en === "string" ? detailValue.en.trim() : "";
-      const valueRo =
-        typeof detailValue.ro === "string" ? detailValue.ro.trim() : "";
+      const labelEn = typeof label.en === "string" ? label.en.trim() : "";
+      const labelRo = typeof label.ro === "string" ? label.ro.trim() : "";
+      const valueEn = typeof detailValue.en === "string" ? detailValue.en.trim() : "";
+      const valueRo = typeof detailValue.ro === "string" ? detailValue.ro.trim() : "";
 
       if ((!labelEn && !labelRo) || (!valueEn && !valueRo)) {
         return null;
@@ -268,7 +258,9 @@ function parseProductDetailBlocks(value: string) {
 function validateVariantSales(variants: VariantInput[]) {
   for (const variant of variants) {
     if (variant.saleEnabled && (!variant.salePrice || variant.salePrice <= 0)) {
-      throw new Error(`Enter a sale price for ${variant.name || "each enabled variant sale"}.`);
+      throw new Error(
+        `Enter a sale price for ${variant.name || "each enabled variant sale"}.`,
+      );
     }
 
     if (
@@ -296,9 +288,7 @@ function parseExistingImages(value: string) {
 }
 
 async function syncProductCategories(productId: string, categoryNames: string[]) {
-  await db
-    .delete(productCategories)
-    .where(eq(productCategories.productId, productId));
+  await db.delete(productCategories).where(eq(productCategories.productId, productId));
 
   if (categoryNames.length === 0) {
     return;
@@ -419,9 +409,7 @@ export async function PATCH(
       saleStartsAt = parseOptionalDate(saleStartsAtInput);
       saleEndsAt = parseOptionalDate(saleEndsAtInput);
       preorderShipDate = parseOptionalDate(preorderShipDateInput);
-      publishAt = publishAtInput
-        ? parseRomaniaDateTimeLocal(publishAtInput)
-        : null;
+      publishAt = publishAtInput ? parseRomaniaDateTimeLocal(publishAtInput) : null;
     } catch (error) {
       return errorResponse(
         error instanceof Error ? error.message : "Invalid sale settings.",
@@ -437,11 +425,15 @@ export async function PATCH(
     }
 
     if (productionMinDays > productionMaxDays) {
-      return errorResponse("Maximum business days must be greater than or equal to minimum business days.");
+      return errorResponse(
+        "Maximum business days must be greater than or equal to minimum business days.",
+      );
     }
 
     if (preorderEnabled && !preorderShipDate) {
-      return errorResponse("Choose a preorder shipping start date or disable preorder.");
+      return errorResponse(
+        "Choose a preorder shipping start date or disable preorder.",
+      );
     }
 
     if (publishAtInput && !publishAt) {
@@ -460,8 +452,7 @@ export async function PATCH(
       }
     }
 
-    const shouldWaitForPublishRevalidation =
-      publishAt && publishAt > new Date();
+    const shouldWaitForPublishRevalidation = publishAt && publishAt > new Date();
 
     const [existingProduct] = await db
       .select({ imageUrl: products.imageUrl, slug: products.slug })
@@ -503,9 +494,7 @@ export async function PATCH(
         preorderEnabled,
         preorderShipDate: preorderEnabled ? preorderShipDate : null,
         publishAt,
-        publishRevalidatedAt: shouldWaitForPublishRevalidation
-          ? null
-          : new Date(),
+        publishRevalidatedAt: shouldWaitForPublishRevalidation ? null : new Date(),
         isDigital,
         sizeGuideId,
         trackStock: variants.length === 0 ? trackStock : false,
@@ -597,9 +586,7 @@ export async function PATCH(
         saleEndsAt: variant.saleEnabled ? variant.saleEndsAt : null,
         priceAdjustment: 0,
         trackStock: variant.trackStock ?? false,
-        stock: variant.trackStock
-          ? Math.max(Math.floor(variant.stock ?? 0), 0)
-          : 0,
+        stock: variant.trackStock ? Math.max(Math.floor(variant.stock ?? 0), 0) : 0,
         updatedAt: new Date(),
       };
 
@@ -608,10 +595,7 @@ export async function PATCH(
           .update(productVariants)
           .set(variantValues)
           .where(
-            and(
-              eq(productVariants.id, variant.id),
-              eq(productVariants.productId, id),
-            ),
+            and(eq(productVariants.id, variant.id), eq(productVariants.productId, id)),
           );
       } else {
         await db.insert(productVariants).values({
@@ -621,9 +605,7 @@ export async function PATCH(
       }
     }
 
-    await db
-      .delete(productDetailBlocks)
-      .where(eq(productDetailBlocks.productId, id));
+    await db.delete(productDetailBlocks).where(eq(productDetailBlocks.productId, id));
 
     if (detailBlocks.length > 0) {
       await db.insert(productDetailBlocks).values(

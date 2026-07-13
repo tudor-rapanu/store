@@ -33,32 +33,20 @@ export function ProductSizeGuide({
 
   const title = getTranslatedText(sizeGuide.title, locale, "Size guide");
   const description = getTranslatedText(sizeGuide.description, locale);
-  const imageUrl = isRenderableImageSrc(sizeGuide.imageUrl)
-    ? sizeGuide.imageUrl
-    : null;
+  const imageUrl = isRenderableImageSrc(sizeGuide.imageUrl) ? sizeGuide.imageUrl : null;
 
   return (
     <section className="space-y-6 border-t border-black pt-10">
       <div>
-        <h2 className="text-2xl font-black uppercase tracking-tight">
-          {title}
-        </h2>
+        <h2 className="text-2xl font-black uppercase tracking-tight">{title}</h2>
         {description && (
-          <p className="mt-3 text-sm leading-7 text-slate-600">
-            {description}
-          </p>
+          <p className="mt-3 text-sm leading-7 text-slate-600">{description}</p>
         )}
       </div>
 
       {imageUrl && (
         <div className="relative aspect-[16/7] overflow-hidden bg-white">
-          <Image
-            src={imageUrl}
-            alt=""
-            fill
-            unoptimized
-            className="object-contain"
-          />
+          <Image src={imageUrl} alt="" fill unoptimized className="object-contain" />
         </div>
       )}
 

@@ -41,10 +41,7 @@ export default async function AdminCategoriesPage({
       },
     })
     .from(categories)
-    .leftJoin(
-      productCategories,
-      eq(productCategories.categoryId, categories.id),
-    )
+    .leftJoin(productCategories, eq(productCategories.categoryId, categories.id))
     .leftJoin(products, eq(products.id, productCategories.productId))
     .orderBy(asc(categories.createdAt), asc(products.createdAt));
   const allProducts = await db
@@ -122,17 +119,13 @@ export default async function AdminCategoriesPage({
 
       return category ? { ...category, depth } : null;
     })
-    .filter((category): category is NonNullable<typeof category> =>
-      Boolean(category),
-    );
+    .filter((category): category is NonNullable<typeof category> => Boolean(category));
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
       <div className="mb-8 flex items-end justify-between border-b border-black pb-4">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase">
-            Categories
-          </h1>
+          <h1 className="text-4xl font-black tracking-tighter uppercase">Categories</h1>
           <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
             Product Grouping
           </p>

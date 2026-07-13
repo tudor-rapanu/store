@@ -50,10 +50,9 @@ async function cloudflareFetch(path, init = {}) {
 }
 
 async function getEntrypointRuleset() {
-  const response = await fetch(
-    `${apiBase}/rulesets/phases/http_ratelimit/entrypoint`,
-    { headers },
-  );
+  const response = await fetch(`${apiBase}/rulesets/phases/http_ratelimit/entrypoint`, {
+    headers,
+  });
   const json = await response.json();
 
   if (response.status === 404) {

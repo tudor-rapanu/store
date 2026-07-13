@@ -6,11 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type {
-  DiscountKind,
-  DiscountScope,
-  DiscountType,
-} from "@/lib/db/schema";
+import type { DiscountKind, DiscountScope, DiscountType } from "@/lib/db/schema";
 
 type DiscountRow = {
   id: string;
@@ -97,9 +93,7 @@ export function AdminDiscountManager({
       setMessage("Discount created.");
       router.refresh();
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not create discount.",
-      );
+      setMessage(error instanceof Error ? error.message : "Could not create discount.");
     } finally {
       setIsSaving(false);
     }
@@ -163,9 +157,7 @@ export function AdminDiscountManager({
       setMessage("Discount updated.");
       router.refresh();
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not update discount.",
-      );
+      setMessage(error instanceof Error ? error.message : "Could not update discount.");
     } finally {
       setIsSaving(false);
     }
@@ -198,16 +190,10 @@ export function AdminDiscountManager({
         }}
         className="space-y-4 border border-black p-4"
       >
-        <h2 className="text-sm font-black uppercase tracking-widest">
-          New Discount
-        </h2>
+        <h2 className="text-sm font-black uppercase tracking-widest">New Discount</h2>
 
         <Field label="Name">
-          <Input
-            name="name"
-            required
-            className="h-12 rounded-none border-black"
-          />
+          <Input name="name" required className="h-12 rounded-none border-black" />
         </Field>
 
         <Field label="Mode">
@@ -364,8 +350,7 @@ export function AdminDiscountManager({
                       )}
                     </div>
                     <p className="mt-2 text-sm text-slate-600">
-                      {discount.kind} / {discount.scope} /{" "}
-                      {formatValue(discount)}
+                      {discount.kind} / {discount.scope} / {formatValue(discount)}
                     </p>
                     <p className="text-sm text-slate-600">
                       {discount.code ? `Code: ${discount.code}` : "Automatic"} /{" "}
@@ -494,9 +479,7 @@ function DiscountEditForm({
             min="0"
             step={type === "percentage" ? "1" : "0.01"}
             defaultValue={
-              type === "fixed"
-                ? String(discount.value / 100)
-                : String(discount.value)
+              type === "fixed" ? String(discount.value / 100) : String(discount.value)
             }
             required
             className="h-12 rounded-none border-black"
@@ -601,18 +584,10 @@ function toDateInputValue(value: Date | string | null) {
   return date.toISOString().slice(0, 10);
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold uppercase tracking-widest">{label}</Label>
       {children}
     </div>
   );

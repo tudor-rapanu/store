@@ -20,9 +20,7 @@ export function CatalogPagination({
           currentPage <= 1 ? "pointer-events-none opacity-50" : ""
         }`}
       >
-        <Link href={`${basePath}?page=${Math.max(currentPage - 1, 1)}`}>
-          Previous
-        </Link>
+        <Link href={`${basePath}?page=${Math.max(currentPage - 1, 1)}`}>Previous</Link>
       </Button>
       <span className="text-slate-500">
         Page {currentPage} of {totalPages}

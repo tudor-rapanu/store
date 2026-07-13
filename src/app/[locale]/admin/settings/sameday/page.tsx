@@ -52,9 +52,7 @@ export default async function SamedaySettingsPage({
           variant="outline"
           className="rounded-none border-black text-xs font-bold uppercase tracking-widest"
         >
-          <Link href={`/${activeLocale}/admin/settings`}>
-            Back to Settings
-          </Link>
+          <Link href={`/${activeLocale}/admin/settings`}>Back to Settings</Link>
         </Button>
       </div>
 

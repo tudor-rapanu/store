@@ -74,9 +74,7 @@ export function HomepageSlidersSettings({
 
   function moveSection(categoryId: string, direction: -1 | 1) {
     setDraftSections((current) => {
-      const index = current.findIndex(
-        (section) => section.categoryId === categoryId,
-      );
+      const index = current.findIndex((section) => section.categoryId === categoryId);
       const nextIndex = index + direction;
 
       if (index < 0 || nextIndex < 0 || nextIndex >= current.length) {
@@ -123,9 +121,7 @@ export function HomepageSlidersSettings({
       });
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Could not save homepage sliders.";
+        error instanceof Error ? error.message : "Could not save homepage sliders.";
 
       setMessage(message);
       showToast({

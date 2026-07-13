@@ -19,10 +19,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function SearchPage({
-  params,
-  searchParams,
-}: SearchPageProps) {
+export default async function SearchPage({ params, searchParams }: SearchPageProps) {
   const { locale } = await params;
   const { q } = await searchParams;
   const query = q || "";

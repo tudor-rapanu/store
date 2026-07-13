@@ -35,12 +35,13 @@ export const PRODUCT_DETAIL_ICONS = [
 
 export type ProductDetailIconKey = (typeof PRODUCT_DETAIL_ICONS)[number]["key"];
 
-const productDetailIconMap = PRODUCT_DETAIL_ICONS.reduce<
-  Record<string, LucideIcon>
->((icons, icon) => {
-  icons[icon.key] = icon.icon;
-  return icons;
-}, {});
+const productDetailIconMap = PRODUCT_DETAIL_ICONS.reduce<Record<string, LucideIcon>>(
+  (icons, icon) => {
+    icons[icon.key] = icon.icon;
+    return icons;
+  },
+  {},
+);
 
 export function getProductDetailIcon(iconKey: string | null | undefined) {
   return productDetailIconMap[iconKey ?? ""] ?? Info;

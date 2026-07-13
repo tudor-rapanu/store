@@ -44,11 +44,9 @@ const imgSrc = [
   "https://pub-144713e90af247dbb1cb8d0e06c37159.r2.dev",
   r2PublicHost ? `https://${r2PublicHost}` : null,
 ].filter(Boolean);
-const styleSrc = [
-  "'self'",
-  "'unsafe-inline'",
-  "https://cdn.sameday.ro",
-].filter(Boolean);
+const styleSrc = ["'self'", "'unsafe-inline'", "https://cdn.sameday.ro"].filter(
+  Boolean,
+);
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src ${scriptSrc.join(" ")}`,

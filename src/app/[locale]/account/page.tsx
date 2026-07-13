@@ -30,10 +30,7 @@ type AccountPageProps = {
   searchParams: Promise<{ saved?: string; profileDeleted?: string }>;
 };
 
-export default async function AccountPage({
-  params,
-  searchParams,
-}: AccountPageProps) {
+export default async function AccountPage({ params, searchParams }: AccountPageProps) {
   const { locale } = await params;
   const { saved, profileDeleted } = await searchParams;
   const activeLocale = locale === "ro" ? "ro" : "en";
@@ -91,8 +88,8 @@ export default async function AccountPage({
   return (
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl px-4 py-16">
       <div className="mb-8">
-        <p className="text-3xl font-black tracking-tight">
-          {activeLocale === "ro" ? "Bună" : "Hello"},{" "}
+        <p className="inline-flex flex-wrap gap-x-2 text-3xl font-black tracking-tight">
+          <span>{activeLocale === "ro" ? "Bună" : "Hello"},</span>
           <span>{displayName}</span>
         </p>
       </div>
@@ -114,23 +111,17 @@ export default async function AccountPage({
         <div id="overview" className="space-y-8">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-black tracking-tight">
-                My Account
-              </h1>
+              <h1 className="text-3xl font-black tracking-tight">My Account</h1>
               <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
                 Profile, saved details and recent orders
               </p>
             </div>
-            <div className="text-sm font-bold text-slate-600">
-              {user.email}
-            </div>
+            <div className="text-sm font-bold text-slate-600">{user.email}</div>
           </div>
 
           <section id="orders" className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-black tracking-tight">
-                Latest Order
-              </h2>
+              <h2 className="text-xl font-black tracking-tight">Latest Order</h2>
               <Link
                 href={`/${activeLocale}/account/orders`}
                 className="text-sm font-black tracking-tight hover:underline"
@@ -154,9 +145,7 @@ export default async function AccountPage({
 
             {recentOrders.length > 1 && (
               <div className="space-y-3">
-                <h2 className="text-xl font-black tracking-tight">
-                  Recent Orders
-                </h2>
+                <h2 className="text-xl font-black tracking-tight">Recent Orders</h2>
                 {recentOrders.slice(1).map((order) => (
                   <OrderSummaryCard
                     key={order.id}
@@ -190,25 +179,15 @@ export default async function AccountPage({
 
             <section id="details" className="space-y-5 border border-black p-4">
               <div>
-                <h2 className="text-xl font-black tracking-tight">
-                  Personal Details
-                </h2>
+                <h2 className="text-xl font-black tracking-tight">Personal Details</h2>
                 <p className="text-sm text-slate-600">
                   These details are used to prefill checkout.
                 </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  label="First Name"
-                  name="firstName"
-                  defaultValue={firstName}
-                />
-                <Field
-                  label="Last Name"
-                  name="lastName"
-                  defaultValue={lastName}
-                />
+                <Field label="First Name" name="firstName" defaultValue={firstName} />
+                <Field label="Last Name" name="lastName" defaultValue={lastName} />
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -229,9 +208,7 @@ export default async function AccountPage({
 
             <section className="space-y-5 border border-black p-4">
               <div>
-                <h2 className="text-xl font-black tracking-tight">
-                  Delivery Details
-                </h2>
+                <h2 className="text-xl font-black tracking-tight">Delivery Details</h2>
                 <p className="text-sm text-slate-600">
                   Your default shipping address for future orders.
                 </p>
@@ -249,19 +226,13 @@ export default async function AccountPage({
                   initialCityId={address.samedayCityId}
                   initialCityName={address.city}
                 />
-                <Field
-                  label="Zip Code"
-                  name="zip"
-                  defaultValue={address.zip ?? ""}
-                />
+                <Field label="Zip Code" name="zip" defaultValue={address.zip ?? ""} />
               </div>
             </section>
 
             <section id="preferences" className="space-y-5 border border-black p-4">
               <div>
-                <h2 className="text-xl font-black tracking-tight">
-                  Preferences
-                </h2>
+                <h2 className="text-xl font-black tracking-tight">Preferences</h2>
                 <p className="text-sm text-slate-600">
                   Save how you prefer to receive your orders.
                 </p>
@@ -273,9 +244,7 @@ export default async function AccountPage({
                     type="radio"
                     name="preferredShippingMethod"
                     value="address"
-                    defaultChecked={
-                      profile?.preferredShippingMethod !== "easybox"
-                    }
+                    defaultChecked={profile?.preferredShippingMethod !== "easybox"}
                   />
                   Home Address
                 </label>
@@ -284,9 +253,7 @@ export default async function AccountPage({
                     type="radio"
                     name="preferredShippingMethod"
                     value="easybox"
-                    defaultChecked={
-                      profile?.preferredShippingMethod === "easybox"
-                    }
+                    defaultChecked={profile?.preferredShippingMethod === "easybox"}
                   />
                   Sameday Easybox
                 </label>
@@ -315,9 +282,8 @@ export default async function AccountPage({
                 Delete Account
               </h2>
               <p className="text-sm text-slate-600">
-                This deletes your login account and removes saved profile
-                details. Order records are kept for legal and fulfillment
-                history.
+                This deletes your login account and removes saved profile details. Order
+                records are kept for legal and fulfillment history.
               </p>
             </div>
             <DeleteProfileButton locale={activeLocale} />
@@ -371,9 +337,7 @@ function OrderSummaryCard({
             variant="outline"
             className="h-11 rounded-none border-black px-5 text-xs font-bold uppercase tracking-widest"
           >
-            <Link href={`/${locale}/orders/${order.orderNumber}`}>
-              Order Status
-            </Link>
+            <Link href={`/${locale}/orders/${order.orderNumber}`}>Order Status</Link>
           </Button>
           {order.trackingUrl && (
             <Button
@@ -455,10 +419,7 @@ function Field({
 }) {
   return (
     <div className="space-y-2">
-      <Label
-        htmlFor={name}
-        className="text-xs font-bold uppercase tracking-widest"
-      >
+      <Label htmlFor={name} className="text-xs font-bold uppercase tracking-widest">
         {label}
       </Label>
       <Input
@@ -472,13 +433,7 @@ function Field({
   );
 }
 
-function InfoCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3 border border-black p-4 text-sm">
       <h2 className="text-xs font-black uppercase tracking-widest">{title}</h2>

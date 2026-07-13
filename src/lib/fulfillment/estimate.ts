@@ -75,8 +75,7 @@ export function normalizeProductionRange(product: FulfillmentProduct) {
       ? product.productionMinDays!
       : 1;
   const maxDays =
-    Number.isInteger(product.productionMaxDays) &&
-    product.productionMaxDays! >= minDays
+    Number.isInteger(product.productionMaxDays) && product.productionMaxDays! >= minDays
       ? product.productionMaxDays!
       : Math.max(minDays, 3);
 
@@ -88,10 +87,10 @@ export function getProductFulfillmentEstimate(
   now: Date = new Date(),
 ) {
   const { minDays, maxDays } = normalizeProductionRange(product);
-  const preorderDate =
-    product.preorderEnabled ? toDate(product.preorderShipDate) : null;
-  const startBase =
-    preorderDate && preorderDate > now ? preorderDate : now;
+  const preorderDate = product.preorderEnabled
+    ? toDate(product.preorderShipDate)
+    : null;
+  const startBase = preorderDate && preorderDate > now ? preorderDate : now;
 
   return {
     start: addBusinessDays(startBase, minDays),

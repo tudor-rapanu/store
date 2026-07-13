@@ -125,37 +125,30 @@ export function CheckoutForm({
   const { items, total, clearCart } = useCart();
   const lockerPluginSubscribedRef = useRef(false);
   const [countryCode, setCountryCode] = useState(
-    normalizeCheckoutCountry(
-      initialCustomer?.address?.countryCode ?? detectedCountry,
-    ),
+    normalizeCheckoutCountry(initialCustomer?.address?.countryCode ?? detectedCountry),
   );
   const isRomania = isRomaniaCountry(countryCode);
-  const [localShippingMethod, setLocalShippingMethod] = useState<
-    "address" | "easybox"
-  >(initialCustomer?.preferredShippingMethod ?? "address");
-  const shippingMethod = isRomania ? localShippingMethod : "international";
-  const [paymentMethod, setPaymentMethod] = useState<"netopia" | "transfer">(
-    "netopia",
+  const [localShippingMethod, setLocalShippingMethod] = useState<"address" | "easybox">(
+    initialCustomer?.preferredShippingMethod ?? "address",
   );
+  const shippingMethod = isRomania ? localShippingMethod : "international";
+  const [paymentMethod, setPaymentMethod] = useState<"netopia" | "transfer">("netopia");
   const [paymentCurrency, setPaymentCurrency] = useState<"RON" | "EUR">(
     initialPaymentCurrency,
   );
-  const [selectedLocation, setSelectedLocation] =
-    useState<SamedayLocationSelection>({
-      countyId: initialCustomer?.address?.samedayCountyId ?? "",
-      countyName: initialCustomer?.address?.county ?? "",
-      cityId: initialCustomer?.address?.samedayCityId ?? "",
-      cityName: initialCustomer?.address?.city ?? "",
-    });
+  const [selectedLocation, setSelectedLocation] = useState<SamedayLocationSelection>({
+    countyId: initialCustomer?.address?.samedayCountyId ?? "",
+    countyName: initialCustomer?.address?.county ?? "",
+    cityId: initialCustomer?.address?.samedayCityId ?? "",
+    cityName: initialCustomer?.address?.city ?? "",
+  });
   const [isLockerScriptReady, setIsLockerScriptReady] = useState(false);
-  const [lockerConfig, setLockerConfig] =
-    useState<SamedayLockerRuntimeConfig | null>(null);
-  const [isLoadingLockerConfig, setIsLoadingLockerConfig] = useState(false);
-  const [shippingProfiles, setShippingProfiles] = useState<ShippingProfile[]>(
-    [],
+  const [lockerConfig, setLockerConfig] = useState<SamedayLockerRuntimeConfig | null>(
+    null,
   );
-  const [isLoadingShippingProfiles, setIsLoadingShippingProfiles] =
-    useState(false);
+  const [isLoadingLockerConfig, setIsLoadingLockerConfig] = useState(false);
+  const [shippingProfiles, setShippingProfiles] = useState<ShippingProfile[]>([]);
+  const [isLoadingShippingProfiles, setIsLoadingShippingProfiles] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [email, setEmail] = useState(initialCustomer?.email ?? "");
   const [voucherCode, setVoucherCode] = useState("");
@@ -191,8 +184,7 @@ export function CheckoutForm({
   } | null>(null);
 
   const cartSubtotal = total();
-  const isDigitalOnlyCart =
-    items.length > 0 && items.every((item) => item.isDigital);
+  const isDigitalOnlyCart = items.length > 0 && items.every((item) => item.isDigital);
   const discountAmount = Math.min(discountPreview.discountAmount, cartSubtotal);
   const discountedSubtotal = Math.max(cartSubtotal - discountAmount, 0);
   const activeShippingProfile = shippingProfiles.find(
@@ -210,10 +202,7 @@ export function CheckoutForm({
   const freeShippingRemainder = activeShippingProfile
     ? shippingMethod === "international"
       ? 0
-      : Math.max(
-          activeShippingProfile.freeShippingThreshold - discountedSubtotal,
-          0,
-        )
+      : Math.max(activeShippingProfile.freeShippingThreshold - discountedSubtotal, 0)
     : 0;
   const selectedCountry =
     CHECKOUT_COUNTRIES.find((country) => country.code === countryCode) ??
@@ -248,9 +237,7 @@ export function CheckoutForm({
         setShippingProfiles(data.profiles ?? []);
       } catch (error) {
         setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Could not load shipping profiles.",
+          error instanceof Error ? error.message : "Could not load shipping profiles.",
         );
       } finally {
         setIsLoadingShippingProfiles(false);
@@ -352,9 +339,7 @@ export function CheckoutForm({
         });
 
         setFulfillmentEstimate(
-          data.estimate?.label
-            ? { label: data.estimate.label }
-            : null,
+          data.estimate?.label ? { label: data.estimate.label } : null,
         );
       } catch {
         setFulfillmentEstimate(null);
@@ -419,14 +404,8 @@ export function CheckoutForm({
       return;
     }
 
-    if (
-      !isLockerScriptReady ||
-      typeof window === "undefined" ||
-      !window.LockerPlugin
-    ) {
-      setErrorMessage(
-        "Sameday map is still loading. Please try again in a moment.",
-      );
+    if (!isLockerScriptReady || typeof window === "undefined" || !window.LockerPlugin) {
+      setErrorMessage("Sameday map is still loading. Please try again in a moment.");
       return;
     }
 
@@ -453,8 +432,7 @@ export function CheckoutForm({
 
     if (!lockerPluginSubscribedRef.current) {
       pluginInstance.subscribe((lockerData) => {
-        const lockerId =
-          lockerData.lockerId || lockerData.id || lockerData.oohId;
+        const lockerId = lockerData.lockerId || lockerData.id || lockerData.oohId;
 
         if (!lockerId) {
           setErrorMessage("The selected Easybox did not return a locker id.");
@@ -466,14 +444,10 @@ export function CheckoutForm({
           name: lockerData.name,
           address: lockerData.address,
           cityId:
-            lockerData.cityId !== undefined
-              ? String(lockerData.cityId)
-              : undefined,
+            lockerData.cityId !== undefined ? String(lockerData.cityId) : undefined,
           city: lockerData.city,
           countyId:
-            lockerData.countyId !== undefined
-              ? String(lockerData.countyId)
-              : undefined,
+            lockerData.countyId !== undefined ? String(lockerData.countyId) : undefined,
           county: lockerData.county,
           postalCode: lockerData.postalCode,
           oohType: lockerData.oohType,
@@ -550,15 +524,11 @@ export function CheckoutForm({
           samedayLockerCity:
             shippingMethod === "easybox" && locker ? locker.city : undefined,
           samedayLockerCountyId:
-            shippingMethod === "easybox" && locker
-              ? locker.countyId
-              : undefined,
+            shippingMethod === "easybox" && locker ? locker.countyId : undefined,
           samedayLockerCounty:
             shippingMethod === "easybox" && locker ? locker.county : undefined,
           samedayLockerPostalCode:
-            shippingMethod === "easybox" && locker
-              ? locker.postalCode
-              : undefined,
+            shippingMethod === "easybox" && locker ? locker.postalCode : undefined,
           samedayLockerOohType:
             shippingMethod === "easybox" && locker ? locker.oohType : undefined,
         },
@@ -566,8 +536,7 @@ export function CheckoutForm({
         paymentCurrency: normalizePaymentCurrency(paymentCurrency),
         voucherCode,
       };
-      const locale =
-        window.location.pathname.split("/")[1] === "ro" ? "ro" : "en";
+      const locale = window.location.pathname.split("/")[1] === "ro" ? "ro" : "en";
 
       capturePostHog("checkout_started", {
         payment_method: paymentMethod,
@@ -609,9 +578,7 @@ export function CheckoutForm({
           clearCart();
           window.location.href = `/${window.location.pathname.split("/")[1]}/checkout/transfer-instructions`;
         } else {
-          setErrorMessage(
-            response?.error || "Failed to process bank transfer order.",
-          );
+          setErrorMessage(response?.error || "Failed to process bank transfer order.");
         }
         return response;
       }
@@ -639,9 +606,7 @@ export function CheckoutForm({
         src="https://cdn.sameday.ro/locker-plugin/lockerpluginsdk.js"
         strategy="lazyOnload"
         onLoad={() => setIsLockerScriptReady(true)}
-        onError={() =>
-          setErrorMessage("Could not load the Sameday Easybox map.")
-        }
+        onError={() => setErrorMessage("Could not load the Sameday Easybox map.")}
       />
 
       <div className="lg:col-span-7 space-y-8">
@@ -741,9 +706,7 @@ export function CheckoutForm({
                 name="country"
                 value={countryCode}
                 onChange={(event) => {
-                  const nextCountry = normalizeCheckoutCountry(
-                    event.target.value,
-                  );
+                  const nextCountry = normalizeCheckoutCountry(event.target.value);
                   setCountryCode(nextCountry);
                   setLocker(null);
                   setPaymentCurrency(getDefaultCurrencyForCountry(nextCountry));
@@ -762,8 +725,7 @@ export function CheckoutForm({
             </div>
             {isDigitalOnlyCart ? (
               <div className="border border-black bg-slate-50 p-4 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Digital products are delivered by protected download after
-                payment.
+                Digital products are delivered by protected download after payment.
               </div>
             ) : isRomania ? (
               <div className="flex gap-4">
@@ -971,8 +933,8 @@ export function CheckoutForm({
             </div>
             {paymentMethod === "transfer" && (
               <p className="text-xs text-slate-500 font-medium uppercase tracking-wider pt-2">
-                Processing info and IBAN configurations will be displayed on the
-                final page confirmation.
+                Processing info and IBAN configurations will be displayed on the final
+                page confirmation.
               </p>
             )}
           </section>
@@ -1062,9 +1024,7 @@ export function CheckoutForm({
                     value={paymentCurrency}
                     disabled={paymentMethod === "transfer"}
                     onChange={(event) =>
-                      setPaymentCurrency(
-                        normalizePaymentCurrency(event.target.value),
-                      )
+                      setPaymentCurrency(normalizePaymentCurrency(event.target.value))
                     }
                     className="h-10 w-full rounded-none border border-black bg-white px-3 text-sm font-bold disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                   >
@@ -1100,9 +1060,7 @@ export function CheckoutForm({
                 />
                 {fulfillmentEstimate && (
                   <div className="border border-slate-200 p-3 text-xs font-bold uppercase tracking-wider text-slate-600">
-                    {locale === "ro"
-                      ? "Estimare livrare"
-                      : "Estimated shipping window"}
+                    {locale === "ro" ? "Estimare livrare" : "Estimated shipping window"}
                     : {fulfillmentEstimate.label}
                   </div>
                 )}
@@ -1116,9 +1074,8 @@ export function CheckoutForm({
                 </div>
                 {paymentCurrency === "EUR" && (
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Card payments are processed in RON. Netopia will receive the
-                    RON total and include the EUR display value in the order
-                    description.
+                    Card payments are processed in RON. Netopia will receive the RON
+                    total and include the EUR display value in the order description.
                   </p>
                 )}
                 {paymentMethod === "transfer" && (

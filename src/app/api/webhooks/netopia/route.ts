@@ -30,17 +30,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function getNetopiaStatusCode(status: unknown) {
   if (typeof status === "number") {
-    return Number.isInteger(status) && status >= 0 && status <= 999
-      ? status
-      : null;
+    return Number.isInteger(status) && status >= 0 && status <= 999 ? status : null;
   }
 
   if (typeof status === "string") {
     const parsed = Number.parseInt(status, 10);
 
-    return Number.isInteger(parsed) && parsed >= 0 && parsed <= 999
-      ? parsed
-      : null;
+    return Number.isInteger(parsed) && parsed >= 0 && parsed <= 999 ? parsed : null;
   }
 
   return null;
@@ -109,8 +105,7 @@ function hasValidWebhookSecret(request: Request) {
   const received = Buffer.from(receivedSecret);
 
   return (
-    expected.length === received.length &&
-    crypto.timingSafeEqual(expected, received)
+    expected.length === received.length && crypto.timingSafeEqual(expected, received)
   );
 }
 
@@ -142,10 +137,7 @@ function getValueShape(value: unknown) {
   return typeof value;
 }
 
-function logNetopiaWebhookShape(
-  request: Request,
-  parsed: ParsedWebhookBody,
-) {
+function logNetopiaWebhookShape(request: Request, parsed: ParsedWebhookBody) {
   if (!shouldLogNetopiaWebhookShape()) {
     return;
   }
@@ -164,10 +156,7 @@ function logNetopiaWebhookShape(
     ),
     orderShapes: isRecord(body.order)
       ? Object.fromEntries(
-          Object.entries(body.order).map(([key, value]) => [
-            key,
-            getValueShape(value),
-          ]),
+          Object.entries(body.order).map(([key, value]) => [key, getValueShape(value)]),
         )
       : {},
     paymentShapes: isRecord(body.payment)
@@ -190,10 +179,7 @@ function getOrderId(order: Record<string, unknown>) {
 
 function getTransactionId(payment: Record<string, unknown>) {
   const value =
-    payment.transactionId ??
-    payment.transactionID ??
-    payment.ntpID ??
-    payment.id;
+    payment.transactionId ?? payment.transactionID ?? payment.ntpID ?? payment.id;
 
   return typeof value === "string" ? value : null;
 }
@@ -271,17 +257,14 @@ function resolveAcceptedPayment({
     paymentCurrency === "RON" &&
     paymentAmountMatchesOrder(payment, orderTotalAmount)
   ) {
-    console.warn(
-      "Netopia returned RON for an EUR order; accepting exact RON match.",
-      {
-        orderId,
-        expectedPaymentCurrency,
-        paymentCurrency,
-        expectedPaymentAmount,
-        orderTotalAmount,
-        receivedAmount: payment.amount,
-      },
-    );
+    console.warn("Netopia returned RON for an EUR order; accepting exact RON match.", {
+      orderId,
+      expectedPaymentCurrency,
+      paymentCurrency,
+      expectedPaymentAmount,
+      orderTotalAmount,
+      receivedAmount: payment.amount,
+    });
 
     return {
       accepted: true,
@@ -321,10 +304,7 @@ export async function POST(request: Request) {
     const { order, payment } = body;
 
     if (!order || !payment) {
-      return NextResponse.json(
-        { error: "Invalid request payload" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid request payload" }, { status: 400 });
     }
 
     // You can verify the payment status via the SDK if needed,
@@ -341,10 +321,7 @@ export async function POST(request: Request) {
         orderKeys: Object.keys(order),
         paymentKeys: Object.keys(payment),
       });
-      return NextResponse.json(
-        { error: "Missing order id" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Missing order id" }, { status: 400 });
     }
 
     if (status === null) {
@@ -352,10 +329,7 @@ export async function POST(request: Request) {
         orderId,
         paymentKeys: Object.keys(payment),
       });
-      return NextResponse.json(
-        { error: "Missing payment status" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Missing payment status" }, { status: 400 });
     }
 
     if (status === 3 || status === 5) {
@@ -368,10 +342,7 @@ export async function POST(request: Request) {
 
       if (!existingOrder) {
         console.warn("Netopia webhook order was not found.", { orderId });
-        return NextResponse.json(
-          { error: "Order was not found" },
-          { status: 404 },
-        );
+        return NextResponse.json({ error: "Order was not found" }, { status: 404 });
       }
 
       const paymentCurrency = getPaymentCurrency(payment);
@@ -407,10 +378,7 @@ export async function POST(request: Request) {
           expectedAmount: acceptedPayment.paymentAmount,
           receivedAmount: payment.amount,
         });
-        return NextResponse.json(
-          { error: "Payment amount mismatch" },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: "Payment amount mismatch" }, { status: 400 });
       }
 
       const wasAlreadyPaid = existingOrder.paymentStatus === "paid";
@@ -483,10 +451,7 @@ export async function POST(request: Request) {
 
       if (!failedOrder) {
         console.warn("Netopia webhook order was not found.", { orderId });
-        return NextResponse.json(
-          { error: "Order was not found" },
-          { status: 404 },
-        );
+        return NextResponse.json({ error: "Order was not found" }, { status: 404 });
       }
 
       const posthog = getPostHogClient();
@@ -509,9 +474,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ errorCode: 0 });
   } catch (error) {
     console.error("Netopia Webhook Error:", error);
-    return NextResponse.json(
-      { error: "Webhook handler failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 }

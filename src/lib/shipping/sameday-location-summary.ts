@@ -46,9 +46,7 @@ function normalizeSummary(value: unknown): SamedayLocationSummary {
         ? countyCount
         : Object.keys(countyCityCounts).length,
     cityCount:
-      Number.isFinite(cityCount) && cityCount >= 0
-        ? cityCount
-        : derivedCityCount,
+      Number.isFinite(cityCount) && cityCount >= 0 ? cityCount : derivedCityCount,
     countyCityCounts,
     updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : undefined,
   };

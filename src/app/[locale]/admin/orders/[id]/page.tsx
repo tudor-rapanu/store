@@ -48,11 +48,7 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
 
   await markStaleNetopiaOrdersFailed();
 
-  const [order] = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.id, id))
-    .limit(1);
+  const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
 
   if (!order) {
     notFound();
@@ -217,10 +213,8 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
             <p>{address.zip}</p>
             {order.awbNumber && (
               <p>
-                {order.shippingMethod === "international"
-                  ? "Tracking"
-                  : "AWB"}
-                : {order.awbNumber}
+                {order.shippingMethod === "international" ? "Tracking" : "AWB"}:{" "}
+                {order.awbNumber}
               </p>
             )}
             {order.trackingUrl && (
@@ -266,13 +260,7 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
   );
 }
 
-function InfoBox({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function InfoBox({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2 border border-black p-4 text-sm">
       <h2 className="text-xs font-black uppercase tracking-widest">{title}</h2>

@@ -170,8 +170,7 @@ export function SizeGuidesSettings({ sizeGuides }: SizeGuidesSettingsProps) {
 
       if (!response.ok || !data.ok) {
         throw new Error(
-          data.error ??
-            getFetchErrorMessage(response, "Could not save size guides."),
+          data.error ?? getFetchErrorMessage(response, "Could not save size guides."),
         );
       }
 
@@ -200,12 +199,9 @@ export function SizeGuidesSettings({ sizeGuides }: SizeGuidesSettingsProps) {
     <section className="space-y-5 border border-black p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-black uppercase tracking-widest">
-            Size Guides
-          </h2>
+          <h2 className="text-sm font-black uppercase tracking-widest">Size Guides</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Create reusable measurement tables and assign them to clothing
-            products.
+            Create reusable measurement tables and assign them to clothing products.
           </p>
         </div>
         <Button
@@ -359,12 +355,7 @@ export function SizeGuidesSettings({ sizeGuides }: SizeGuidesSettingsProps) {
                       <Input
                         value={row.label}
                         onChange={(event) =>
-                          updateRow(
-                            index,
-                            rowIndex,
-                            "label",
-                            event.target.value,
-                          )
+                          updateRow(index, rowIndex, "label", event.target.value)
                         }
                         placeholder="A"
                         className="h-10 rounded-none border-black"
@@ -372,12 +363,7 @@ export function SizeGuidesSettings({ sizeGuides }: SizeGuidesSettingsProps) {
                       <Input
                         value={row.values.join(", ")}
                         onChange={(event) =>
-                          updateRow(
-                            index,
-                            rowIndex,
-                            "values",
-                            event.target.value,
-                          )
+                          updateRow(index, rowIndex, "values", event.target.value)
                         }
                         placeholder="49.5, 53.5, 56.5"
                         className="h-10 rounded-none border-black"
@@ -390,8 +376,7 @@ export function SizeGuidesSettings({ sizeGuides }: SizeGuidesSettingsProps) {
                           updateGuide(index, (current) => ({
                             ...current,
                             rows: current.rows.filter(
-                              (_, currentRowIndex) =>
-                                currentRowIndex !== rowIndex,
+                              (_, currentRowIndex) => currentRowIndex !== rowIndex,
                             ),
                           }))
                         }
@@ -463,14 +448,9 @@ function SizeGuidePreview({ guide }: { guide: SizeGuideDraft }) {
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-black">
-              <th className="px-3 py-2 text-left font-black uppercase">
-                Sizes
-              </th>
+              <th className="px-3 py-2 text-left font-black uppercase">Sizes</th>
               {guide.columns.map((column) => (
-                <th
-                  key={column}
-                  className="px-3 py-2 text-center font-black uppercase"
-                >
+                <th key={column} className="px-3 py-2 text-center font-black uppercase">
                   {column}
                 </th>
               ))}
@@ -507,9 +487,7 @@ function TextField({
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold uppercase tracking-widest">{label}</Label>
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -531,9 +509,7 @@ function TextAreaField({
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold uppercase tracking-widest">{label}</Label>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}

@@ -99,9 +99,7 @@ export default async function AdminProductsPage({
     <main className="max-w-6xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
       <div className="mb-8 flex items-end justify-between border-b border-black pb-4">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase">
-            Products
-          </h1>
+          <h1 className="text-4xl font-black tracking-tighter uppercase">Products</h1>
           <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
             Inventory Management
           </p>
@@ -147,21 +145,14 @@ export default async function AdminProductsPage({
       <div className="divide-y divide-black border border-black">
         {items.length === 0 ? (
           <div className="p-6 text-sm font-bold uppercase tracking-widest text-slate-500">
-            {searchQuery
-              ? "No products matched your search."
-              : "No products yet."}
+            {searchQuery ? "No products matched your search." : "No products yet."}
           </div>
         ) : (
           items.map((product) => {
             const imageSrc = getProductImageSrc(product.imageUrl, "thumb");
-            const title = getTranslatedText(
-              product.title,
-              activeLocale,
-              product.slug,
-            );
+            const title = getTranslatedText(product.title, activeLocale, product.slug);
             const price = getProductPricePresentation(product);
-            const isScheduled =
-              product.publishAt && product.publishAt > new Date();
+            const isScheduled = product.publishAt && product.publishAt > new Date();
 
             return (
               <div
@@ -186,12 +177,9 @@ export default async function AdminProductsPage({
                     )}
                   </div>
                   <div>
-                    <h2 className="font-black uppercase tracking-tight">
-                      {title}
-                    </h2>
+                    <h2 className="font-black uppercase tracking-tight">{title}</h2>
                     <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                      {product.slug} /{" "}
-                      {(price.effectivePrice / 100).toFixed(2)} RON
+                      {product.slug} / {(price.effectivePrice / 100).toFixed(2)} RON
                       {price.isOnSale ? " sale" : ""}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -213,9 +201,7 @@ export default async function AdminProductsPage({
                     variant="outline"
                     className="rounded-none border-black uppercase tracking-widest font-bold text-xs"
                   >
-                    <Link href={`/${activeLocale}/products/${product.slug}`}>
-                      View
-                    </Link>
+                    <Link href={`/${activeLocale}/products/${product.slug}`}>View</Link>
                   </Button>
                   <DuplicateProductButton
                     locale={activeLocale}
@@ -225,16 +211,11 @@ export default async function AdminProductsPage({
                     asChild
                     className="rounded-none bg-black text-white hover:bg-slate-900 uppercase tracking-widest font-bold text-xs"
                   >
-                    <Link
-                      href={`/${activeLocale}/admin/products/${product.id}/edit`}
-                    >
+                    <Link href={`/${activeLocale}/admin/products/${product.id}/edit`}>
                       Edit
                     </Link>
                   </Button>
-                  <DeleteProductButton
-                    productId={product.id}
-                    productTitle={title}
-                  />
+                  <DeleteProductButton productId={product.id} productTitle={title} />
                 </div>
               </div>
             );

@@ -9,11 +9,7 @@ const HOMEPAGE_SETTINGS_KEY = "homepage";
 const DEFAULT_PRODUCTS_PER_SLIDER = 12;
 
 export type HomepageSectionType =
-  | "promoStrip"
-  | "heroBanner"
-  | "bannerSlider"
-  | "featuredProduct"
-  | "textImage";
+  "promoStrip" | "heroBanner" | "bannerSlider" | "featuredProduct" | "textImage";
 
 export type HomepageCategorySection = {
   categoryId: string;

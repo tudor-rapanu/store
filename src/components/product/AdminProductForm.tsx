@@ -12,10 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatRomaniaDateTimeLocal } from "@/lib/dates/romania";
 import { getTranslatedText } from "@/lib/i18n/text";
-import {
-  PRODUCT_DETAIL_ICONS,
-  getProductDetailIcon,
-} from "@/lib/product-detail-icons";
+import { PRODUCT_DETAIL_ICONS, getProductDetailIcon } from "@/lib/product-detail-icons";
 import { getProductImageSrc } from "@/lib/product-images";
 
 type Product = {
@@ -124,11 +121,7 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-function getVariantSlug(
-  productSlug: string,
-  variantName: string,
-  index: number,
-) {
+function getVariantSlug(productSlug: string, variantName: string, index: number) {
   const cleanProductSlug = slugify(productSlug);
   const cleanVariantName = slugify(variantName);
 
@@ -166,9 +159,7 @@ function getAttributeSignature(
   attributes: Record<string, string>,
   optionNames: string[],
 ) {
-  return optionNames
-    .map((name) => `${name}:${attributes[name] ?? ""}`)
-    .join("|");
+  return optionNames.map((name) => `${name}:${attributes[name] ?? ""}`).join("|");
 }
 
 function getOptionCombinations(options: { name: string; values: string[] }[]) {
@@ -241,15 +232,11 @@ export function AdminProductForm({
   const [isDigital, setIsDigital] = useState(product?.isDigital ?? false);
   const [trackStock, setTrackStock] = useState(product?.trackStock ?? false);
   const [stock, setStock] = useState(String(product?.stock ?? 0));
-  const [publishAt, setPublishAt] = useState(
-    toDateTimeInputValue(product?.publishAt),
-  );
+  const [publishAt, setPublishAt] = useState(toDateTimeInputValue(product?.publishAt));
   const [existingImages, setExistingImages] = useState(imagePaths);
   const [selectedCategories, setSelectedCategories] = useState(categories);
   const [variantsEnabled, setVariantsEnabled] = useState(variants.length > 0);
-  const [options, setOptions] = useState<OptionRow[]>(() =>
-    deriveOptions(variants),
-  );
+  const [options, setOptions] = useState<OptionRow[]>(() => deriveOptions(variants));
   const [variantRows, setVariantRows] = useState<VariantRow[]>(() =>
     variants.map((variant) => ({
       ...variant,
@@ -299,9 +286,7 @@ export function AdminProductForm({
   );
   const categoryPayload = selectedCategories.join(", ");
   const selectedCategoryLabels = selectedCategories.map((categoryValue) => {
-    const category = availableCategories.find(
-      (item) => item.value === categoryValue,
-    );
+    const category = availableCategories.find((item) => item.value === categoryValue);
 
     return category?.name ?? categoryValue;
   });
@@ -425,8 +410,7 @@ export function AdminProductForm({
 
         return {
           ...variant,
-          [field]:
-            field === "price" || field === "stock" ? Number(value) : value,
+          [field]: field === "price" || field === "stock" ? Number(value) : value,
         };
       }),
     );
@@ -449,10 +433,7 @@ export function AdminProductForm({
     const attributes = Object.fromEntries(
       options
         .filter((option) => option.name.trim())
-        .map((option) => [
-          option.name.trim(),
-          splitValues(option.values)[0] ?? "",
-        ]),
+        .map((option) => [option.name.trim(), splitValues(option.values)[0] ?? ""]),
     );
 
     setVariantRows((current) => [
@@ -487,9 +468,7 @@ export function AdminProductForm({
       return;
     }
 
-    const missingValues = matrixOptions.find(
-      (option) => option.values.length === 0,
-    );
+    const missingValues = matrixOptions.find((option) => option.values.length === 0);
 
     if (missingValues) {
       setError(`Add at least one value for ${missingValues.name}.`);
@@ -660,18 +639,8 @@ export function AdminProductForm({
     <Card className="rounded-none border-black shadow-none">
       <form onSubmit={handleSubmit}>
         <input type="hidden" name="variants" value={variantPayload} readOnly />
-        <input
-          type="hidden"
-          name="productDetails"
-          value={detailPayload}
-          readOnly
-        />
-        <input
-          type="hidden"
-          name="categories"
-          value={categoryPayload}
-          readOnly
-        />
+        <input type="hidden" name="productDetails" value={detailPayload} readOnly />
+        <input type="hidden" name="categories" value={categoryPayload} readOnly />
         <input
           type="hidden"
           name="existingImages"
@@ -863,8 +832,8 @@ export function AdminProductForm({
             {isDigital && (
               <div className="space-y-3">
                 <p className="text-xs uppercase tracking-widest text-slate-500">
-                  Digital products have no shipping cost or fulfillment
-                  estimate. Files are only downloadable after payment.
+                  Digital products have no shipping cost or fulfillment estimate. Files
+                  are only downloadable after payment.
                 </p>
                 {digitalFiles.length > 0 && (
                   <div className="divide-y divide-slate-200 border border-slate-200">
@@ -909,8 +878,7 @@ export function AdminProductForm({
                   Product Stock
                 </h2>
                 <p className="text-xs uppercase tracking-widest text-slate-500">
-                  Leave stock tracking disabled for permanent or made-to-order
-                  products.
+                  Leave stock tracking disabled for permanent or made-to-order products.
                 </p>
               </div>
               <label className="flex items-center gap-3 text-sm font-black uppercase tracking-widest">
@@ -1030,8 +998,7 @@ export function AdminProductForm({
                   Product Details
                 </h2>
                 <p className="text-xs uppercase tracking-widest text-slate-500">
-                  Optional highlights shown on the product page with selectable
-                  icons.
+                  Optional highlights shown on the product page with selectable icons.
                 </p>
               </div>
               <Button
@@ -1054,10 +1021,7 @@ export function AdminProductForm({
                   const DetailIcon = getProductDetailIcon(detail.icon);
 
                   return (
-                    <div
-                      key={detail.rowId}
-                      className="border border-slate-200 p-2"
-                    >
+                    <div key={detail.rowId} className="border border-slate-200 p-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-black">
                           <DetailIcon size={16} />
@@ -1065,11 +1029,7 @@ export function AdminProductForm({
                         <select
                           value={detail.icon}
                           onChange={(event) =>
-                            updateDetailBlock(
-                              detail.rowId,
-                              "icon",
-                              event.target.value,
-                            )
+                            updateDetailBlock(detail.rowId, "icon", event.target.value)
                           }
                           aria-label="Detail icon"
                           className="h-9 w-36 rounded-none border border-black bg-white px-2 text-sm"
@@ -1178,9 +1138,7 @@ export function AdminProductForm({
                             size="icon"
                             onClick={() =>
                               setDetailRows((current) =>
-                                current.filter(
-                                  (item) => item.rowId !== detail.rowId,
-                                ),
+                                current.filter((item) => item.rowId !== detail.rowId),
                               )
                             }
                             className="h-9 w-9 rounded-none border-black"
@@ -1272,8 +1230,7 @@ export function AdminProductForm({
                 Publish Date
               </Label>
               <p className="mt-1 text-xs uppercase tracking-widest text-slate-500">
-                Romanian time. Leave empty to publish immediately unless
-                private.
+                Romanian time. Leave empty to publish immediately unless private.
               </p>
             </div>
             <Input
@@ -1326,8 +1283,7 @@ export function AdminProductForm({
             {existingImages.length > 0 && (
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 {existingImages.map((imagePath, index) => {
-                  const src =
-                    imageSources[imagePath] ?? getProductImageSrc(imagePath);
+                  const src = imageSources[imagePath] ?? getProductImageSrc(imagePath);
 
                   return (
                     <div key={imagePath} className="space-y-2">
@@ -1491,19 +1447,12 @@ export function AdminProductForm({
                     </div>
                   </div>
                   {variantRows.map((variant) => (
-                    <div
-                      key={variant.id}
-                      className="border border-slate-200 p-2"
-                    >
+                    <div key={variant.id} className="border border-slate-200 p-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Input
                           value={variant.name}
                           onChange={(event) =>
-                            updateVariant(
-                              variant.id,
-                              "name",
-                              event.target.value,
-                            )
+                            updateVariant(variant.id, "name", event.target.value)
                           }
                           placeholder="Black / Medium"
                           className="h-9 min-w-44 flex-1 rounded-none border-black"
@@ -1519,11 +1468,7 @@ export function AdminProductForm({
                         <Input
                           value={variant.price}
                           onChange={(event) =>
-                            updateVariant(
-                              variant.id,
-                              "price",
-                              event.target.value,
-                            )
+                            updateVariant(variant.id, "price", event.target.value)
                           }
                           type="number"
                           step="0.01"
@@ -1553,11 +1498,7 @@ export function AdminProductForm({
                         <Input
                           value={variant.stock}
                           onChange={(event) =>
-                            updateVariant(
-                              variant.id,
-                              "stock",
-                              event.target.value,
-                            )
+                            updateVariant(variant.id, "stock", event.target.value)
                           }
                           type="number"
                           min={0}
@@ -1613,9 +1554,7 @@ export function AdminProductForm({
                           <>
                             <Input
                               value={
-                                variant.saleStartsAt
-                                  ? String(variant.saleStartsAt)
-                                  : ""
+                                variant.saleStartsAt ? String(variant.saleStartsAt) : ""
                               }
                               onChange={(event) =>
                                 setVariantRows((current) =>
@@ -1634,9 +1573,7 @@ export function AdminProductForm({
                             />
                             <Input
                               value={
-                                variant.saleEndsAt
-                                  ? String(variant.saleEndsAt)
-                                  : ""
+                                variant.saleEndsAt ? String(variant.saleEndsAt) : ""
                               }
                               onChange={(event) =>
                                 setVariantRows((current) =>
@@ -1658,17 +1595,12 @@ export function AdminProductForm({
                         {options
                           .filter((option) => option.name.trim())
                           .map((option) => (
-                            <label
-                              key={option.id}
-                              className="flex items-center gap-2"
-                            >
+                            <label key={option.id} className="flex items-center gap-2">
                               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
                                 {option.name}
                               </span>
                               <select
-                                value={
-                                  variant.attributes[option.name.trim()] ?? ""
-                                }
+                                value={variant.attributes[option.name.trim()] ?? ""}
                                 onChange={(event) =>
                                   updateVariantAttribute(
                                     variant.id,
@@ -1729,11 +1661,7 @@ export function AdminProductForm({
             disabled={isPending}
             className="w-full h-14 rounded-none bg-black text-white hover:bg-slate-900 uppercase tracking-widest font-black text-sm transition-colors"
           >
-            {isPending
-              ? "Saving..."
-              : product
-                ? "Save Changes"
-                : "Save Product"}
+            {isPending ? "Saving..." : product ? "Save Changes" : "Save Product"}
           </Button>
         </CardContent>
       </form>

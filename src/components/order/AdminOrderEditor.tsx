@@ -29,12 +29,7 @@ type EditableOrder = {
   fgoInvoiceId: string | null;
 };
 
-const paymentStatuses: PaymentStatus[] = [
-  "pending",
-  "paid",
-  "failed",
-  "refunded",
-];
+const paymentStatuses: PaymentStatus[] = ["pending", "paid", "failed", "refunded"];
 const fulfillmentStatuses: FulfillmentStatus[] = [
   "new",
   "processing",
@@ -43,16 +38,8 @@ const fulfillmentStatuses: FulfillmentStatus[] = [
   "cancelled",
   "refunded",
 ];
-const shippingMethods: ShippingMethod[] = [
-  "address",
-  "easybox",
-  "international",
-];
-const invoiceStatuses: InvoiceStatus[] = [
-  "not_generated",
-  "generated",
-  "failed",
-];
+const shippingMethods: ShippingMethod[] = ["address", "easybox", "international"];
+const invoiceStatuses: InvoiceStatus[] = ["not_generated", "generated", "failed"];
 
 export function AdminOrderEditor({ order }: { order: EditableOrder }) {
   const router = useRouter();
@@ -84,9 +71,7 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
       router.refresh();
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "The order could not be saved.",
+        error instanceof Error ? error.message : "The order could not be saved.",
       );
     } finally {
       setIsPending(false);
@@ -139,9 +124,7 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <TextField
-          label={
-            isInternational ? "Posta Romana tracking number" : "AWB number"
-          }
+          label={isInternational ? "Posta Romana tracking number" : "AWB number"}
           value={draft.awbNumber ?? ""}
           onChange={(value) =>
             setDraft((current) => ({ ...current, awbNumber: value }))
@@ -187,9 +170,7 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
       <TextField
         label="Invoice URL"
         value={draft.invoiceUrl ?? ""}
-        onChange={(value) =>
-          setDraft((current) => ({ ...current, invoiceUrl: value }))
-        }
+        onChange={(value) => setDraft((current) => ({ ...current, invoiceUrl: value }))}
       />
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -240,9 +221,7 @@ function SelectField({
 }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </span>
+      <span className="text-xs font-bold uppercase tracking-widest">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -269,9 +248,7 @@ function TextField({
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold uppercase tracking-widest">{label}</Label>
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -292,9 +269,7 @@ function TextareaField({
 }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs font-bold uppercase tracking-widest">
-        {label}
-      </span>
+      <span className="text-xs font-bold uppercase tracking-widest">{label}</span>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}

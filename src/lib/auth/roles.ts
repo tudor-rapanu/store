@@ -10,9 +10,7 @@ export function hasAdminRole(user: RoleUser | null | undefined) {
   return (
     (typeof role === "string" && role.toUpperCase() === "ADMIN") ||
     (Array.isArray(roles) &&
-      roles.some(
-        (item) => typeof item === "string" && item.toUpperCase() === "ADMIN",
-      ))
+      roles.some((item) => typeof item === "string" && item.toUpperCase() === "ADMIN"))
   );
 }
 
@@ -24,7 +22,6 @@ export function isAdminUserRecord(
 
   return Boolean(
     hasAdminRole(user) ||
-      (normalizedAdminEmail &&
-        user?.email?.toLowerCase() === normalizedAdminEmail),
+    (normalizedAdminEmail && user?.email?.toLowerCase() === normalizedAdminEmail),
   );
 }

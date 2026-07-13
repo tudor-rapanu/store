@@ -52,9 +52,7 @@ export const getCurrencySettings = unstable_cache(
   },
 );
 
-export async function updateCurrencySettings({
-  ronToEurRate,
-}: CurrencySettings) {
+export async function updateCurrencySettings({ ronToEurRate }: CurrencySettings) {
   const settings = {
     ronToEurRate: normalizeRate(ronToEurRate),
   };

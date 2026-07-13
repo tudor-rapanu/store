@@ -28,10 +28,7 @@ export async function DELETE(
     return errorResponse("Order item was not found.", 404);
   }
 
-  await db
-    .update(orders)
-    .set({ updatedAt: new Date() })
-    .where(eq(orders.id, id));
+  await db.update(orders).set({ updatedAt: new Date() }).where(eq(orders.id, id));
 
   revalidatePath("/", "layout");
 

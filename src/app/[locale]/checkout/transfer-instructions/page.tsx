@@ -20,8 +20,8 @@ export default function TransferInstructionsPage() {
 
       <div className="w-full p-8 border border-black bg-slate-50 space-y-6 text-left">
         <p className="text-sm font-medium">
-          Please transfer the exact total amount to the following bank account.
-          Your order will not ship until the funds have cleared in our account.
+          Please transfer the exact total amount to the following bank account. Your
+          order will not ship until the funds have cleared in our account.
         </p>
 
         <div className="space-y-2">
@@ -35,8 +35,8 @@ export default function TransferInstructionsPage() {
 
         <div className="p-4 bg-yellow-50 border border-yellow-200">
           <p className="text-xs font-bold uppercase tracking-wider text-yellow-800">
-            Important: Use your Name or Email as the payment reference so we can
-            match it to your order.
+            Important: Use your Name or Email as the payment reference so we can match
+            it to your order.
           </p>
         </div>
       </div>

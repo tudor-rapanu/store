@@ -35,9 +35,7 @@ function toIsoString(value?: Date | string | null) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-export default async function AdminDiscountsPage({
-  params,
-}: AdminDiscountsPageProps) {
+export default async function AdminDiscountsPage({ params }: AdminDiscountsPageProps) {
   const { locale } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
 
@@ -49,9 +47,7 @@ export default async function AdminDiscountsPage({
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl px-4 py-16">
       <div className="mb-8 flex items-end justify-between gap-4 border-b border-black pb-4">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter">
-            Discounts
-          </h1>
+          <h1 className="text-4xl font-black uppercase tracking-tighter">Discounts</h1>
           <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
             Automatic discounts and voucher codes
           </p>

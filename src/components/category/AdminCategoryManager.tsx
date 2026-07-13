@@ -169,11 +169,7 @@ export function AdminCategoryManager({
           >
             Name RO
           </Label>
-          <Input
-            id="nameRo"
-            name="nameRo"
-            className="h-12 rounded-none border-black"
-          />
+          <Input id="nameRo" name="nameRo" className="h-12 rounded-none border-black" />
         </div>
         <div className="space-y-2">
           <Label
@@ -191,19 +187,14 @@ export function AdminCategoryManager({
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {`${"— ".repeat(category.depth ?? 0)}${
-                  locale === "ro"
-                    ? category.nameRo || category.nameEn
-                    : category.nameEn
+                  locale === "ro" ? category.nameRo || category.nameEn : category.nameEn
                 }`}
               </option>
             ))}
           </select>
         </div>
         <div className="space-y-2">
-          <Label
-            htmlFor="slug"
-            className="text-xs font-bold uppercase tracking-widest"
-          >
+          <Label htmlFor="slug" className="text-xs font-bold uppercase tracking-widest">
             Slug
           </Label>
           <Input
@@ -274,11 +265,7 @@ function CategoryRow({
     field: "nameEn" | "nameRo" | "slug" | "parentId",
     value: string,
   ) => void;
-  onRequest: (
-    key: string,
-    url: string,
-    options: RequestInit,
-  ) => Promise<boolean>;
+  onRequest: (key: string, url: string, options: RequestInit) => Promise<boolean>;
 }) {
   const linkedProductIds = useMemo(
     () => new Set(category.products.map((product) => product.id)),
@@ -296,9 +283,7 @@ function CategoryRow({
         <div>
           <h2 className="font-black uppercase tracking-tight">
             <span style={{ paddingLeft: `${(category.depth ?? 0) * 18}px` }}>
-              {locale === "ro"
-                ? category.nameRo || category.nameEn
-                : category.nameEn}
+              {locale === "ro" ? category.nameRo || category.nameEn : category.nameEn}
             </span>
           </h2>
           <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -334,9 +319,7 @@ function CategoryRow({
           />
           <Input
             value={draft.slug}
-            onChange={(event) =>
-              onDraftChange(category.id, "slug", event.target.value)
-            }
+            onChange={(event) => onDraftChange(category.id, "slug", event.target.value)}
             className="h-10 rounded-none border-black"
             aria-label="Category slug"
           />
@@ -364,14 +347,10 @@ function CategoryRow({
             variant="outline"
             disabled={pendingKey === `save-${category.id}`}
             onClick={() =>
-              onRequest(
-                `save-${category.id}`,
-                `/api/admin/categories/${category.id}`,
-                {
-                  method: "PATCH",
-                  body: JSON.stringify(draft),
-                },
-              )
+              onRequest(`save-${category.id}`, `/api/admin/categories/${category.id}`, {
+                method: "PATCH",
+                body: JSON.stringify(draft),
+              })
             }
             className="h-10 rounded-none border-black text-xs font-bold uppercase tracking-widest"
           >
@@ -382,9 +361,7 @@ function CategoryRow({
             variant="outline"
             disabled={pendingKey === `delete-${category.id}`}
             onClick={() => {
-              if (
-                window.confirm("Delete this category? Products stay intact.")
-              ) {
+              if (window.confirm("Delete this category? Products stay intact.")) {
                 void onRequest(
                   `delete-${category.id}`,
                   `/api/admin/categories/${category.id}`,
@@ -433,9 +410,7 @@ function CategoryRow({
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={
-                      pendingKey === `unlink-${category.id}-${product.id}`
-                    }
+                    disabled={pendingKey === `unlink-${category.id}-${product.id}`}
                     onClick={() =>
                       onRequest(
                         `unlink-${category.id}-${product.id}`,
@@ -471,9 +446,7 @@ function CategoryRow({
           </select>
           <Button
             type="button"
-            disabled={
-              !selectedProductId || pendingKey === `link-${category.id}`
-            }
+            disabled={!selectedProductId || pendingKey === `link-${category.id}`}
             onClick={() =>
               onRequest(
                 `link-${category.id}`,
@@ -501,8 +474,9 @@ function ProductThumbnail({ product }: { product: ProductSummary }) {
         getProductImageSrc(product.imageUrl, "thumb"),
         getProductImageSrc(product.imageUrl, "card"),
         getProductImageSrc(product.imageUrl, "large"),
-      ].filter((src, index, sources): src is string =>
-        Boolean(src) && sources.indexOf(src) === index,
+      ].filter(
+        (src, index, sources): src is string =>
+          Boolean(src) && sources.indexOf(src) === index,
       ),
     [product.imageUrl],
   );

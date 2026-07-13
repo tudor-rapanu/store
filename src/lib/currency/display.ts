@@ -20,8 +20,7 @@ export async function getCurrencyPresentation() {
 
   return {
     countryCode,
-    displayCurrency:
-      preferredCurrency ?? getDefaultCurrencyForCountry(countryCode),
+    displayCurrency: preferredCurrency ?? getDefaultCurrencyForCountry(countryCode),
     ronToEurRate: currencySettings.ronToEurRate,
   } as const;
 }

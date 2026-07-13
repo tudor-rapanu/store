@@ -46,9 +46,7 @@ export function ProductCategorySlider({
     <section className="border-t border-black py-12">
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black uppercase tracking-tight">
-            {title}
-          </h2>
+          <h2 className="text-2xl font-black uppercase tracking-tight">{title}</h2>
           <Link
             href={href}
             className="mt-2 inline-block text-xs font-bold uppercase tracking-widest text-slate-500 transition-colors hover:text-black"

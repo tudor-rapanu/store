@@ -11,11 +11,7 @@ export const metadata: Metadata = {
   description: "Independent apparel and accessories, shipped from Romania.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <body>

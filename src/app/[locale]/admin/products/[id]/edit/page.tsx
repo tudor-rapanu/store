@@ -110,10 +110,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
   );
   const imagePaths = getProductImagePaths(product.imageUrl);
   const imageSources = Object.fromEntries(
-    imagePaths.map((imagePath) => [
-      imagePath,
-      getProductImageSrc(imagePath, "thumb"),
-    ]),
+    imagePaths.map((imagePath) => [imagePath, getProductImageSrc(imagePath, "thumb")]),
   );
 
   return (
@@ -154,9 +151,10 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
         }))}
         imagePaths={imagePaths}
         imageSources={imageSources}
-        categories={linkedCategories.map((category) =>
-          categoryValuesById.get(category.id) ??
-          getTranslatedText(category.name, "en"),
+        categories={linkedCategories.map(
+          (category) =>
+            categoryValuesById.get(category.id) ??
+            getTranslatedText(category.name, "en"),
         )}
         availableCategories={categoryOptions}
         availableSizeGuides={guides.map((guide) => ({

@@ -69,10 +69,7 @@ export async function PATCH(
     return errorResponse("Invalid payment status.");
   }
 
-  if (
-    body.fulfillmentStatus &&
-    !fulfillmentStatuses.has(body.fulfillmentStatus)
-  ) {
+  if (body.fulfillmentStatus && !fulfillmentStatuses.has(body.fulfillmentStatus)) {
     return errorResponse("Invalid order status.");
   }
 
@@ -97,10 +94,7 @@ export async function PATCH(
     return errorResponse("Order was not found.", 404);
   }
 
-  if (
-    body.paymentStatus === "paid" &&
-    existingOrder.paymentStatus !== "paid"
-  ) {
+  if (body.paymentStatus === "paid" && existingOrder.paymentStatus !== "paid") {
     try {
       await reduceTrackedStockForPaidOrder(existingOrder.id);
     } catch {

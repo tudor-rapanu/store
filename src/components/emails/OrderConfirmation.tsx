@@ -43,9 +43,9 @@ export default function OrderConfirmationEmail({
           {isBankTransfer ? (
             <Container style={alertBox}>
               <Text style={alertText}>
-                <strong>ACTION REQUIRED:</strong> Your order is pending. Please
-                transfer {formattedTotal} RON to our account to complete the
-                purchase. Order will ship upon fund clearance.
+                <strong>ACTION REQUIRED:</strong> Your order is pending. Please transfer{" "}
+                {formattedTotal} RON to our account to complete the purchase. Order will
+                ship upon fund clearance.
               </Text>
             </Container>
           ) : (
@@ -60,15 +60,13 @@ export default function OrderConfirmationEmail({
 
           {estimatedShippingWindow && (
             <Text style={text}>
-              Estimated shipping window:{" "}
-              <strong>{estimatedShippingWindow}</strong>
+              Estimated shipping window: <strong>{estimatedShippingWindow}</strong>
             </Text>
           )}
 
           {orderUrl && (
             <Text style={text}>
-              You can view your order status here:{" "}
-              <a href={orderUrl}>View order</a>
+              You can view your order status here: <a href={orderUrl}>View order</a>
             </Text>
           )}
 

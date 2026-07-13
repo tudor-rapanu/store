@@ -112,7 +112,9 @@ const reportHtml = `/results/${testName.replace(/\.ya?ml$/i, "")}.html`;
 
 console.log(`Running ${testName} against ${target}`);
 if (wantsReport) {
-  console.log(`Report will be written to artillery-results/${path.basename(reportHtml)}`);
+  console.log(
+    `Report will be written to artillery-results/${path.basename(reportHtml)}`,
+  );
 }
 
 const dockerBaseArgs = [
@@ -135,12 +137,8 @@ const dockerBaseArgs = [
 const childEnv = {
   PATH: FIXED_PATH,
   ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
-  ...(process.env.DOCKER_CONFIG
-    ? { DOCKER_CONFIG: process.env.DOCKER_CONFIG }
-    : {}),
-  ...(process.env.DOCKER_CONTEXT
-    ? { DOCKER_CONTEXT: process.env.DOCKER_CONTEXT }
-    : {}),
+  ...(process.env.DOCKER_CONFIG ? { DOCKER_CONFIG: process.env.DOCKER_CONFIG } : {}),
+  ...(process.env.DOCKER_CONTEXT ? { DOCKER_CONTEXT: process.env.DOCKER_CONTEXT } : {}),
   ...(process.env.DOCKER_HOST ? { DOCKER_HOST: process.env.DOCKER_HOST } : {}),
 };
 

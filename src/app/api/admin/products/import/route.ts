@@ -82,11 +82,7 @@ type NormalizedImportRow = {
 const MAX_IMPORT_ROWS = 200;
 const MAX_REMOTE_IMAGE_BYTES = 25 * 1024 * 1024;
 const MAX_REMOTE_DIGITAL_FILE_BYTES = 100 * 1024 * 1024;
-const ALLOWED_REMOTE_IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-]);
+const ALLOWED_REMOTE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function errorResponse(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -240,18 +236,12 @@ function parseVariantJson(value: unknown, rowNumber: number) {
     return {
       name: variant.name.trim(),
       sku:
-        "sku" in variant && typeof variant.sku === "string"
-          ? variant.sku.trim()
-          : "",
+        "sku" in variant && typeof variant.sku === "string" ? variant.sku.trim() : "",
       attributes: variant.attributes as Record<string, string>,
       price:
-        "price" in variant && typeof variant.price === "number"
-          ? variant.price
-          : 0,
+        "price" in variant && typeof variant.price === "number" ? variant.price : 0,
       stock:
-        "stock" in variant && typeof variant.stock === "number"
-          ? variant.stock
-          : 0,
+        "stock" in variant && typeof variant.stock === "number" ? variant.stock : 0,
       trackStock:
         "trackStock" in variant && typeof variant.trackStock === "boolean"
           ? variant.trackStock
@@ -401,9 +391,7 @@ async function fetchImportImage(url: string, rowNumber: number) {
   const contentType = response.headers.get("content-type")?.split(";")[0].trim();
 
   if (!contentType || !ALLOWED_REMOTE_IMAGE_TYPES.has(contentType)) {
-    throw new Error(
-      `Row ${rowNumber}: image must be JPEG, PNG, or WebP.`,
-    );
+    throw new Error(`Row ${rowNumber}: image must be JPEG, PNG, or WebP.`);
   }
 
   const contentLength = Number.parseInt(
@@ -411,10 +399,7 @@ async function fetchImportImage(url: string, rowNumber: number) {
     10,
   );
 
-  if (
-    Number.isFinite(contentLength) &&
-    contentLength > MAX_REMOTE_IMAGE_BYTES
-  ) {
+  if (Number.isFinite(contentLength) && contentLength > MAX_REMOTE_IMAGE_BYTES) {
     throw new Error(`Row ${rowNumber}: image must be 25 MB or smaller.`);
   }
 
@@ -463,10 +448,7 @@ async function fetchImportDigitalFile(url: string, rowNumber: number) {
     10,
   );
 
-  if (
-    Number.isFinite(contentLength) &&
-    contentLength > MAX_REMOTE_DIGITAL_FILE_BYTES
-  ) {
+  if (Number.isFinite(contentLength) && contentLength > MAX_REMOTE_DIGITAL_FILE_BYTES) {
     throw new Error(`Row ${rowNumber}: digital file must be 100 MB or smaller.`);
   }
 
@@ -644,8 +626,7 @@ export async function POST(request: Request) {
           imageUrl,
           isDigital: row.isDigital,
           trackStock: row.variants.length === 0 ? row.trackStock : false,
-          stock:
-            row.variants.length === 0 && row.trackStock ? row.stock : 0,
+          stock: row.variants.length === 0 && row.trackStock ? row.stock : 0,
           isSimple: row.variants.length === 0,
           isPrivate: row.isPrivate,
         })
@@ -686,9 +667,7 @@ export async function POST(request: Request) {
             price: Math.round((variant.price ?? 0) * 100),
             priceAdjustment: 0,
             trackStock: variant.trackStock ?? false,
-            stock: variant.trackStock
-              ? Math.max(Math.floor(variant.stock ?? 0), 0)
-              : 0,
+            stock: variant.trackStock ? Math.max(Math.floor(variant.stock ?? 0), 0) : 0,
           })),
         );
       }
@@ -711,9 +690,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         errors: [
-          error instanceof Error
-            ? error.message
-            : "The import could not be completed.",
+          error instanceof Error ? error.message : "The import could not be completed.",
         ],
       },
       { status: 500 },

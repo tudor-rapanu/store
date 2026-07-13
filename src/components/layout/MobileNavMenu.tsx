@@ -83,11 +83,7 @@ export function MobileNavMenu({
 
         <div className="mt-6 flex flex-1 flex-col">
           <div className="border-b border-black pb-5">
-            <SearchBar
-              locale={locale}
-              compact
-              onSearch={() => setIsOpen(false)}
-            />
+            <SearchBar locale={locale} compact onSearch={() => setIsOpen(false)} />
           </div>
 
           <nav aria-label="Mobile navigation">
@@ -129,42 +125,27 @@ export function MobileNavMenu({
                 {isAdmin ? (
                   <>
                     <SheetClose asChild>
-                      <Link
-                        href={`/${locale}/admin/orders`}
-                        className={linkClass}
-                      >
+                      <Link href={`/${locale}/admin/orders`} className={linkClass}>
                         Orders
                       </Link>
                     </SheetClose>
                     <SheetClose asChild>
-                      <Link
-                        href={`/${locale}/admin/products`}
-                        className={linkClass}
-                      >
+                      <Link href={`/${locale}/admin/products`} className={linkClass}>
                         Products
                       </Link>
                     </SheetClose>
                     <SheetClose asChild>
-                      <Link
-                        href={`/${locale}/admin/categories`}
-                        className={linkClass}
-                      >
+                      <Link href={`/${locale}/admin/categories`} className={linkClass}>
                         Categories
                       </Link>
                     </SheetClose>
                     <SheetClose asChild>
-                      <Link
-                        href={`/${locale}/admin/discounts`}
-                        className={linkClass}
-                      >
+                      <Link href={`/${locale}/admin/discounts`} className={linkClass}>
                         Discounts
                       </Link>
                     </SheetClose>
                     <SheetClose asChild>
-                      <Link
-                        href={`/${locale}/admin/settings`}
-                        className={linkClass}
-                      >
+                      <Link href={`/${locale}/admin/settings`} className={linkClass}>
                         Settings
                       </Link>
                     </SheetClose>
@@ -177,10 +158,7 @@ export function MobileNavMenu({
                       </Link>
                     </SheetClose>
                     <SheetClose asChild>
-                      <Link
-                        href={`/${locale}/account/orders`}
-                        className={linkClass}
-                      >
+                      <Link href={`/${locale}/account/orders`} className={linkClass}>
                         Orders
                       </Link>
                     </SheetClose>

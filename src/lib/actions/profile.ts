@@ -62,9 +62,7 @@ export async function deleteCustomerProfile(formData: FormData) {
     redirect(`/${locale}/login`);
   }
 
-  await db
-    .delete(customerProfiles)
-    .where(eq(customerProfiles.userId, user.id));
+  await db.delete(customerProfiles).where(eq(customerProfiles.userId, user.id));
 
   revalidatePath(`/${locale}/account`);
   revalidatePath(`/${locale}/checkout`);
@@ -93,15 +91,11 @@ export async function deleteCustomerAccount(formData: FormData) {
 
   if (result.error) {
     await db.transaction(async (tx) => {
-      await tx
-        .delete(customerProfiles)
-        .where(eq(customerProfiles.userId, user.id));
+      await tx.delete(customerProfiles).where(eq(customerProfiles.userId, user.id));
       await tx.execute(sql`delete from neon_auth."user" where id = ${user.id}`);
     });
   } else {
-    await db
-      .delete(customerProfiles)
-      .where(eq(customerProfiles.userId, user.id));
+    await db.delete(customerProfiles).where(eq(customerProfiles.userId, user.id));
   }
 
   revalidatePath("/", "layout");

@@ -109,9 +109,7 @@ function parseSamedayDate(value: string | undefined) {
     return new Date(Date.now() + 11 * 60 * 60 * 1000);
   }
 
-  const normalized = value.includes("T")
-    ? value
-    : `${value.replace(" ", "T")}Z`;
+  const normalized = value.includes("T") ? value : `${value.replace(" ", "T")}Z`;
   const parsed = new Date(normalized);
 
   return Number.isNaN(parsed.getTime())
@@ -319,14 +317,8 @@ async function authenticateSameday() {
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      "X-AUTH-USERNAME": readEnvValue(
-        process.env.SAMEDAY_USERNAME,
-        "SAMEDAY_USERNAME",
-      ),
-      "X-AUTH-PASSWORD": readEnvValue(
-        process.env.SAMEDAY_PASSWORD,
-        "SAMEDAY_PASSWORD",
-      ),
+      "X-AUTH-USERNAME": readEnvValue(process.env.SAMEDAY_USERNAME, "SAMEDAY_USERNAME"),
+      "X-AUTH-PASSWORD": readEnvValue(process.env.SAMEDAY_PASSWORD, "SAMEDAY_PASSWORD"),
       Accept: "application/json",
     },
     cache: "no-store",
@@ -477,8 +469,7 @@ function normalizeContactPerson(value: unknown): SamedayContactPerson | null {
       "full_name",
       "contactPerson",
       "contact_person",
-    ]) ||
-    [firstName, lastName].filter(Boolean).join(" ");
+    ]) || [firstName, lastName].filter(Boolean).join(" ");
 
   if (!id) {
     return null;
@@ -632,16 +623,13 @@ export async function getSamedayPdoServiceTaxId(
     : null;
 
   if (!serviceTaxId) {
-    console.error(
-      "Sameday PDO optional tax lookup failed:",
-      {
-        packageType,
-        serviceId,
-        serviceFound: Boolean(service),
-        serviceKeys: service ? Object.keys(service) : [],
-        ...summarizeSamedayServices(response),
-      },
-    );
+    console.error("Sameday PDO optional tax lookup failed:", {
+      packageType,
+      serviceId,
+      serviceFound: Boolean(service),
+      serviceKeys: service ? Object.keys(service) : [],
+      ...summarizeSamedayServices(response),
+    });
     throw new Error(
       `Sameday PDO optional tax was not found for service ${serviceId} and package type ${packageType}.`,
     );
@@ -770,15 +758,8 @@ export async function syncSamedayCities(countyId: number, name?: string) {
 
       for (const cityQuery of cityQueryVariants) {
         try {
-          const candidateResponse = await fetchSamedayCityPage(
-            cityQuery,
-            page,
-            name,
-          );
-          const candidateCities = extractSamedayCities(
-            candidateResponse,
-            countyId,
-          );
+          const candidateResponse = await fetchSamedayCityPage(cityQuery, page, name);
+          const candidateCities = extractSamedayCities(candidateResponse, countyId);
 
           if (candidateCities.length > 0 || name) {
             response = candidateResponse;
@@ -910,9 +891,7 @@ export async function syncAllSamedayLocations() {
         countyId: county.id,
         countyName: county.name,
         error:
-          error instanceof Error
-            ? error.message
-            : "Unknown Sameday city sync error.",
+          error instanceof Error ? error.message : "Unknown Sameday city sync error.",
       });
     }
   }
@@ -955,9 +934,7 @@ export async function debugSamedayCityQueries(countyId: number) {
         query,
         ok: false,
         error:
-          error instanceof Error
-            ? error.message
-            : "Unknown Sameday city debug error.",
+          error instanceof Error ? error.message : "Unknown Sameday city debug error.",
       });
     }
   }

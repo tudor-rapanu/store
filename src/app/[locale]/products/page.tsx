@@ -6,10 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { CatalogPagination } from "@/components/catalog/CatalogPagination";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductSkeleton } from "@/components/product/ProductSkeleton";
-import {
-  getCachedPublicProducts,
-  PUBLIC_PRODUCTS_PER_PAGE,
-} from "@/lib/catalog/cache";
+import { getCachedPublicProducts, PUBLIC_PRODUCTS_PER_PAGE } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
 import { getCatalogAutomaticDiscountPrices } from "@/lib/discounts";
 
@@ -73,13 +70,7 @@ export default async function ProductsPage({
   );
 }
 
-async function ProductGrid({
-  locale,
-  page,
-}: {
-  locale: "en" | "ro";
-  page: number;
-}) {
+async function ProductGrid({ locale, page }: { locale: "en" | "ro"; page: number }) {
   const [catalog, currencyPresentation] = await Promise.all([
     getCachedPublicProducts(page, PUBLIC_PRODUCTS_PER_PAGE),
     getCurrencyPresentation(),

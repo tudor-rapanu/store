@@ -58,9 +58,7 @@ function SettingsHeader({
   return (
     <div className="mb-8 flex items-end justify-between gap-4 border-b border-black pb-4">
       <div>
-        <h1 className="text-4xl font-black uppercase tracking-tighter">
-          {title}
-        </h1>
+        <h1 className="text-4xl font-black uppercase tracking-tighter">{title}</h1>
         <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
           {description}
         </p>

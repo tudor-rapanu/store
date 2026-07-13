@@ -30,22 +30,13 @@ export async function GET(request: Request) {
   }
 
   if (name && name.length > 80) {
-    return NextResponse.json(
-      { error: "City search is too long." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "City search is too long." }, { status: 400 });
   }
 
   try {
     const cities = await searchSamedayCities(countyId, name);
-    return NextResponse.json(
-      { cities },
-      { headers: PUBLIC_LOOKUP_CACHE_HEADERS },
-    );
+    return NextResponse.json({ cities }, { headers: PUBLIC_LOOKUP_CACHE_HEADERS });
   } catch {
-    return NextResponse.json(
-      { error: "Could not load cities." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Could not load cities." }, { status: 500 });
   }
 }

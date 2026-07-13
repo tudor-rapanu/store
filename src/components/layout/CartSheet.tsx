@@ -133,9 +133,7 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
       </SheetTrigger>
       <SheetContent className="w-[350px] sm:w-[400px] border-l-black">
         <SheetHeader>
-          <SheetTitle className="uppercase tracking-tighter text-xl">
-            Cart
-          </SheetTitle>
+          <SheetTitle className="uppercase tracking-tighter text-xl">Cart</SheetTitle>
         </SheetHeader>
         <div className="mt-8 flex flex-col gap-4 h-full pb-12">
           {items.length === 0 ? (
@@ -175,9 +173,7 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
           <div className="mt-auto pt-6 border-t border-black">
             <div className="mb-6 space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="font-bold uppercase tracking-tighter">
-                  Subtotal
-                </span>
+                <span className="font-bold uppercase tracking-tighter">Subtotal</span>
                 <span className="font-bold">{formatCartAmount(subtotal)}</span>
               </div>
               {discountAmount > 0 && (
@@ -185,24 +181,17 @@ export function CartSheet({ locale }: { locale: "en" | "ro" }) {
                   <span className="font-bold uppercase tracking-tighter">
                     {discountPreview.discountName ?? "Discount"}
                   </span>
-                  <span className="font-bold">
-                    -{formatCartAmount(discountAmount)}
-                  </span>
+                  <span className="font-bold">-{formatCartAmount(discountAmount)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between border-t border-slate-200 pt-2">
-                <span className="font-bold uppercase tracking-tighter">
-                  Total
-                </span>
+                <span className="font-bold uppercase tracking-tighter">Total</span>
                 <span className="text-lg font-bold">
                   {formatCartAmount(discountedTotal)}
                 </span>
               </div>
             </div>
-            <Link
-              href={`/${locale}/checkout`}
-              onClick={() => setIsOpen(false)}
-            >
+            <Link href={`/${locale}/checkout`} onClick={() => setIsOpen(false)}>
               <Button className="w-full h-12 rounded-none bg-black text-white hover:bg-slate-800 uppercase tracking-widest font-bold">
                 Checkout
               </Button>

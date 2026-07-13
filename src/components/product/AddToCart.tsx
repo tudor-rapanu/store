@@ -58,9 +58,7 @@ export function AddToCart({
   displayCurrency = "RON",
   ronToEurRate = 0.2,
 }: AddToCartProps) {
-  const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string>>(
-    {},
-  );
+  const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string>>({});
   const addItem = useCart((state) => state.addItem);
   const [wasAdded, setWasAdded] = useState(false);
   const isSimpleProduct = variants.length === 0;
@@ -73,9 +71,7 @@ export function AddToCart({
   );
   const selectedVariant = hasSelectedAllAttributes
     ? variants.find((v) =>
-        Object.entries(selectedAttrs).every(
-          ([key, val]) => v.attributes[key] === val,
-        ),
+        Object.entries(selectedAttrs).every(([key, val]) => v.attributes[key] === val),
       )
     : undefined;
 
@@ -166,17 +162,17 @@ export function AddToCart({
                   <SelectValue placeholder={`SELECT ${key.toUpperCase()}`} />
                 </SelectTrigger>
                 <SelectContent className="rounded-none border-black">
-                  {Array.from(
-                    new Set(variants.map((v) => v.attributes[key])),
-                  ).map((val) => (
-                    <SelectItem
-                      key={val}
-                      value={val}
-                      className="rounded-none uppercase text-xs font-bold"
-                    >
-                      {val}
-                    </SelectItem>
-                  ))}
+                  {Array.from(new Set(variants.map((v) => v.attributes[key]))).map(
+                    (val) => (
+                      <SelectItem
+                        key={val}
+                        value={val}
+                        className="rounded-none uppercase text-xs font-bold"
+                      >
+                        {val}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
             </div>

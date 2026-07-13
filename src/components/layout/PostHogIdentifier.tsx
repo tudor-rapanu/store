@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  identifyPostHog,
-  POSTHOG_READY_EVENT,
-} from "@/lib/analytics/posthog-client";
+import { identifyPostHog, POSTHOG_READY_EVENT } from "@/lib/analytics/posthog-client";
 
 export function PostHogIdentifier({ email }: { email: string }) {
   useEffect(() => {

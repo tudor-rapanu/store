@@ -70,10 +70,7 @@ export function buildCategoryTree(rows: CategoryRow[]) {
   return roots;
 }
 
-export function getCategoryOptions(
-  rows: CategoryRow[],
-  locale: "en" | "ro",
-) {
+export function getCategoryOptions(rows: CategoryRow[], locale: "en" | "ro") {
   const options: CategoryOption[] = [];
 
   function visit(
@@ -85,9 +82,7 @@ export function getCategoryOptions(
     const label = getTranslatedText(node.name, locale, node.slug);
     const englishLabel = getTranslatedText(node.name, "en", node.slug);
     const displayLabel = parentLabel ? `${parentLabel} > ${label}` : label;
-    const value = parentValue
-      ? `${parentValue} > ${englishLabel}`
-      : englishLabel;
+    const value = parentValue ? `${parentValue} > ${englishLabel}` : englishLabel;
 
     options.push({
       id: node.id,
@@ -98,9 +93,7 @@ export function getCategoryOptions(
       depth,
     });
 
-    node.children.forEach((child) =>
-      visit(child, depth + 1, displayLabel, value),
-    );
+    node.children.forEach((child) => visit(child, depth + 1, displayLabel, value));
   }
 
   buildCategoryTree(rows).forEach((node) => visit(node, 0));

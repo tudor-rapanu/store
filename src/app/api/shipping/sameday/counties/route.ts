@@ -20,14 +20,8 @@ export async function GET(request: Request) {
 
   try {
     const counties = await getCachedOrSyncSamedayCounties();
-    return NextResponse.json(
-      { counties },
-      { headers: PUBLIC_LOOKUP_CACHE_HEADERS },
-    );
+    return NextResponse.json({ counties }, { headers: PUBLIC_LOOKUP_CACHE_HEADERS });
   } catch {
-    return NextResponse.json(
-      { error: "Could not load counties." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Could not load counties." }, { status: 500 });
   }
 }

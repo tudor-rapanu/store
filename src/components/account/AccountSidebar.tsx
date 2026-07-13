@@ -42,9 +42,7 @@ export function AccountSidebar({ locale }: AccountSidebarProps) {
           {section.label}
         </AccountMenuLink>
       ))}
-      <AccountMenuLink href={`/${locale}/account/orders`}>
-        All Orders
-      </AccountMenuLink>
+      <AccountMenuLink href={`/${locale}/account/orders`}>All Orders</AccountMenuLink>
       <form action={logoutFromLocale}>
         <input type="hidden" name="locale" value={locale} />
         <button

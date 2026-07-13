@@ -102,9 +102,7 @@ export const getShippingProfiles = unstable_cache(
 export async function getShippingProfileForMethod(method: ShippingMethod) {
   const profiles = await getShippingProfiles();
 
-  return profiles.find(
-    (profile) => profile.method === method && profile.enabled,
-  );
+  return profiles.find((profile) => profile.method === method && profile.enabled);
 }
 
 export async function calculateShippingAmount(

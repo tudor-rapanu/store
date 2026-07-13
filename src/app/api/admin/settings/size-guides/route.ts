@@ -77,10 +77,7 @@ function normalizeSizeGuide(input: SizeGuideInput, index: number) {
   }
 
   return {
-    id:
-      input.id && UUID_PATTERN.test(input.id)
-        ? input.id
-        : undefined,
+    id: input.id && UUID_PATTERN.test(input.id) ? input.id : undefined,
     slug,
     title: {
       en: titleEn,
@@ -151,9 +148,7 @@ export async function POST(request: Request) {
             slug: guide.slug,
             title: guide.title,
             description:
-              guide.description.en || guide.description.ro
-                ? guide.description
-                : null,
+              guide.description.en || guide.description.ro ? guide.description : null,
             imageUrl: guide.imageUrl,
             columns: guide.columns,
             rows: guide.rows,
@@ -166,9 +161,7 @@ export async function POST(request: Request) {
           slug: guide.slug,
           title: guide.title,
           description:
-            guide.description.en || guide.description.ro
-              ? guide.description
-              : null,
+            guide.description.en || guide.description.ro ? guide.description : null,
           imageUrl: guide.imageUrl,
           columns: guide.columns,
           rows: guide.rows,

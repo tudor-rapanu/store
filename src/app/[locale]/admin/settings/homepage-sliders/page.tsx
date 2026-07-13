@@ -50,12 +50,10 @@ export default async function HomepageSlidersSettingsPage({
         description="Category product sliders displayed on the homepage"
       />
       <HomepageSlidersSettings
-        categories={getCategoryOptions(categoryRows, activeLocale).map(
-          (category) => ({
-            id: category.id,
-            label: category.name,
-          }),
-        )}
+        categories={getCategoryOptions(categoryRows, activeLocale).map((category) => ({
+          id: category.id,
+          label: category.name,
+        }))}
         sections={homepageSettings.categorySections}
         productsPerSlider={homepageSettings.productsPerSlider}
       />
@@ -75,9 +73,7 @@ function SettingsHeader({
   return (
     <div className="mb-8 flex items-end justify-between gap-4 border-b border-black pb-4">
       <div>
-        <h1 className="text-4xl font-black uppercase tracking-tighter">
-          {title}
-        </h1>
+        <h1 className="text-4xl font-black uppercase tracking-tighter">{title}</h1>
         <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
           {description}
         </p>

@@ -2,11 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
-import {
-  digitalProductFiles,
-  orderItems,
-  orders,
-} from "@/lib/db/schema";
+import { digitalProductFiles, orderItems, orders } from "@/lib/db/schema";
 import { getDigitalProductFileObject } from "@/lib/storage/digital-products";
 import { getCurrentUser } from "@/lib/auth/session";
 
@@ -64,12 +60,7 @@ export async function GET(request: Request, { params }: DownloadRouteProps) {
     })
     .from(digitalProductFiles)
     .innerJoin(orderItems, eq(orderItems.productId, digitalProductFiles.productId))
-    .where(
-      and(
-        eq(orderItems.orderId, order.id),
-        eq(digitalProductFiles.id, fileId),
-      ),
-    )
+    .where(and(eq(orderItems.orderId, order.id), eq(digitalProductFiles.id, fileId)))
     .limit(1);
 
   if (!file) {
@@ -80,10 +71,7 @@ export async function GET(request: Request, { params }: DownloadRouteProps) {
   const body = object.Body;
 
   if (!body || !("transformToWebStream" in body)) {
-    return NextResponse.json(
-      { error: "File could not be loaded." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "File could not be loaded." }, { status: 500 });
   }
 
   return new Response(body.transformToWebStream(), {

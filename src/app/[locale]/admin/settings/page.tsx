@@ -41,9 +41,7 @@ const SETTINGS_SECTIONS = [
   },
 ] as const;
 
-export default async function AdminSettingsPage({
-  params,
-}: AdminSettingsPageProps) {
+export default async function AdminSettingsPage({ params }: AdminSettingsPageProps) {
   const { locale } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
 
@@ -55,9 +53,7 @@ export default async function AdminSettingsPage({
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl px-4 py-16">
       <div className="mb-8 flex items-end justify-between gap-4 border-b border-black pb-4">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter">
-            Settings
-          </h1>
+          <h1 className="text-4xl font-black uppercase tracking-tighter">Settings</h1>
           <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
             Admin configuration
           </p>

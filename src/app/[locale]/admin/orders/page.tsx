@@ -31,12 +31,7 @@ type AdminOrdersPageProps = {
 };
 
 const ORDERS_PER_PAGE = 12;
-const paymentStatusOptions: PaymentStatus[] = [
-  "pending",
-  "paid",
-  "failed",
-  "refunded",
-];
+const paymentStatusOptions: PaymentStatus[] = ["pending", "paid", "failed", "refunded"];
 const fulfillmentStatusOptions: FulfillmentStatus[] = [
   "new",
   "processing",
@@ -73,10 +68,7 @@ export default async function AdminOrdersPage({
   await markStaleNetopiaOrdersFailed();
 
   const filters = await searchParams;
-  const requestedPage = Math.max(
-    Number.parseInt(filters.page ?? "1", 10) || 1,
-    1,
-  );
+  const requestedPage = Math.max(Number.parseInt(filters.page ?? "1", 10) || 1, 1);
   const searchTerm = filters.q?.trim() ?? "";
   const paymentStatus = getPaymentStatus(filters.paymentStatus);
   const fulfillmentStatus = getFulfillmentStatus(filters.fulfillmentStatus);
@@ -85,9 +77,7 @@ export default async function AdminOrdersPage({
   const parsedOrderNumber = Number.parseInt(searchNumber, 10);
   const conditions = [
     paymentStatus ? eq(orders.paymentStatus, paymentStatus) : undefined,
-    fulfillmentStatus
-      ? eq(orders.fulfillmentStatus, fulfillmentStatus)
-      : undefined,
+    fulfillmentStatus ? eq(orders.fulfillmentStatus, fulfillmentStatus) : undefined,
     paymentMethod ? eq(orders.paymentMethod, paymentMethod) : undefined,
     searchTerm
       ? or(
@@ -146,9 +136,7 @@ export default async function AdminOrdersPage({
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl px-4 py-16">
       <div className="mb-8 flex items-end justify-between gap-4 border-b border-black pb-4">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter">
-            Orders
-          </h1>
+          <h1 className="text-4xl font-black uppercase tracking-tighter">Orders</h1>
           <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
             Order Management
           </p>
@@ -226,9 +214,7 @@ export default async function AdminOrdersPage({
                 asChild
                 className="rounded-none bg-black text-xs font-bold uppercase tracking-widest text-white hover:bg-slate-900"
               >
-                <Link href={`/${activeLocale}/admin/orders/${order.id}`}>
-                  Details
-                </Link>
+                <Link href={`/${activeLocale}/admin/orders/${order.id}`}>Details</Link>
               </Button>
             </div>
           ))
@@ -256,9 +242,7 @@ export default async function AdminOrdersPage({
               currentPage >= totalPages ? "pointer-events-none opacity-50" : ""
             }`}
           >
-            <Link href={pageHref(Math.min(currentPage + 1, totalPages))}>
-              Next
-            </Link>
+            <Link href={pageHref(Math.min(currentPage + 1, totalPages))}>Next</Link>
           </Button>
         </nav>
       )}

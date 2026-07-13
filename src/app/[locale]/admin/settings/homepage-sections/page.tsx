@@ -14,9 +14,9 @@ export const metadata: Metadata = {
   title: "Homepage Section Settings",
 };
 
-type HomepageSectionsSettingsPageProps = {
-  params: Promise<{ locale: string }>;
-};
+type HomepageSectionsSettingsPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string }>>;
+}>;
 
 export default async function HomepageSectionsSettingsPage({
   params,

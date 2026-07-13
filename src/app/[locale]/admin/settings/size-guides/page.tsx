@@ -12,9 +12,9 @@ export const metadata: Metadata = {
   title: "Size Guide Settings",
 };
 
-type SizeGuideSettingsPageProps = {
-  params: Promise<{ locale: string }>;
-};
+type SizeGuideSettingsPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string }>>;
+}>;
 
 export default async function SizeGuideSettingsPage({
   params,

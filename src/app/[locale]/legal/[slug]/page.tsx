@@ -2,12 +2,12 @@ import { getLegalDocBySlug } from "@/lib/cms/markdown";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
-interface LegalPageProps {
-  params: Promise<{
+type LegalPageProps = Readonly<{
+  params: Promise<Readonly<{
     slug: string;
     locale: string;
-  }>;
-}
+  }>>;
+}>;
 
 export async function generateMetadata({ params }: LegalPageProps): Promise<Metadata> {
   const { slug, locale } = await params;

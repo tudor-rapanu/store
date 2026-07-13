@@ -22,12 +22,12 @@ import {
 import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImageSrcs } from "@/lib/product-images";
 
-type ProductPageProps = {
-  params: Promise<{
+type ProductPageProps = Readonly<{
+  params: Promise<Readonly<{
     locale: string;
     slug: string;
-  }>;
-};
+  }>>;
+}>;
 
 function toIsoString(value?: Date | string | null) {
   if (!value) {

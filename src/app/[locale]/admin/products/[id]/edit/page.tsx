@@ -19,12 +19,12 @@ import {
 import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImagePaths, getProductImageSrc } from "@/lib/product-images";
 
-type EditProductPageProps = {
-  params: Promise<{
+type EditProductPageProps = Readonly<{
+  params: Promise<Readonly<{
     locale: string;
     id: string;
-  }>;
-};
+  }>>;
+}>;
 
 export async function generateMetadata({
   params,

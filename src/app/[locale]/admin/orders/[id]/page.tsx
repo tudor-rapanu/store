@@ -20,9 +20,9 @@ import {
   getEffectiveVariantPrice,
 } from "@/lib/product-pricing";
 
-type AdminOrderPageProps = {
-  params: Promise<{ locale: string; id: string }>;
-};
+type AdminOrderPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string; id: string }>>;
+}>;
 
 export async function generateMetadata({
   params,

@@ -9,11 +9,11 @@ export const metadata: Metadata = {
   title: "New Product",
 };
 
-type NewProductPageProps = {
-  params: Promise<{
+type NewProductPageProps = Readonly<{
+  params: Promise<Readonly<{
     locale: string;
-  }>;
-};
+  }>>;
+}>;
 
 export default async function NewProductPage({ params }: NewProductPageProps) {
   const { locale } = await params;

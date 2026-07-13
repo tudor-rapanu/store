@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   title: "Homepage Slider Settings",
 };
 
-type HomepageSlidersSettingsPageProps = {
-  params: Promise<{ locale: string }>;
-};
+type HomepageSlidersSettingsPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string }>>;
+}>;
 
 export default async function HomepageSlidersSettingsPage({
   params,

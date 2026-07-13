@@ -25,10 +25,10 @@ export const metadata: Metadata = {
   title: "My Account",
 };
 
-type AccountPageProps = {
-  params: Promise<{ locale: string }>;
-  searchParams: Promise<{ saved?: string; profileDeleted?: string }>;
-};
+type AccountPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string }>>;
+  searchParams: Promise<Readonly<{ saved?: string; profileDeleted?: string }>>;
+}>;
 
 export default async function AccountPage({ params, searchParams }: AccountPageProps) {
   const { locale } = await params;

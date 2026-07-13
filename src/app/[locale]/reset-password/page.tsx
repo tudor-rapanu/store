@@ -8,14 +8,14 @@ export const metadata: Metadata = {
 export default async function ResetPasswordPage({
   params,
   searchParams,
-}: {
-  params: Promise<{ locale: "en" | "ro" }>;
-  searchParams: Promise<{
+}: Readonly<{
+  params: Promise<Readonly<{ locale: "en" | "ro" }>>;
+  searchParams: Promise<Readonly<{
     token?: string;
     code?: string;
     resetToken?: string;
-  }>;
-}) {
+  }>>;
+}>) {
   const { locale } = await params;
   const { token, code, resetToken } = await searchParams;
   const passwordResetToken = token ?? code ?? resetToken ?? "";

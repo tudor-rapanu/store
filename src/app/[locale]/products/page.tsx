@@ -14,14 +14,14 @@ export const metadata: Metadata = {
   title: "Products",
 };
 
-type ProductsPageProps = {
-  params: Promise<{
+type ProductsPageProps = Readonly<{
+  params: Promise<Readonly<{
     locale: string;
-  }>;
-  searchParams: Promise<{
+  }>>;
+  searchParams: Promise<Readonly<{
     page?: string;
-  }>;
-};
+  }>>;
+}>;
 
 function getCurrentPage(pageParam?: string) {
   return Math.max(Number.parseInt(pageParam ?? "1", 10) || 1, 1);

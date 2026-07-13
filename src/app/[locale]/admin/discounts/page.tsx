@@ -17,9 +17,9 @@ export const metadata: Metadata = {
   title: "Admin Discounts",
 };
 
-type AdminDiscountsPageProps = {
-  params: Promise<{ locale: string }>;
-};
+type AdminDiscountsPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string }>>;
+}>;
 
 function toIsoString(value?: Date | string | null) {
   if (!value) {

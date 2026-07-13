@@ -14,15 +14,15 @@ import { getCurrencyPresentation } from "@/lib/currency/display";
 import { getCatalogAutomaticDiscountPrices } from "@/lib/discounts";
 import { getTranslatedText } from "@/lib/i18n/text";
 
-type CategoryPageProps = {
-  params: Promise<{
+type CategoryPageProps = Readonly<{
+  params: Promise<Readonly<{
     locale: string;
     slug: string;
-  }>;
-  searchParams: Promise<{
+  }>>;
+  searchParams: Promise<Readonly<{
     page?: string;
-  }>;
-};
+  }>>;
+}>;
 
 export async function generateMetadata({
   params,

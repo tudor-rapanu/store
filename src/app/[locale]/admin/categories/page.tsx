@@ -13,11 +13,11 @@ export const metadata: Metadata = {
   title: "Admin Categories",
 };
 
-type AdminCategoriesPageProps = {
-  params: Promise<{
+type AdminCategoriesPageProps = Readonly<{
+  params: Promise<Readonly<{
     locale: string;
-  }>;
-};
+  }>>;
+}>;
 
 export default async function AdminCategoriesPage({
   params,

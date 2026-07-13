@@ -17,10 +17,10 @@ import {
 import { formatFulfillmentEstimate } from "@/lib/fulfillment/estimate";
 import { getCurrentUser } from "@/lib/auth/session";
 
-type PublicOrderPageProps = {
-  params: Promise<{ locale: string; orderNumber: string }>;
-  searchParams: Promise<{ token?: string }>;
-};
+type PublicOrderPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string; orderNumber: string }>>;
+  searchParams: Promise<Readonly<{ token?: string }>>;
+}>;
 
 export async function generateMetadata({
   params,

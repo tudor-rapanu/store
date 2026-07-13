@@ -4,10 +4,10 @@ import type { Metadata } from "next";
 import { getCurrencyPresentation } from "@/lib/currency/display";
 import { getCatalogAutomaticDiscountPrices } from "@/lib/discounts";
 
-interface SearchPageProps {
-  params: Promise<{ locale: "en" | "ro" }>;
-  searchParams: Promise<{ q?: string }>;
-}
+type SearchPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: "en" | "ro" }>>;
+  searchParams: Promise<Readonly<{ q?: string }>>;
+}>;
 
 export async function generateMetadata({
   searchParams,

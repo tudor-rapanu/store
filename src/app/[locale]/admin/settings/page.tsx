@@ -9,9 +9,9 @@ export const metadata: Metadata = {
   title: "Admin Settings",
 };
 
-type AdminSettingsPageProps = {
-  params: Promise<{ locale: string }>;
-};
+type AdminSettingsPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string }>>;
+}>;
 
 const SETTINGS_SECTIONS = [
   {

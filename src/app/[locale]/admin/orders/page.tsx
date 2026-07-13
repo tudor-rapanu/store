@@ -19,16 +19,16 @@ export const metadata: Metadata = {
   title: "Admin Orders",
 };
 
-type AdminOrdersPageProps = {
-  params: Promise<{ locale: string }>;
-  searchParams: Promise<{
+type AdminOrdersPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string }>>;
+  searchParams: Promise<Readonly<{
     page?: string;
     q?: string;
     paymentStatus?: string;
     fulfillmentStatus?: string;
     paymentMethod?: string;
-  }>;
-};
+  }>>;
+}>;
 
 const ORDERS_PER_PAGE = 12;
 const paymentStatusOptions: PaymentStatus[] = ["pending", "paid", "failed", "refunded"];

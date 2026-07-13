@@ -7,9 +7,9 @@ export const metadata: Metadata = {
 
 export default async function ForgotPasswordPage({
   params,
-}: {
-  params: Promise<{ locale: "en" | "ro" }>;
-}) {
+}: Readonly<{
+  params: Promise<Readonly<{ locale: "en" | "ro" }>>;
+}>) {
   const { locale } = await params;
 
   return (

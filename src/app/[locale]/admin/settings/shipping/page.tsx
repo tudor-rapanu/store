@@ -11,9 +11,9 @@ export const metadata: Metadata = {
   title: "Shipping Settings",
 };
 
-type ShippingSettingsPageProps = {
-  params: Promise<{ locale: string }>;
-};
+type ShippingSettingsPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string }>>;
+}>;
 
 export default async function ShippingSettingsPage({
   params,

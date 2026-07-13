@@ -1,10 +1,21 @@
+create or replace function public.role_is_admin(role_value text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select upper(coalesce(role_value, '')) = 'ADMIN';
+$$;
+
+grant execute on function public.role_is_admin(text) to anon, authenticated;
+
 create or replace function public.jwt_is_admin()
 returns boolean
 language sql
 stable
 set search_path = ''
 as $$
-  select coalesce(upper(auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN', false);
+  select public.role_is_admin(auth.jwt() -> 'app_metadata' ->> 'role');
 $$;
 
 grant execute on function public.jwt_is_admin() to anon, authenticated;

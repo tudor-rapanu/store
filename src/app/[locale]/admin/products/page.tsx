@@ -20,15 +20,15 @@ export const metadata: Metadata = {
   title: "Admin Products",
 };
 
-type AdminProductsPageProps = {
-  params: Promise<{
+type AdminProductsPageProps = Readonly<{
+  params: Promise<Readonly<{
     locale: string;
-  }>;
-  searchParams: Promise<{
+  }>>;
+  searchParams: Promise<Readonly<{
     page?: string;
     q?: string;
-  }>;
-};
+  }>>;
+}>;
 
 const PRODUCTS_PER_PAGE = 10;
 

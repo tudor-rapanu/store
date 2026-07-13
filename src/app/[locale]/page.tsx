@@ -45,11 +45,11 @@ const homeCopy = {
   },
 } as const;
 
-type PageProps = {
-  params: Promise<{
+type PageProps = Readonly<{
+  params: Promise<Readonly<{
     locale: string;
-  }>;
-};
+  }>>;
+}>;
 
 const HOME_DATA_TIMEOUT_MS = 5000;
 

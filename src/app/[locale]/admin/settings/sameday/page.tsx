@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   title: "Sameday Settings",
 };
 
-type SamedaySettingsPageProps = {
-  params: Promise<{ locale: string }>;
-};
+type SamedaySettingsPageProps = Readonly<{
+  params: Promise<Readonly<{ locale: string }>>;
+}>;
 
 export default async function SamedaySettingsPage({
   params,

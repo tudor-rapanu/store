@@ -13,9 +13,9 @@ export const metadata: Metadata = {
 
 export default async function CheckoutPage({
   params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+}: Readonly<{
+  params: Promise<Readonly<{ locale: string }>>;
+}>) {
   const { locale } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
   const user = await getCurrentUser();

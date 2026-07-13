@@ -5,7 +5,7 @@ stable
 set search_path = ''
 as $$
   select
-    coalesce(upper(auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN', false)
+    public.role_is_admin(auth.jwt() -> 'app_metadata' ->> 'role')
     or exists (
       select 1
       from jsonb_array_elements_text(
@@ -15,7 +15,7 @@ as $$
           else '[]'::jsonb
         end
       ) as role(value)
-      where upper(role.value) = 'ADMIN'
+      where public.role_is_admin(role.value)
     );
 $$;
 

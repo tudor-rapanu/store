@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { asc } from "drizzle-orm";
 
 import { SamedayLocationSync } from "@/components/settings/SamedayLocationSync";
-import { Button } from "@/components/ui/button";
+import { SettingsPageHeader } from "@/components/settings/SettingsPageHeader";
 import { isAdminUser } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { samedayCounties } from "@/lib/db/schema";
@@ -38,23 +37,11 @@ export default async function SamedaySettingsPage({
 
   return (
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl px-4 py-16">
-      <div className="mb-8 flex items-end justify-between gap-4 border-b border-black pb-4">
-        <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter">
-            Sameday Settings
-          </h1>
-          <p className="text-sm font-bold uppercase tracking-widest text-slate-500">
-            Location cache and sync tools
-          </p>
-        </div>
-        <Button
-          asChild
-          variant="outline"
-          className="rounded-none border-black text-xs font-bold uppercase tracking-widest"
-        >
-          <Link href={`/${activeLocale}/admin/settings`}>Back to Settings</Link>
-        </Button>
-      </div>
+      <SettingsPageHeader
+        activeLocale={activeLocale}
+        title="Sameday Settings"
+        description="Location cache and sync tools"
+      />
 
       <SamedayLocationSync
         countyCount={summary.countyCount || counties.length}

@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 
 import { AdminOrderEditor } from "@/components/order/AdminOrderEditor";
 import { AdminOrderItemsManager } from "@/components/order/AdminOrderItemsManager";
+import { OrderAmountSummary } from "@/components/order/OrderAmountSummary";
 import { SamedayAwbPanel } from "@/components/order/SamedayAwbPanel";
 import { StatusBadge } from "@/components/order/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -230,16 +231,14 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
               <span>Status:</span>
               <StatusBadge value={order.paymentStatus} className="py-1" />
             </div>
-            <p>Subtotal: {(order.subtotalAmount / 100).toFixed(2)} RON</p>
-            {order.discountAmount > 0 && (
-              <p>Discount: -{(order.discountAmount / 100).toFixed(2)} RON</p>
-            )}
-            <p>Shipping: {(order.shippingAmount / 100).toFixed(2)} RON</p>
-            <p>Total: {(order.totalAmount / 100).toFixed(2)} RON</p>
-            <p>
-              Payment: {((order.paymentAmount ?? order.totalAmount) / 100).toFixed(2)}{" "}
-              {order.paymentCurrency}
-            </p>
+            <OrderAmountSummary
+              subtotalAmount={order.subtotalAmount}
+              discountAmount={order.discountAmount}
+              shippingAmount={order.shippingAmount}
+              totalAmount={order.totalAmount}
+              paymentAmount={order.paymentAmount}
+              paymentCurrency={order.paymentCurrency}
+            />
             {estimatedShippingWindow && (
               <p>Estimated shipping: {estimatedShippingWindow}</p>
             )}

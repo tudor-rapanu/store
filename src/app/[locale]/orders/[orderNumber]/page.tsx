@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 import { CancelOrderButton } from "@/components/order/CancelOrderButton";
+import { OrderAmountSummary } from "@/components/order/OrderAmountSummary";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import {
@@ -222,16 +223,14 @@ export default async function PublicOrderPage({
           </InfoBox>
 
           <InfoBox title="Summary">
-            <p>Subtotal: {(order.subtotalAmount / 100).toFixed(2)} RON</p>
-            {order.discountAmount > 0 && (
-              <p>Discount: -{(order.discountAmount / 100).toFixed(2)} RON</p>
-            )}
-            <p>Shipping: {(order.shippingAmount / 100).toFixed(2)} RON</p>
-            <p>Total: {(order.totalAmount / 100).toFixed(2)} RON</p>
-            <p>
-              Payment: {((order.paymentAmount ?? order.totalAmount) / 100).toFixed(2)}{" "}
-              {order.paymentCurrency}
-            </p>
+            <OrderAmountSummary
+              subtotalAmount={order.subtotalAmount}
+              discountAmount={order.discountAmount}
+              shippingAmount={order.shippingAmount}
+              totalAmount={order.totalAmount}
+              paymentAmount={order.paymentAmount}
+              paymentCurrency={order.paymentCurrency}
+            />
             <p>Payment method: {order.paymentMethod.replaceAll("_", " ")}</p>
             {estimatedShippingWindow && (
               <p>Estimated shipping: {estimatedShippingWindow}</p>

@@ -2,22 +2,32 @@ import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-const [, , testFile, ...flags] = process.argv;
+const [, , profileName, ...flags] = process.argv;
 
-if (!testFile) {
-  console.error("Usage: node scripts/run-artillery-docker.mjs tests/load/read-only.yml [--report]");
+if (!profileName) {
+  console.error("Usage: node scripts/run-artillery-docker.mjs <profile> [--report]");
   process.exit(1);
 }
 
 const repoRoot = process.cwd();
 const loadDir = path.join(repoRoot, "tests", "load");
 const resultsDir = path.join(repoRoot, "artillery-results");
-const resolvedTestPath = path.resolve(repoRoot, testFile);
-const testName = path.basename(resolvedTestPath);
 const wantsReport = flags.includes("--report");
 const unknownFlags = flags.filter((flag) => flag !== "--report");
 
 const FIXED_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin";
+const ARTILLERY_DOCKER_IMAGE = "node:22-alpine";
+const ARTILLERY_VERSION = "2.0.33";
+const LOAD_TEST_PROFILES = {
+  smoke: "read-only.yml",
+  baseline: "baseline.yml",
+  flow: "storefront-flow.yml",
+  spike: "spike.yml",
+  stress: "stress.yml",
+  "stress-catalog": "stress-catalog.yml",
+  "stress-api": "stress-api.yml",
+  "stress-mixed": "stress-mixed-realistic.yml",
+};
 const DOCKER_BINARY_CANDIDATES = [
   "/usr/local/bin/docker",
   "/opt/homebrew/bin/docker",
@@ -58,49 +68,39 @@ function validateTarget(value) {
   }
 }
 
-function validateDockerImage(value) {
-  if (!/^[a-z0-9][a-z0-9._/-]*(?::[a-z0-9._-]+)?$/i.test(value)) {
-    fail("ARTILLERY_DOCKER_IMAGE contains invalid characters.");
+function resolveProfile(name) {
+  if (!/^[a-z0-9-]+$/i.test(name)) {
+    fail("Load-test profile contains invalid characters.");
   }
 
-  return value;
-}
+  const testName = LOAD_TEST_PROFILES[name];
 
-function validatePackageVersion(value) {
-  if (!/^\d+\.\d+\.\d+(?:[-+][a-z0-9.-]+)?$/i.test(value)) {
-    fail("ARTILLERY_VERSION must be an exact npm package version.");
+  if (!testName) {
+    fail(
+      `Unknown load-test profile "${name}". Allowed profiles: ${Object.keys(
+        LOAD_TEST_PROFILES,
+      ).join(", ")}`,
+    );
   }
 
-  return value;
-}
+  const resolvedTestPath = path.join(loadDir, testName);
 
-if (path.dirname(resolvedTestPath) !== loadDir) {
-  console.error("Artillery test files must live in tests/load.");
-  process.exit(1);
+  if (!existsSync(resolvedTestPath)) {
+    fail(`Artillery test file does not exist: ${resolvedTestPath}`);
+  }
+
+  return testName;
 }
 
 if (unknownFlags.length > 0) {
-  console.error(`Unsupported Artillery runner flags: ${unknownFlags.join(", ")}`);
-  process.exit(1);
+  fail(`Unsupported Artillery runner flags: ${unknownFlags.join(", ")}`);
 }
 
-if (!/^[a-z0-9._-]+\.ya?ml$/i.test(testName)) {
-  console.error("Artillery test file names may only contain letters, numbers, dots, underscores, and hyphens.");
-  process.exit(1);
-}
-
-if (!existsSync(resolvedTestPath)) {
-  console.error(`Artillery test file does not exist: ${testFile}`);
-  process.exit(1);
-}
+const testName = resolveProfile(profileName);
 
 mkdirSync(resultsDir, { recursive: true });
 
 const dockerBinary = resolveDockerBinary();
-const image = validateDockerImage(
-  process.env.ARTILLERY_DOCKER_IMAGE || "node:22-alpine",
-);
-const version = validatePackageVersion(process.env.ARTILLERY_VERSION || "2.0.33");
 const target = validateTarget(
   process.env.LOAD_TARGET ||
     process.env.ARTILLERY_TARGET ||
@@ -129,7 +129,7 @@ const dockerBaseArgs = [
   "NO_UPDATE_NOTIFIER=1",
   "-e",
   "ARTILLERY_DISABLE_TELEMETRY=true",
-  image,
+  ARTILLERY_DOCKER_IMAGE,
 ];
 
 const childEnv = {
@@ -155,7 +155,7 @@ const runResult = runDocker([
   "npm",
   "--yes",
   "exec",
-  `artillery@${version}`,
+  `artillery@${ARTILLERY_VERSION}`,
   "--",
   "run",
   "--target",
@@ -176,7 +176,7 @@ const reportResult = runDocker([
   "npm",
   "--yes",
   "exec",
-  `artillery@${version}`,
+  `artillery@${ARTILLERY_VERSION}`,
   "--",
   "report",
   reportJson,

@@ -9,6 +9,7 @@ import {
   jsonb,
   primaryKey,
   index,
+  uniqueIndex,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -220,6 +221,7 @@ export const orders = pgTable(
     orderNumber: serial("order_number").unique().notNull(),
     userId: text("user_id"),
     accessToken: text("access_token").unique().notNull(),
+    checkoutIdempotencyKey: text("checkout_idempotency_key"),
     customerEmail: text("customer_email").notNull(),
     customerFirstName: text("customer_first_name").notNull(),
     customerLastName: text("customer_last_name").notNull(),
@@ -263,6 +265,7 @@ export const orders = pgTable(
       .$type<PaymentStatus>()
       .default("pending")
       .notNull(),
+    paymentUrl: text("payment_url"),
     fulfillmentStatus: text("fulfillment_status")
       .$type<FulfillmentStatus>()
       .default("new")
@@ -290,6 +293,9 @@ export const orders = pgTable(
     index("orders_payment_method_idx").on(table.paymentMethod),
     index("orders_customer_email_idx").on(table.customerEmail),
     index("orders_awb_number_idx").on(table.awbNumber),
+    uniqueIndex("orders_checkout_idempotency_key_uidx").on(
+      table.checkoutIdempotencyKey,
+    ),
   ],
 );
 

@@ -1,5 +1,8 @@
 import { Resend } from "resend";
+import AdminOrderEmail from "@/components/emails/AdminOrderEmail";
+import InvoiceEmail from "@/components/emails/InvoiceEmail";
 import OrderConfirmationEmail from "@/components/emails/OrderConfirmation";
+import TrackingEmail from "@/components/emails/TrackingEmail";
 import {
   formatFulfillmentEstimate,
   type FulfillmentEstimate,
@@ -76,21 +79,18 @@ export async function sendAdminOrderEmail({
       return;
     }
 
-    const formattedTotal = (totalAmount / 100).toFixed(2);
     const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM ?? "no-reply@example.com",
       to: adminEmail,
       subject: `New Order Created: Todd's Threads #${orderId}`,
-      text: [
-        `New order ${orderId} was created.`,
-        `Customer: ${customerName}`,
-        `Email: ${customerEmail}`,
-        `Payment method: ${paymentMethod.replace("_", " ")}`,
-        `Total: ${formattedTotal} RON`,
-        adminOrderUrl ? `Admin link: ${adminOrderUrl}` : undefined,
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      react: AdminOrderEmail({
+        orderId,
+        customerName,
+        customerEmail,
+        totalAmount,
+        paymentMethod,
+        adminOrderUrl,
+      }),
     });
 
     if (error) console.error("Resend Admin Email Error:", error);
@@ -121,19 +121,51 @@ export async function sendTrackingEmail({
       from: process.env.EMAIL_FROM ?? "no-reply@example.com",
       to: email,
       subject: `Your Todd's Threads order #${orderId} has shipped`,
-      text: [
-        `Hi ${customerName},`,
-        "",
-        `Your order #${orderId} has shipped.`,
-        `Track it here: ${trackingUrl}`,
-        "",
-        "Todd's Threads",
-      ].join("\n"),
+      react: TrackingEmail({
+        customerName,
+        orderId,
+        trackingUrl,
+      }),
     });
 
     if (error) console.error("Resend Tracking Email Error:", error);
     return data;
   } catch (error) {
     console.error("Failed to send tracking email:", error);
+  }
+}
+
+export async function sendInvoiceEmail({
+  email,
+  customerName,
+  orderId,
+  invoiceUrl,
+}: {
+  email: string;
+  customerName: string;
+  orderId: string;
+  invoiceUrl: string;
+}) {
+  try {
+    if (!resend) {
+      console.warn("Skipping invoice email because RESEND_API_KEY is not configured.");
+      return;
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM ?? "no-reply@example.com",
+      to: email,
+      subject: `Invoice for Todd's Threads order #${orderId}`,
+      react: InvoiceEmail({
+        customerName,
+        orderId,
+        invoiceUrl,
+      }),
+    });
+
+    if (error) console.error("Resend Invoice Email Error:", error);
+    return data;
+  } catch (error) {
+    console.error("Failed to send invoice email:", error);
   }
 }

@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { getAllCategories, getCategoryOptions } from "@/lib/categories";
 import { db } from "@/lib/db";
 import {
+  getInventorySummaryForProducts,
+  getInventorySummaryKey,
+} from "@/lib/admin/inventory-summary";
+import {
   categories,
   digitalProductFiles,
   productCategories,
@@ -112,6 +116,10 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
   const imageSources = Object.fromEntries(
     imagePaths.map((imagePath) => [imagePath, getProductImageSrc(imagePath, "thumb")]),
   );
+  const inventorySummaryByKey = await getInventorySummaryForProducts([product.id]);
+  const productInventorySummary = inventorySummaryByKey.get(
+    getInventorySummaryKey(product.id),
+  );
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-16 min-h-[calc(100vh-8rem)]">
@@ -136,19 +144,39 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
       <AdminProductForm
         locale={activeLocale}
         product={product}
-        variants={variants.map((variant) => ({
-          dbId: variant.id,
-          name: variant.name ?? "",
-          sku: variant.sku,
-          attributes: variant.attributes,
-          price: (variant.price ?? product.basePrice) / 100,
-          salePrice: variant.salePrice ? variant.salePrice / 100 : null,
-          saleEnabled: variant.saleEnabled,
-          saleStartsAt: variant.saleStartsAt,
-          saleEndsAt: variant.saleEndsAt,
-          trackStock: variant.trackStock,
-          stock: variant.stock,
-        }))}
+        inventorySummary={
+          product.trackStock
+            ? {
+                reserved: productInventorySummary?.reserved ?? 0,
+                paid: productInventorySummary?.paid ?? 0,
+              }
+            : undefined
+        }
+        variants={variants.map((variant) => {
+          const variantInventorySummary = inventorySummaryByKey.get(
+            getInventorySummaryKey(product.id, variant.id),
+          );
+
+          return {
+            dbId: variant.id,
+            name: variant.name ?? "",
+            sku: variant.sku,
+            attributes: variant.attributes,
+            price: (variant.price ?? product.basePrice) / 100,
+            salePrice: variant.salePrice ? variant.salePrice / 100 : null,
+            saleEnabled: variant.saleEnabled,
+            saleStartsAt: variant.saleStartsAt,
+            saleEndsAt: variant.saleEndsAt,
+            trackStock: variant.trackStock,
+            stock: variant.stock,
+            inventorySummary: variant.trackStock
+              ? {
+                  reserved: variantInventorySummary?.reserved ?? 0,
+                  paid: variantInventorySummary?.paid ?? 0,
+                }
+              : undefined,
+          };
+        })}
         imagePaths={imagePaths}
         imageSources={imageSources}
         categories={linkedCategories.map(

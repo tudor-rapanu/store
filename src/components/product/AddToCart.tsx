@@ -5,24 +5,18 @@ import { capturePostHog } from "@/lib/analytics/posthog-client";
 import { useCart } from "@/lib/store/useCart";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { formatEur, formatRon } from "@/lib/currency/format";
 import {
   getProductPricePresentation,
   getVariantPricePresentation,
 } from "@/lib/product-pricing";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface Variant {
   id: string;
   name?: string | null;
   sku: string;
-  attributes: Record<string, string>;
+  attributes: Record<string, string> | string;
   price?: number | null;
   salePrice?: number | null;
   saleEnabled?: boolean | null;
@@ -48,13 +42,52 @@ interface AddToCartProps {
     stock?: number | null;
   };
   variants: Variant[];
+  locale?: "en" | "ro";
   displayCurrency?: "RON" | "EUR";
   ronToEurRate?: number;
+}
+
+function getStockLabel(
+  stock: number | null | undefined,
+  locale: "en" | "ro",
+) {
+  const availableStock = Math.max(stock ?? 0, 0);
+
+  if (availableStock <= 0) {
+    return locale === "ro" ? "Stoc epuizat" : "Out of stock";
+  }
+
+  return locale === "ro"
+    ? `${availableStock} in stoc`
+    : `${availableStock} in stock`;
+}
+
+function getVariantAttributes(variant: Variant) {
+  if (typeof variant.attributes !== "string") {
+    return variant.attributes;
+  }
+
+  try {
+    const parsed = JSON.parse(variant.attributes) as unknown;
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  } catch {
+    return {};
+  }
 }
 
 export function AddToCart({
   product,
   variants,
+  locale = "en",
   displayCurrency = "RON",
   ronToEurRate = 0.2,
 }: AddToCartProps) {
@@ -65,13 +98,23 @@ export function AddToCart({
   const simpleProductOutOfStock =
     isSimpleProduct && Boolean(product.trackStock) && (product.stock ?? 0) <= 0;
 
-  const attributeKeys = Object.keys(variants[0]?.attributes || {});
+  const attributeKeys = Object.keys(
+    variants.reduce<Record<string, string>>(
+      (attributes, variant) => ({
+        ...attributes,
+        ...getVariantAttributes(variant),
+      }),
+      {},
+    ),
+  );
   const hasSelectedAllAttributes = attributeKeys.every((key) =>
     Boolean(selectedAttrs[key]),
   );
   const selectedVariant = hasSelectedAllAttributes
     ? variants.find((v) =>
-        Object.entries(selectedAttrs).every(([key, val]) => v.attributes[key] === val),
+        Object.entries(selectedAttrs).every(
+          ([key, val]) => getVariantAttributes(v)[key] === val,
+        ),
       )
     : undefined;
 
@@ -81,6 +124,18 @@ export function AddToCart({
   const finalPrice = pricePresentation.effectivePrice;
   const selectedVariantOutOfStock =
     Boolean(selectedVariant?.trackStock) && (selectedVariant?.stock ?? 0) <= 0;
+  const productStockLabel =
+    isSimpleProduct && product.trackStock
+      ? getStockLabel(product.stock, locale)
+      : null;
+  const selectedVariantStockLabel =
+    !isSimpleProduct && selectedVariant?.trackStock
+      ? getStockLabel(selectedVariant.stock, locale)
+      : null;
+  const stockLabel = productStockLabel ?? selectedVariantStockLabel;
+  const stockIsOut =
+    simpleProductOutOfStock ||
+    Boolean(selectedVariantStockLabel && selectedVariantOutOfStock);
   const displayPrice =
     displayCurrency === "EUR"
       ? formatEur(finalPrice, ronToEurRate)
@@ -89,6 +144,40 @@ export function AddToCart({
     displayCurrency === "EUR"
       ? formatEur(pricePresentation.regularPrice, ronToEurRate)
       : formatRon(pricePresentation.regularPrice);
+
+  function getVariantOptionStockState(attributeKey: string, value: string) {
+    const matchingVariants = variants.filter((variant) => {
+      const attributes = getVariantAttributes(variant);
+
+      if (attributes[attributeKey] !== value) {
+        return false;
+      }
+
+      return Object.entries(selectedAttrs).every(
+        ([selectedKey, selectedValue]) =>
+          selectedKey === attributeKey ||
+          !selectedValue ||
+          attributes[selectedKey] === selectedValue,
+      );
+    });
+    const trackedVariants = matchingVariants.filter((variant) =>
+      Boolean(variant.trackStock),
+    );
+
+    if (trackedVariants.length === 0) {
+      return null;
+    }
+
+    const optionStock = trackedVariants.reduce(
+      (totalStock, variant) => totalStock + Math.max(variant.stock ?? 0, 0),
+      0,
+    );
+
+    return {
+      isOutOfStock: optionStock <= 0,
+      label: getStockLabel(optionStock, locale),
+    };
+  }
 
   const handleAdd = () => {
     if (simpleProductOutOfStock || selectedVariantOutOfStock) {
@@ -153,28 +242,55 @@ export function AddToCart({
               <Label className="uppercase tracking-widest text-xs font-bold">
                 {key}
               </Label>
-              <Select
-                onValueChange={(val: string) =>
-                  setSelectedAttrs({ ...selectedAttrs, [key]: val })
-                }
-              >
-                <SelectTrigger className="rounded-none border-black">
-                  <SelectValue placeholder={`SELECT ${key.toUpperCase()}`} />
-                </SelectTrigger>
-                <SelectContent className="rounded-none border-black">
-                  {Array.from(new Set(variants.map((v) => v.attributes[key]))).map(
-                    (val) => (
-                      <SelectItem
-                        key={val}
-                        value={val}
-                        className="rounded-none uppercase text-xs font-bold"
-                      >
-                        {val}
-                      </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-2 gap-2">
+                {Array.from(
+                  new Set(
+                    variants
+                      .map((variant) => getVariantAttributes(variant)[key])
+                      .filter((value): value is string => Boolean(value)),
+                  ),
+                ).map((val) => {
+                  const optionStock = getVariantOptionStockState(key, val);
+                  const isSelected = selectedAttrs[key] === val;
+
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() =>
+                        setSelectedAttrs({ ...selectedAttrs, [key]: val })
+                      }
+                      className={cn(
+                        "min-h-14 border border-black px-3 py-2 text-left uppercase transition-colors",
+                        isSelected
+                          ? "bg-black text-white"
+                          : "bg-white text-black hover:bg-slate-100",
+                      )}
+                    >
+                      <span className="block text-xs font-black">{val}</span>
+                      {optionStock && (
+                        <span
+                          className={cn(
+                            "mt-1 flex items-center gap-1.5 text-[10px] font-black tracking-widest",
+                            isSelected ? "text-white" : "text-slate-500",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "size-1.5 rounded-full",
+                              optionStock.isOutOfStock
+                                ? "bg-destructive"
+                                : "bg-emerald-500",
+                            )}
+                            aria-hidden="true"
+                          />
+                          {optionStock.label}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ))}
         </div>
@@ -194,6 +310,18 @@ export function AddToCart({
           {displayPrice}
         </span>
       </div>
+
+      {stockLabel && (
+        <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-600">
+          <span
+            className={`size-2 rounded-full ${
+              stockIsOut ? "bg-destructive" : "bg-emerald-500"
+            }`}
+            aria-hidden="true"
+          />
+          <span>{stockLabel}</span>
+        </div>
+      )}
 
       <Button
         onClick={handleAdd}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { eq } from "drizzle-orm";
 
 import { Button } from "@/components/ui/button";
 import { AddToCart } from "@/components/product/AddToCart";
@@ -21,6 +22,8 @@ import {
 } from "@/lib/fulfillment/estimate";
 import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImageSrcs } from "@/lib/product-images";
+import { db } from "@/lib/db";
+import { productVariants, products } from "@/lib/db/schema";
 
 type ProductPageProps = Readonly<{
   params: Promise<Readonly<{
@@ -41,6 +44,40 @@ function toIsoString(value?: Date | string | null) {
   const date = new Date(value);
 
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+async function getFreshStockState(productId: string) {
+  const [productRows, variantRows] = await Promise.all([
+    db
+      .select({
+        trackStock: products.trackStock,
+        stock: products.stock,
+      })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1),
+    db
+      .select({
+        id: productVariants.id,
+        trackStock: productVariants.trackStock,
+        stock: productVariants.stock,
+      })
+      .from(productVariants)
+      .where(eq(productVariants.productId, productId)),
+  ]);
+
+  return {
+    product: productRows[0] ?? null,
+    variants: new Map(
+      variantRows.map((variant) => [
+        variant.id,
+        {
+          trackStock: variant.trackStock,
+          stock: variant.stock,
+        },
+      ]),
+    ),
+  };
 }
 
 export async function generateMetadata({
@@ -74,12 +111,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
     product.preorderEnabled && product.preorderShipDate
       ? formatFulfillmentDate(product.preorderShipDate, activeLocale)
       : null;
-  const [variants, detailBlocks, sizeGuide, currencyPresentation] = await Promise.all([
-    getCachedProductVariants(product.id),
-    getCachedProductDetailBlocks(product.id),
-    getCachedSizeGuideById(product.sizeGuideId),
-    getCurrencyPresentation(),
-  ]);
+  const [variants, detailBlocks, sizeGuide, currencyPresentation, freshStock] =
+    await Promise.all([
+      getCachedProductVariants(product.id),
+      getCachedProductDetailBlocks(product.id),
+      getCachedSizeGuideById(product.sizeGuideId),
+      getCurrencyPresentation(),
+      getFreshStockState(product.id),
+    ]);
 
   return (
     <main className="max-w-7xl mx-auto px-8 py-16">
@@ -140,10 +179,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 saleStartsAt: toIsoString(product.saleStartsAt),
                 saleEndsAt: toIsoString(product.saleEndsAt),
                 isDigital: product.isDigital,
-                trackStock: product.trackStock,
-                stock: product.stock,
+                trackStock: freshStock.product?.trackStock ?? product.trackStock,
+                stock: freshStock.product?.stock ?? product.stock,
               }}
               variants={variants.map((variant) => ({
+                ...variant,
                 id: variant.id,
                 name: variant.name,
                 sku: variant.sku,
@@ -154,9 +194,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 saleStartsAt: toIsoString(variant.saleStartsAt),
                 saleEndsAt: toIsoString(variant.saleEndsAt),
                 priceAdjustment: variant.priceAdjustment,
-                trackStock: variant.trackStock,
-                stock: variant.stock,
+                trackStock:
+                  freshStock.variants.get(variant.id)?.trackStock ??
+                  variant.trackStock,
+                stock: freshStock.variants.get(variant.id)?.stock ?? variant.stock,
               }))}
+              locale={activeLocale}
               displayCurrency={currencyPresentation.displayCurrency}
               ronToEurRate={currencyPresentation.ronToEurRate}
             />

@@ -155,9 +155,21 @@ type CheckoutSubmitContext = {
   discount: CheckoutDiscountPreview["discount"];
   shippingAmount: number;
   orderTotal: number;
+  canSaveProfileAddress: boolean;
   clearCart: () => void;
+  resetCheckoutAttempt: () => void;
   setErrorMessage: (message: string | null) => void;
 };
+
+function getActionStateError(state: unknown) {
+  if (!state || typeof state !== "object" || !("error" in state)) {
+    return null;
+  }
+
+  const error = state.error;
+
+  return typeof error === "string" ? error : null;
+}
 
 function getCheckoutValidationMessage(context: CheckoutSubmitContext) {
   if (
@@ -189,6 +201,10 @@ function getCheckoutValidationMessage(context: CheckoutSubmitContext) {
 
 function getCheckoutLocale() {
   return window.location.pathname.split("/")[1] === "ro" ? "ro" : "en";
+}
+
+function createCheckoutAttemptKey() {
+  return crypto.randomUUID();
 }
 
 function getEasyboxAddress(
@@ -268,6 +284,9 @@ function buildCheckoutCustomerData(
     shippingMethod: context.shippingMethod,
     paymentCurrency: normalizePaymentCurrency(context.paymentCurrency),
     voucherCode: context.voucherCode,
+    saveProfileAddress:
+      context.canSaveProfileAddress && formData.get("saveProfileAddress") === "on",
+    checkoutIdempotencyKey: formData.get("checkoutIdempotencyKey") as string,
   };
 }
 
@@ -305,6 +324,7 @@ async function submitNetopiaCheckout(
     window.location.href = response.url;
   } else if (response?.error) {
     context.setErrorMessage(response.error);
+    context.resetCheckoutAttempt();
   }
 
   return response;
@@ -322,13 +342,16 @@ async function submitBankTransferCheckout(
     context.items,
   );
 
-  if (response?.success) {
+  if ("success" in response && response.success) {
     context.clearCart();
     window.location.href = `/${window.location.pathname.split("/")[1]}/checkout/transfer-instructions`;
   } else {
     context.setErrorMessage(
-      response?.error || "Failed to process bank transfer order.",
+      "error" in response
+        ? response.error
+        : "Failed to process bank transfer order.",
     );
+    context.resetCheckoutAttempt();
   }
 
   return response;
@@ -378,6 +401,7 @@ export function CheckoutForm({
   const [paymentCurrency, setPaymentCurrency] = useState<"RON" | "EUR">(
     initialPaymentCurrency,
   );
+  const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState("");
   const [selectedLocation, setSelectedLocation] = useState<SamedayLocationSelection>({
     countyId: initialCustomer?.address?.samedayCountyId ?? "",
     countyName: initialCustomer?.address?.county ?? "",
@@ -430,6 +454,12 @@ export function CheckoutForm({
   const selectedCountry =
     CHECKOUT_COUNTRIES.find((country) => country.code === countryCode) ??
     CHECKOUT_COUNTRIES.find((country) => country.code === "RO");
+
+  useEffect(() => {
+    if (!checkoutIdempotencyKey) {
+      setCheckoutIdempotencyKey(createCheckoutAttemptKey());
+    }
+  }, [checkoutIdempotencyKey]);
 
   function formatCheckoutAmount(value: number, currency = paymentCurrency) {
     if (currency === "RON") {
@@ -707,13 +737,19 @@ export function CheckoutForm({
         discount: discountPreview.discount,
         shippingAmount,
         orderTotal,
+        canSaveProfileAddress:
+          Boolean(initialCustomer) && !isDigitalOnlyCart && shippingMethod !== "easybox",
         clearCart,
+        resetCheckoutAttempt: () =>
+          setCheckoutIdempotencyKey(createCheckoutAttemptKey()),
         setErrorMessage,
       }),
     null,
   );
+  const stateErrorMessage = getActionStateError(state);
   const isCheckoutDisabled =
     isPending ||
+    !checkoutIdempotencyKey ||
     isApplyingVoucher ||
     (isLoadingShippingProfiles && !isDigitalOnlyCart) ||
     (!activeShippingProfile && !isDigitalOnlyCart);
@@ -742,6 +778,12 @@ export function CheckoutForm({
           action={(formData) => startTransition(() => formAction(formData))}
           className="space-y-8"
         >
+          <input
+            type="hidden"
+            name="checkoutIdempotencyKey"
+            value={checkoutIdempotencyKey}
+            readOnly
+          />
           {/* 1. Contact Information */}
           <section className="space-y-4">
             <h2 className="text-xl font-black uppercase tracking-tighter border-b border-black pb-2">
@@ -891,6 +933,10 @@ export function CheckoutForm({
 
             {!isDigitalOnlyCart && shippingMethod === "easybox" && (
               <div className="p-6 border border-black bg-slate-50 space-y-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  This locker is used only for the current order and will not replace
+                  your saved profile address.
+                </p>
                 {isLoadingLockerConfig ? (
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Loading Sameday map configuration.
@@ -947,6 +993,12 @@ export function CheckoutForm({
             {shippingMethod === "easybox" && (
               <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
                 Mandatory for payment verification and invoicing.
+              </p>
+            )}
+            {shippingMethod !== "easybox" && initialCustomer && (
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                Your saved profile address is used as the default. Changes here apply
+                only to this order unless you choose to save them.
               </p>
             )}
             <div className="space-y-2">
@@ -1023,6 +1075,16 @@ export function CheckoutForm({
                 />
               </div>
             </div>
+            {shippingMethod !== "easybox" && initialCustomer && !isDigitalOnlyCart && (
+              <label className="flex items-start gap-3 border border-black bg-slate-50 p-4 text-xs font-bold uppercase tracking-wider text-slate-700">
+                <input
+                  type="checkbox"
+                  name="saveProfileAddress"
+                  className="mt-1 size-4 shrink-0 accent-black"
+                />
+                <span>Save this delivery address to my profile</span>
+              </label>
+            )}
           </section>
 
           {/* 4. Payment Options */}
@@ -1036,7 +1098,10 @@ export function CheckoutForm({
                 variant={paymentMethod === "netopia" ? "default" : "outline"}
                 className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
                 onClick={() => {
-                  setPaymentMethod("netopia");
+                  if (paymentMethod !== "netopia") {
+                    setPaymentMethod("netopia");
+                    setCheckoutIdempotencyKey(createCheckoutAttemptKey());
+                  }
                   capturePostHog("payment_method_selected", {
                     method: "netopia",
                   });
@@ -1049,7 +1114,10 @@ export function CheckoutForm({
                 variant={paymentMethod === "transfer" ? "default" : "outline"}
                 className="flex-1 h-12 rounded-none border-black uppercase font-bold tracking-widest text-xs"
                 onClick={() => {
-                  setPaymentMethod("transfer");
+                  if (paymentMethod !== "transfer") {
+                    setPaymentMethod("transfer");
+                    setCheckoutIdempotencyKey(createCheckoutAttemptKey());
+                  }
                   capturePostHog("payment_method_selected", {
                     method: "bank_transfer",
                   });
@@ -1067,9 +1135,9 @@ export function CheckoutForm({
           </section>
 
           {/* Error Display */}
-          {(errorMessage || state?.error) && (
+          {(errorMessage || stateErrorMessage) && (
             <div className="text-sm font-bold text-destructive bg-destructive/10 p-4 border border-destructive uppercase tracking-wider">
-              {errorMessage || state?.error}
+              {errorMessage || stateErrorMessage}
             </div>
           )}
         </form>

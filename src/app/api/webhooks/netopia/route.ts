@@ -4,9 +4,14 @@ import { db } from "@/lib/db";
 import { orders, type PaymentCurrency } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { sendOrderEmail } from "@/lib/email";
-import { reduceTrackedStockForPaidOrder } from "@/lib/inventory";
+import {
+  reduceTrackedStockForPaidOrder,
+  releaseTrackedStockForOrder,
+} from "@/lib/inventory";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { checkRequestRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { enqueueInvoiceGenerationTask } from "@/lib/tasks/invoice-generation";
+import { enqueueOrderEmailTask } from "@/lib/tasks/order-email";
 
 type NetopiaWebhookBody = {
   order?: Record<string, unknown>;
@@ -382,20 +387,33 @@ function getPaidOrderUpdate({
 }
 
 function sendFirstPaymentEmail(updatedOrder: typeof orders.$inferSelect) {
-  sendOrderEmail(
-    updatedOrder.customerEmail,
-    updatedOrder.customerFirstName,
-    `TT-${updatedOrder.orderNumber}`,
-    updatedOrder.totalAmount,
-    false,
-    undefined,
-    updatedOrder.estimatedShippingStart && updatedOrder.estimatedShippingEnd
-      ? {
-          start: updatedOrder.estimatedShippingStart,
-          end: updatedOrder.estimatedShippingEnd,
-        }
-      : null,
+  void enqueueOrderEmailTask(
+    { orderId: updatedOrder.id, type: "customer" },
+    () =>
+      sendOrderEmail(
+        updatedOrder.customerEmail,
+        updatedOrder.customerFirstName,
+        `TT-${updatedOrder.orderNumber}`,
+        updatedOrder.totalAmount,
+        false,
+        undefined,
+        updatedOrder.estimatedShippingStart && updatedOrder.estimatedShippingEnd
+          ? {
+              start: updatedOrder.estimatedShippingStart,
+              end: updatedOrder.estimatedShippingEnd,
+            }
+          : null,
+      ),
   );
+}
+
+function queueInvoiceGeneration(updatedOrder: typeof orders.$inferSelect) {
+  void enqueueInvoiceGenerationTask({ orderId: updatedOrder.id }, () => {
+    console.warn("Skipping inline invoice generation because Cloud Tasks is unavailable.", {
+      orderId: updatedOrder.id,
+      orderNumber: updatedOrder.orderNumber,
+    });
+  });
 }
 
 function capturePaymentEvent({
@@ -489,6 +507,7 @@ async function handlePaidPayment({
 
   if (!wasAlreadyPaid) {
     sendFirstPaymentEmail(updatedOrder);
+    queueInvoiceGeneration(updatedOrder);
   }
 
   capturePaymentEvent({
@@ -524,6 +543,8 @@ async function handleRejectedPayment({
     console.warn("Netopia webhook order was not found.", { orderId });
     return NextResponse.json({ error: "Order was not found" }, { status: 404 });
   }
+
+  await releaseTrackedStockForOrder(failedOrder.id);
 
   capturePaymentEvent({
     event: "payment_failed",

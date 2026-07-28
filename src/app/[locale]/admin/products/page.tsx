@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { count, desc, sql } from "drizzle-orm";
+import { count, desc, inArray, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,11 @@ import { DuplicateProductButton } from "@/components/product/DuplicateProductBut
 import { ImportProductsCsv } from "@/components/product/ImportProductsCsv";
 import { StatusBadge } from "@/components/order/StatusBadge";
 import { db } from "@/lib/db";
-import { products } from "@/lib/db/schema";
+import { productVariants, products } from "@/lib/db/schema";
+import {
+  getInventorySummaryForProducts,
+  getInventorySummaryKey,
+} from "@/lib/admin/inventory-summary";
 import { formatFulfillmentDate } from "@/lib/fulfillment/estimate";
 import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImageSrc } from "@/lib/product-images";
@@ -67,6 +71,8 @@ export default async function AdminProductsPage({
     saleEndsAt: products.saleEndsAt,
     publishAt: products.publishAt,
     imageUrl: products.imageUrl,
+    trackStock: products.trackStock,
+    stock: products.stock,
     isPrivate: products.isPrivate,
     createdAt: products.createdAt,
   };
@@ -84,6 +90,30 @@ export default async function AdminProductsPage({
         .orderBy(desc(products.createdAt))
         .limit(PRODUCTS_PER_PAGE)
         .offset(offset);
+  const productIds = items.map((product) => product.id);
+  const variantInventoryRows =
+    productIds.length > 0
+      ? await db
+          .select({
+            productId: productVariants.productId,
+            id: productVariants.id,
+            trackStock: productVariants.trackStock,
+            stock: productVariants.stock,
+          })
+          .from(productVariants)
+          .where(inArray(productVariants.productId, productIds))
+      : [];
+  const inventorySummaryByKey = await getInventorySummaryForProducts(productIds);
+  const variantInventoryByProductId = new Map<
+    string,
+    typeof variantInventoryRows
+  >();
+
+  variantInventoryRows.forEach((variant) => {
+    const current = variantInventoryByProductId.get(variant.productId) ?? [];
+    current.push(variant);
+    variantInventoryByProductId.set(variant.productId, current);
+  });
   const pageHref = (page: number) => {
     const params = new URLSearchParams();
     params.set("page", String(page));
@@ -153,6 +183,13 @@ export default async function AdminProductsPage({
             const title = getTranslatedText(product.title, activeLocale, product.slug);
             const price = getProductPricePresentation(product);
             const isScheduled = product.publishAt && product.publishAt > new Date();
+            const variantInventory =
+              variantInventoryByProductId.get(product.id) ?? [];
+            const inventoryBadges = getProductInventoryBadges({
+              product,
+              variants: variantInventory,
+              inventorySummaryByKey,
+            });
 
             return (
               <div
@@ -192,6 +229,13 @@ export default async function AdminProductsPage({
                           className="px-2 py-1"
                         />
                       )}
+                      {inventoryBadges.map((badge) => (
+                        <StatusBadge
+                          key={badge}
+                          value={badge}
+                          className="px-2 py-1"
+                        />
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -260,4 +304,82 @@ export default async function AdminProductsPage({
       )}
     </main>
   );
+}
+
+type ProductInventoryBadgeInput = {
+  product: {
+    id: string;
+    trackStock: boolean;
+    stock: number;
+  };
+  variants: Array<{
+    productId: string;
+    id: string;
+    trackStock: boolean;
+    stock: number;
+  }>;
+  inventorySummaryByKey: Awaited<
+    ReturnType<typeof getInventorySummaryForProducts>
+  >;
+};
+
+function getProductInventoryBadges({
+  product,
+  variants,
+  inventorySummaryByKey,
+}: ProductInventoryBadgeInput) {
+  const trackedVariants = variants.filter((variant) => variant.trackStock);
+
+  if (trackedVariants.length > 0) {
+    const available = trackedVariants.reduce(
+      (sum, variant) => sum + variant.stock,
+      0,
+    );
+    const reserved = trackedVariants.reduce(
+      (sum, variant) =>
+        sum +
+        (inventorySummaryByKey.get(
+          getInventorySummaryKey(product.id, variant.id),
+        )?.reserved ?? 0),
+      0,
+    );
+
+    return getInventoryBadgeLabels({ available, reserved, scope: "variants" });
+  }
+
+  if (!product.trackStock) {
+    return [];
+  }
+
+  const summary = inventorySummaryByKey.get(getInventorySummaryKey(product.id));
+
+  return getInventoryBadgeLabels({
+    available: product.stock,
+    reserved: summary?.reserved ?? 0,
+    scope: "product",
+  });
+}
+
+function getInventoryBadgeLabels({
+  available,
+  reserved,
+  scope,
+}: {
+  available: number;
+  reserved: number;
+  scope: "product" | "variants";
+}) {
+  const labels = [`${available} available ${scope}`];
+
+  if (reserved > 0) {
+    labels.push(`${reserved} reserved`);
+  }
+
+  if (available <= 0) {
+    labels.push("out of stock");
+  } else if (available <= 3) {
+    labels.push("low stock");
+  }
+
+  return labels;
 }

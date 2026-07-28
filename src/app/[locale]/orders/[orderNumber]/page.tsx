@@ -280,6 +280,28 @@ export default async function PublicOrderPage({
             {order.customerNotes && <p>{order.customerNotes}</p>}
           </InfoBox>
 
+          {(order.invoiceUrl || order.paymentStatus === "paid") && (
+            <InfoBox title={activeLocale === "ro" ? "Factură" : "Invoice"}>
+              {order.invoiceUrl ? (
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-11 rounded-none border-black px-5 text-xs font-bold uppercase tracking-widest"
+                >
+                  <a href={order.invoiceUrl} target="_blank" rel="noreferrer">
+                    {activeLocale === "ro" ? "Deschide factura" : "Open invoice"}
+                  </a>
+                </Button>
+              ) : (
+                <p>
+                  {activeLocale === "ro"
+                    ? "Factura este în curs de generare."
+                    : "Your invoice is being generated."}
+                </p>
+              )}
+            </InfoBox>
+          )}
+
           <CancelOrderButton
             orderId={order.id}
             accessToken={hasGuestToken ? token : undefined}

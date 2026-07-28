@@ -4,6 +4,7 @@ import { and, eq, lt } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
+import { releaseTrackedStockForOrder } from "@/lib/inventory";
 
 export async function getOrderPaymentStatus(orderId: string) {
   const [order] = await db
@@ -23,7 +24,7 @@ export async function markStaleNetopiaOrdersFailed() {
   const timeoutMinutes = Number.isFinite(staleAfterMinutes) ? staleAfterMinutes : 60;
   const staleCutoff = new Date(Date.now() - timeoutMinutes * 60 * 1000);
 
-  await db
+  const updatedOrders = await db
     .update(orders)
     .set({
       status: "failed",
@@ -36,5 +37,16 @@ export async function markStaleNetopiaOrdersFailed() {
         eq(orders.paymentStatus, "pending"),
         lt(orders.createdAt, staleCutoff),
       ),
-    );
+    )
+    .returning({ id: orders.id });
+
+  await Promise.all(
+    updatedOrders.map((order) => releaseTrackedStockForOrder(order.id)),
+  );
+
+  return {
+    count: updatedOrders.length,
+    staleCutoff,
+    timeoutMinutes,
+  };
 }

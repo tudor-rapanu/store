@@ -5,7 +5,11 @@ import { redirect } from "next/navigation";
 import { getNeonAuth } from "@/lib/auth/neon/server";
 import { getPostHogClient } from "@/lib/posthog-server";
 
-export async function login(formData: FormData) {
+export async function login(
+  previousStateOrFormData: unknown,
+  submittedFormData?: FormData,
+) {
+  const formData = getSubmittedFormData(previousStateOrFormData, submittedFormData);
   // 1. Extract form values
   const email = normalizeEmail(formData.get("email"));
   const password = formData.get("password") as string;
@@ -56,7 +60,11 @@ function isEmailVerificationError(message: string) {
   );
 }
 
-export async function register(formData: FormData) {
+export async function register(
+  previousStateOrFormData: unknown,
+  submittedFormData?: FormData,
+) {
+  const formData = getSubmittedFormData(previousStateOrFormData, submittedFormData);
   const email = normalizeEmail(formData.get("email"));
   const password = formData.get("password") as string;
   const locale = formData.get("locale") === "ro" ? "ro" : "en";
@@ -117,7 +125,11 @@ function normalizeEmail(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-export async function requestPasswordReset(formData: FormData) {
+export async function requestPasswordReset(
+  previousStateOrFormData: unknown,
+  submittedFormData?: FormData,
+) {
+  const formData = getSubmittedFormData(previousStateOrFormData, submittedFormData);
   const email = normalizeEmail(formData.get("email"));
   const locale = formData.get("locale") === "ro" ? "ro" : "en";
 
@@ -138,7 +150,11 @@ export async function requestPasswordReset(formData: FormData) {
   return { success: "Check your email for a password reset link." };
 }
 
-export async function resendVerificationEmail(formData: FormData) {
+export async function resendVerificationEmail(
+  previousStateOrFormData: unknown,
+  submittedFormData?: FormData,
+) {
+  const formData = getSubmittedFormData(previousStateOrFormData, submittedFormData);
   const email = normalizeEmail(formData.get("email"));
   const locale = formData.get("locale") === "ro" ? "ro" : "en";
 
@@ -158,7 +174,11 @@ export async function resendVerificationEmail(formData: FormData) {
   return { success: "Verification code sent." };
 }
 
-export async function verifyEmailCode(formData: FormData) {
+export async function verifyEmailCode(
+  previousStateOrFormData: unknown,
+  submittedFormData?: FormData,
+) {
+  const formData = getSubmittedFormData(previousStateOrFormData, submittedFormData);
   const email = normalizeEmail(formData.get("email"));
   const locale = formData.get("locale") === "ro" ? "ro" : "en";
   const otp =
@@ -183,7 +203,11 @@ export async function verifyEmailCode(formData: FormData) {
   redirect(`/${locale}`);
 }
 
-export async function updatePassword(formData: FormData) {
+export async function updatePassword(
+  previousStateOrFormData: unknown,
+  submittedFormData?: FormData,
+) {
+  const formData = getSubmittedFormData(previousStateOrFormData, submittedFormData);
   const password = formData.get("password") as string;
   const locale = formData.get("locale") === "ro" ? "ro" : "en";
   const token = formData.get("token");
@@ -220,4 +244,19 @@ export async function logoutFromLocale(formData: FormData) {
 
   revalidatePath("/", "layout");
   redirect(`/${locale}`);
+}
+
+function getSubmittedFormData(
+  previousStateOrFormData: unknown,
+  submittedFormData?: FormData,
+) {
+  if (submittedFormData) {
+    return submittedFormData;
+  }
+
+  if (previousStateOrFormData instanceof FormData) {
+    return previousStateOrFormData;
+  }
+
+  return new FormData();
 }

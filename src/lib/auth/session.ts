@@ -49,11 +49,11 @@ async function getReadonlyNeonSession(): Promise<{ user?: unknown } | null> {
   const cookieStore = await cookies();
   const cookieHeader = cookieStore
     .getAll()
-    .filter((cookie) => cookie.name.startsWith("__Secure-neon-auth"))
+    .filter((cookie) => isNeonAuthCookie(cookie.name))
     .map((cookie) => `${cookie.name}=${cookie.value}`)
     .join("; ");
 
-  if (!cookieHeader.includes("__Secure-neon-auth.session_token")) {
+  if (!cookieHeader.includes("neon-auth.session_token")) {
     return null;
   }
 
@@ -83,4 +83,11 @@ async function getReadonlyNeonSession(): Promise<{ user?: unknown } | null> {
   }
 
   return null;
+}
+
+function isNeonAuthCookie(name: string) {
+  return (
+    name.startsWith("__Secure-neon-auth") ||
+    name.startsWith("neon-auth")
+  );
 }

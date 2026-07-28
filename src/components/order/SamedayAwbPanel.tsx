@@ -277,6 +277,8 @@ export function SamedayAwbPanel({
       });
       const data = (await response.json()) as {
         ok?: boolean;
+        queued?: boolean;
+        message?: string;
         error?: string;
       };
       console.log("Generate AWB API response:", {
@@ -289,7 +291,11 @@ export function SamedayAwbPanel({
         throw new Error(data.error ?? "Could not generate AWB.");
       }
 
-      setMessage("AWB generated and tracking email sent.");
+      setMessage(
+        data.queued
+          ? (data.message ?? "AWB generation was queued.")
+          : "AWB generated and tracking email sent.",
+      );
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not generate AWB.");

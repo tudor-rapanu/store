@@ -25,6 +25,11 @@ export type CustomerProfileInput = {
   marketingOptIn?: boolean;
 };
 
+export type CustomerProfileContactInput = Pick<
+  CustomerProfileInput,
+  "userId" | "email" | "firstName" | "lastName" | "phone"
+>;
+
 export async function getCustomerProfile(userId: string) {
   const [profile] = await db
     .select()
@@ -61,6 +66,35 @@ export async function upsertCustomerProfile(input: CustomerProfileInput) {
         address: input.address ?? {},
         preferredShippingMethod: input.preferredShippingMethod ?? "address",
         marketingOptIn: input.marketingOptIn ?? false,
+        updatedAt: now,
+      },
+    });
+}
+
+export async function upsertCustomerProfileContact(
+  input: CustomerProfileContactInput,
+) {
+  const now = new Date();
+
+  await db
+    .insert(customerProfiles)
+    .values({
+      userId: input.userId,
+      email: input.email,
+      firstName: input.firstName?.trim() || null,
+      lastName: input.lastName?.trim() || null,
+      phone: input.phone?.trim() || null,
+      address: {},
+      preferredShippingMethod: "address",
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: customerProfiles.userId,
+      set: {
+        email: input.email,
+        firstName: input.firstName?.trim() || null,
+        lastName: input.lastName?.trim() || null,
+        phone: input.phone?.trim() || null,
         updatedAt: now,
       },
     });

@@ -1,17 +1,20 @@
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { orderItems, orders, productVariants, products } from "@/lib/db/schema";
 
-export async function reduceTrackedStockForPaidOrder(orderId: string) {
+export async function reserveTrackedStockForOrder(orderId: string) {
   await db.transaction(async (tx) => {
-    const [order] = await tx
-      .select({ stockReducedAt: orders.stockReducedAt })
-      .from(orders)
-      .where(eq(orders.id, orderId))
-      .limit(1);
+    const [reservedOrder] = await tx
+      .update(orders)
+      .set({
+        stockReducedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(orders.id, orderId), isNull(orders.stockReducedAt)))
+      .returning({ id: orders.id });
 
-    if (!order || order.stockReducedAt) {
+    if (!reservedOrder) {
       return;
     }
 
@@ -51,7 +54,7 @@ export async function reduceTrackedStockForPaidOrder(orderId: string) {
           .returning({ id: productVariants.id });
 
         if (!updatedVariant) {
-          throw new Error("A paid order could not reduce variant stock.");
+          throw new Error("An order could not reserve variant stock.");
         }
 
         continue;
@@ -77,14 +80,77 @@ export async function reduceTrackedStockForPaidOrder(orderId: string) {
         .returning({ id: products.id });
 
       if (!updatedProduct) {
-        throw new Error("A paid order could not reduce product stock.");
+        throw new Error("An order could not reserve product stock.");
       }
+    }
+  });
+}
+
+export async function reduceTrackedStockForPaidOrder(orderId: string) {
+  await reserveTrackedStockForOrder(orderId);
+}
+
+export async function releaseTrackedStockForOrder(orderId: string) {
+  await db.transaction(async (tx) => {
+    const [order] = await tx
+      .select({
+        paymentStatus: orders.paymentStatus,
+        stockReducedAt: orders.stockReducedAt,
+      })
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+
+    if (!order?.stockReducedAt || order.paymentStatus === "paid") {
+      return;
+    }
+
+    const items = await tx
+      .select({
+        quantity: orderItems.quantity,
+        productId: orderItems.productId,
+        variantId: orderItems.variantId,
+        productTrackStock: products.trackStock,
+        variantTrackStock: productVariants.trackStock,
+      })
+      .from(orderItems)
+      .innerJoin(products, eq(products.id, orderItems.productId))
+      .leftJoin(productVariants, eq(productVariants.id, orderItems.variantId))
+      .where(eq(orderItems.orderId, orderId));
+
+    for (const item of items) {
+      if (item.variantId) {
+        if (!item.variantTrackStock) {
+          continue;
+        }
+
+        await tx
+          .update(productVariants)
+          .set({
+            stock: sql`${productVariants.stock} + ${item.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(productVariants.id, item.variantId));
+        continue;
+      }
+
+      if (!item.productTrackStock) {
+        continue;
+      }
+
+      await tx
+        .update(products)
+        .set({
+          stock: sql`${products.stock} + ${item.quantity}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(products.id, item.productId));
     }
 
     await tx
       .update(orders)
       .set({
-        stockReducedAt: new Date(),
+        stockReducedAt: null,
         updatedAt: new Date(),
       })
       .where(eq(orders.id, orderId));

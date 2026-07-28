@@ -49,6 +49,12 @@ type Variant = {
   saleEndsAt?: Date | string | null;
   trackStock?: boolean;
   stock: number;
+  inventorySummary?: InventorySummary;
+};
+
+type InventorySummary = {
+  reserved: number;
+  paid: number;
 };
 
 type OptionRow = {
@@ -175,9 +181,18 @@ function getOptionCombinations(options: { name: string; values: string[] }[]) {
   );
 }
 
+function InventorySummaryLine({ summary }: { summary: InventorySummary }) {
+  return (
+    <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+      Reserved in pending orders: {summary.reserved} / Paid orders: {summary.paid}
+    </p>
+  );
+}
+
 export function AdminProductForm({
   locale,
   product,
+  inventorySummary,
   variants = [],
   imagePaths = [],
   imageSources = {},
@@ -189,6 +204,7 @@ export function AdminProductForm({
 }: {
   locale: "en" | "ro";
   product?: Product;
+  inventorySummary?: InventorySummary;
   variants?: Variant[];
   imagePaths?: string[];
   imageSources?: Record<string, string | null>;
@@ -909,6 +925,9 @@ export function AdminProductForm({
                     onChange={(event) => setStock(event.target.value)}
                     className="rounded-none border-black h-12"
                   />
+                  {inventorySummary && (
+                    <InventorySummaryLine summary={inventorySummary} />
+                  )}
                 </div>
               )}
             </section>
@@ -1507,6 +1526,12 @@ export function AdminProductForm({
                           disabled={!variant.trackStock}
                           className="h-9 w-24 rounded-none border-black disabled:bg-slate-100 disabled:text-slate-400"
                         />
+                        {variant.trackStock && variant.inventorySummary && (
+                          <div className="flex h-9 items-center border border-slate-200 px-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            Reserved {variant.inventorySummary.reserved} / Paid{" "}
+                            {variant.inventorySummary.paid}
+                          </div>
+                        )}
                         <label className="flex h-9 items-center gap-2 border border-black px-2 text-[10px] font-black uppercase tracking-widest">
                           <input
                             type="checkbox"

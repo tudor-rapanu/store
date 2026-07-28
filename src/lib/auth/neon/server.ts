@@ -12,6 +12,7 @@ export function getNeonAuth() {
           process.env.NEON_AUTH_COOKIE_SECRET,
           "NEON_AUTH_COOKIE_SECRET",
         ),
+        sameSite: "lax",
       },
     });
   }

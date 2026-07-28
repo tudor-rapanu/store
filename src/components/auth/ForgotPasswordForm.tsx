@@ -17,12 +17,7 @@ import { Label } from "@/components/ui/label";
 import { requestPasswordReset } from "@/lib/actions/auth";
 
 export function ForgotPasswordForm({ locale }: { locale: "en" | "ro" }) {
-  const [state, formAction, isPending] = useActionState(
-    async (_prevState: unknown, formData: FormData) => {
-      return await requestPasswordReset(formData);
-    },
-    null,
-  );
+  const [state, formAction, isPending] = useActionState(requestPasswordReset, null);
 
   return (
     <Card className="w-full max-w-md mx-auto">

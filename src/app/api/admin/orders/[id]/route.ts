@@ -11,7 +11,10 @@ import {
   type PaymentStatus,
   type ShippingMethod,
 } from "@/lib/db/schema";
-import { reduceTrackedStockForPaidOrder } from "@/lib/inventory";
+import {
+  reduceTrackedStockForPaidOrder,
+  releaseTrackedStockForOrder,
+} from "@/lib/inventory";
 
 const paymentStatuses = new Set<PaymentStatus>([
   "pending",
@@ -109,6 +112,18 @@ async function reduceStockForNewPaidStatus(
   }
 }
 
+async function releaseStockForNewFailedStatus(
+  orderId: string,
+  previousPaymentStatus: PaymentStatus,
+  nextPaymentStatus?: PaymentStatus,
+) {
+  if (nextPaymentStatus !== "failed" || previousPaymentStatus !== "pending") {
+    return;
+  }
+
+  await releaseTrackedStockForOrder(orderId);
+}
+
 function getOrderUpdateValues(body: OrderUpdateBody) {
   return {
     paymentStatus: body.paymentStatus,
@@ -171,6 +186,12 @@ export async function PATCH(
     .set(getOrderUpdateValues(body))
     .where(eq(orders.id, id))
     .returning();
+
+  await releaseStockForNewFailedStatus(
+    existingOrder.id,
+    existingOrder.paymentStatus,
+    body.paymentStatus,
+  );
 
   revalidatePath("/", "layout");
 

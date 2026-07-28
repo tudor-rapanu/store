@@ -112,6 +112,22 @@ export default async function AccountOrdersPage({ params }: AccountOrdersPagePro
                     Details
                   </Link>
                 </Button>
+                {order.invoiceUrl && (
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="rounded-none border-black text-xs font-bold uppercase tracking-widest"
+                  >
+                    <a href={order.invoiceUrl} target="_blank" rel="noreferrer">
+                      Invoice
+                    </a>
+                  </Button>
+                )}
+                {!order.invoiceUrl && order.paymentStatus === "paid" && (
+                  <span className="inline-flex h-10 items-center border border-slate-200 px-3 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Invoice pending
+                  </span>
+                )}
                 <CancelOrderButton
                   orderId={order.id}
                   disabled={["shipped", "delivered", "cancelled", "refunded"].includes(

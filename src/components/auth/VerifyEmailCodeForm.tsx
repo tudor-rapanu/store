@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useActionState } from "react";
 
 import { verifyEmailCode } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -13,31 +13,19 @@ type VerifyEmailCodeFormProps = {
 };
 
 export function VerifyEmailCodeForm({ email, locale }: VerifyEmailCodeFormProps) {
-  const [code, setCode] = useState("");
-  const [state, setState] = useState<{ error?: string } | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [state, formAction, isPending] = useActionState(verifyEmailCode, null);
   const errorMessage =
     state && "error" in state && typeof state.error === "string" ? state.error : "";
 
-  function handleVerify() {
-    const formData = new FormData();
-    formData.set("email", email);
-    formData.set("locale", locale);
-    formData.set("code", code);
-
-    startTransition(() => {
-      void verifyEmailCode(formData).then(setState);
-    });
-  }
-
   return (
-    <div className="space-y-3">
+    <form action={formAction} className="space-y-3">
+      <input type="hidden" name="email" value={email} />
+      <input type="hidden" name="locale" value={locale} />
       <div className="space-y-2">
         <Label htmlFor={`verification-code-${email}`}>Verification Code</Label>
         <Input
           id={`verification-code-${email}`}
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
+          name="code"
           inputMode="numeric"
           autoComplete="one-time-code"
           placeholder="123456"
@@ -45,16 +33,15 @@ export function VerifyEmailCodeForm({ email, locale }: VerifyEmailCodeFormProps)
         />
       </div>
       <Button
-        type="button"
+        type="submit"
         className="w-full"
         disabled={isPending}
-        onClick={handleVerify}
       >
         {isPending ? "Verifying..." : "Verify Email"}
       </Button>
       {errorMessage && (
         <p className="text-sm font-medium text-destructive">{errorMessage}</p>
       )}
-    </div>
+    </form>
   );
 }

@@ -2,7 +2,7 @@
 
 import crypto from "crypto";
 
-import { and, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { orderItems, orders, products, productVariants } from "@/lib/db/schema";
 import { createNetopiaClient } from "@/lib/payments/netopia";
@@ -14,7 +14,10 @@ import {
 import { getPostHogClient } from "@/lib/posthog-server";
 import { calculateShippingAmount } from "@/lib/shipping/profiles";
 import { getCurrentUser } from "@/lib/auth/session";
-import { upsertCustomerProfile } from "@/lib/customer-profile";
+import {
+  upsertCustomerProfile,
+  upsertCustomerProfileContact,
+} from "@/lib/customer-profile";
 import { checkServerActionRateLimit } from "@/lib/rate-limit";
 import { formatEur, formatRon, normalizePaymentCurrency } from "@/lib/currency/format";
 import { getCurrencySettings } from "@/lib/currency/settings";
@@ -25,6 +28,11 @@ import {
   getEffectiveVariantPrice,
 } from "@/lib/product-pricing";
 import { getCartFulfillmentEstimate } from "@/lib/fulfillment/estimate";
+import { enqueueOrderEmailTask } from "@/lib/tasks/order-email";
+import {
+  releaseTrackedStockForOrder,
+  reserveTrackedStockForOrder,
+} from "@/lib/inventory";
 
 // 1. Define strict types for the incoming customer data
 export interface CheckoutAddress {
@@ -56,6 +64,8 @@ export interface CheckoutCustomerData {
   shippingMethod: "address" | "easybox" | "international";
   paymentCurrency?: "RON" | "EUR";
   voucherCode?: string;
+  saveProfileAddress?: boolean;
+  checkoutIdempotencyKey?: string;
 }
 
 export interface CheckoutCartItem {
@@ -71,6 +81,8 @@ type ResolvedOrderItem = {
   quantity: number;
   unitPrice: number;
 };
+
+type CreatedOrder = typeof orders.$inferSelect;
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -119,6 +131,37 @@ function getOptionalNumericId(value: unknown, fieldName: string) {
   }
 
   return stringValue;
+}
+
+function getOptionalUuid(value: unknown, fieldName: string) {
+  const stringValue = getOptionalValidatedString(value, fieldName, 80);
+
+  if (!stringValue) {
+    return undefined;
+  }
+
+  if (!UUID_PATTERN.test(stringValue)) {
+    throw new Error(`${fieldName} is invalid.`);
+  }
+
+  return stringValue;
+}
+
+function isCheckoutIdempotencyConflict(error: unknown) {
+  if (!isRecord(error)) {
+    return false;
+  }
+
+  const constraint = error.constraint;
+  const message = error.message;
+
+  return (
+    error.code === "23505" &&
+    ((typeof constraint === "string" &&
+      constraint === "orders_checkout_idempotency_key_uidx") ||
+      (typeof message === "string" &&
+        message.includes("orders_checkout_idempotency_key_uidx")))
+  );
 }
 
 function validateCheckoutCustomerData(
@@ -202,6 +245,11 @@ function validateCheckoutCustomerData(
       customerData.voucherCode,
       "Voucher code",
       64,
+    ),
+    saveProfileAddress: customerData.saveProfileAddress === true,
+    checkoutIdempotencyKey: getOptionalUuid(
+      customerData.checkoutIdempotencyKey,
+      "Checkout attempt",
     ),
     address: {
       street,
@@ -349,6 +397,71 @@ function getAdminOrderUrl(locale: "en" | "ro", orderId: string) {
   return siteUrl ? `${siteUrl}${path}` : path;
 }
 
+async function getExistingCheckoutOrder(
+  idempotencyKey: string | undefined,
+  paymentMethod: "card" | "bank_transfer",
+) {
+  if (!idempotencyKey) {
+    return null;
+  }
+
+  const [order] = await db
+    .select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      accessToken: orders.accessToken,
+      paymentStatus: orders.paymentStatus,
+      paymentMethod: orders.paymentMethod,
+      paymentUrl: orders.paymentUrl,
+    })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.checkoutIdempotencyKey, idempotencyKey),
+        eq(orders.paymentMethod, paymentMethod),
+      ),
+    )
+    .limit(1);
+
+  return order ?? null;
+}
+
+function getExistingCardCheckoutResponse(
+  order: Awaited<ReturnType<typeof getExistingCheckoutOrder>>,
+) {
+  if (!order) {
+    return null;
+  }
+
+  if (order.paymentStatus === "paid") {
+    return { error: "This checkout attempt was already paid." };
+  }
+
+  if (order.paymentStatus === "failed") {
+    return { error: "This checkout attempt already failed. Please try again." };
+  }
+
+  return order.paymentUrl
+    ? { url: order.paymentUrl }
+    : { error: "This checkout attempt is already being prepared. Please wait." };
+}
+
+function getExistingBankTransferCheckoutResponse(
+  order: Awaited<ReturnType<typeof getExistingCheckoutOrder>>,
+  locale: "en" | "ro",
+) {
+  if (!order) {
+    return null;
+  }
+
+  return {
+    success: true,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    orderUrl: getOrderAccessUrl(locale, order.orderNumber, order.accessToken),
+  };
+}
+
 async function createOrderItems(orderId: string, items: ResolvedOrderItem[]) {
   await db.insert(orderItems).values(
     items.map((item) => ({
@@ -359,6 +472,34 @@ async function createOrderItems(orderId: string, items: ResolvedOrderItem[]) {
       unitPrice: item.unitPrice,
     })),
   );
+}
+
+async function reserveCheckoutStock(orderId: string) {
+  try {
+    await reserveTrackedStockForOrder(orderId);
+  } catch {
+    await db
+      .update(orders)
+      .set({
+        status: "failed",
+        paymentStatus: "failed",
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId));
+    throw new Error("One of the products in your cart is no longer in stock.");
+  }
+}
+
+async function failCheckoutPayment(orderId: string) {
+  await db
+    .update(orders)
+    .set({
+      status: "failed",
+      paymentStatus: "failed",
+      updatedAt: new Date(),
+    })
+    .where(eq(orders.id, orderId));
+  await releaseTrackedStockForOrder(orderId);
 }
 
 function getCartQuantity(value: unknown) {
@@ -504,6 +645,17 @@ async function saveCheckoutProfile(
     return;
   }
 
+  if (!customerData.saveProfileAddress || customerData.shippingMethod === "easybox") {
+    await upsertCustomerProfileContact({
+      userId,
+      email: customerData.email,
+      firstName: customerData.firstName,
+      lastName: customerData.lastName,
+      phone: customerData.phone,
+    });
+    return;
+  }
+
   await upsertCustomerProfile({
     userId,
     email: customerData.email,
@@ -520,7 +672,7 @@ async function saveCheckoutProfile(
       samedayCityId: customerData.address.samedayCityId,
       samedayCountyId: customerData.address.samedayCountyId,
     },
-    preferredShippingMethod: customerData.shippingMethod,
+    preferredShippingMethod: "address",
   });
 }
 
@@ -546,6 +698,17 @@ export async function initiateCheckout(
     customerData = validateCheckoutCustomerData(customerData, {
       isDigitalOnly: !resolvedCart.hasPhysicalItems,
     });
+    const existingCheckout = await getExistingCheckoutOrder(
+      customerData.checkoutIdempotencyKey,
+      "card",
+    );
+    const existingCheckoutResponse =
+      getExistingCardCheckoutResponse(existingCheckout);
+
+    if (existingCheckoutResponse) {
+      return existingCheckoutResponse;
+    }
+
     const discount = await resolveBestDiscount({
       items: resolvedCart.items,
       email: customerData.email,
@@ -561,53 +724,68 @@ export async function initiateCheckout(
       : 0;
     const orderTotal = discountedSubtotal + shippingAmount;
     const payment = resolvePaymentAmount(orderTotal);
-    const [newOrder] = await db
-      .insert(orders)
-      .values({
-        userId,
-        accessToken: createOrderAccessToken(),
-        customerEmail: customerData.email,
-        customerFirstName: customerData.firstName,
-        customerLastName: customerData.lastName,
-        customerPhone: customerData.phone,
-        shippingAddress: customerData.address,
-        shippingMethod: resolvedCart.hasPhysicalItems
-          ? customerData.shippingMethod
-          : "address",
-        subtotalAmount: resolvedCart.subtotal,
-        discountAmount: discount.discountAmount,
-        discountSnapshot: discount.discountSnapshot,
-        shippingAmount,
-        totalAmount: orderTotal,
-        estimatedShippingStart: resolvedCart.fulfillmentEstimate?.start ?? null,
-        estimatedShippingEnd: resolvedCart.fulfillmentEstimate?.end ?? null,
-        paymentAmount: payment.paymentAmount,
-        paymentCurrency: payment.paymentCurrency,
-        currencyExchangeRate: payment.currencyExchangeRate,
-        status: "pending",
-        paymentMethod: "card",
-        paymentStatus: "pending",
-        fulfillmentStatus: "new",
-      })
-      .returning();
+    let newOrder: CreatedOrder;
+
+    try {
+      const [createdOrder] = await db
+        .insert(orders)
+        .values({
+          userId,
+          accessToken: createOrderAccessToken(),
+          checkoutIdempotencyKey: customerData.checkoutIdempotencyKey,
+          customerEmail: customerData.email,
+          customerFirstName: customerData.firstName,
+          customerLastName: customerData.lastName,
+          customerPhone: customerData.phone,
+          shippingAddress: customerData.address,
+          shippingMethod: resolvedCart.hasPhysicalItems
+            ? customerData.shippingMethod
+            : "address",
+          subtotalAmount: resolvedCart.subtotal,
+          discountAmount: discount.discountAmount,
+          discountSnapshot: discount.discountSnapshot,
+          shippingAmount,
+          totalAmount: orderTotal,
+          estimatedShippingStart: resolvedCart.fulfillmentEstimate?.start ?? null,
+          estimatedShippingEnd: resolvedCart.fulfillmentEstimate?.end ?? null,
+          paymentAmount: payment.paymentAmount,
+          paymentCurrency: payment.paymentCurrency,
+          currencyExchangeRate: payment.currencyExchangeRate,
+          status: "pending",
+          paymentMethod: "card",
+          paymentStatus: "pending",
+          fulfillmentStatus: "new",
+        })
+        .returning();
+
+      if (!createdOrder) {
+        return { error: "Failed to create order." };
+      }
+
+      newOrder = createdOrder;
+    } catch (error: unknown) {
+      if (isCheckoutIdempotencyConflict(error)) {
+        const existingCheckoutResponse = getExistingCardCheckoutResponse(
+          await getExistingCheckoutOrder(customerData.checkoutIdempotencyKey, "card"),
+        );
+
+        if (existingCheckoutResponse) {
+          return existingCheckoutResponse;
+        }
+      }
+
+      throw error;
+    }
 
     await saveCheckoutProfile(userId, customerData);
     await createOrderItems(newOrder.id, resolvedCart.items);
+    await reserveCheckoutStock(newOrder.id);
     await recordVoucherUsage({
       discountSnapshot: discount.discountSnapshot,
       orderId: newOrder.id,
       userId,
       email: customerData.email,
     });
-    sendAdminOrderEmail({
-      orderId: `TT-${newOrder.orderNumber}`,
-      customerName: `${customerData.firstName} ${customerData.lastName}`,
-      customerEmail: customerData.email,
-      totalAmount: orderTotal,
-      paymentMethod: "card",
-      adminOrderUrl: getAdminOrderUrl(locale, newOrder.id),
-    });
-
     try {
       // The Netopia SDK is stateful: set the order first, then start payment.
       const client = createNetopiaClient(
@@ -640,6 +818,27 @@ export async function initiateCheckout(
       const paymentResponse = await client.startPayment();
 
       if (paymentResponse?.payment?.paymentURL) {
+        await db
+          .update(orders)
+          .set({
+            paymentUrl: paymentResponse.payment.paymentURL,
+            updatedAt: new Date(),
+          })
+          .where(eq(orders.id, newOrder.id));
+
+        void enqueueOrderEmailTask(
+          { orderId: newOrder.id, type: "admin", locale },
+          () =>
+            sendAdminOrderEmail({
+              orderId: `TT-${newOrder.orderNumber}`,
+              customerName: `${customerData.firstName} ${customerData.lastName}`,
+              customerEmail: customerData.email,
+              totalAmount: orderTotal,
+              paymentMethod: "card",
+              adminOrderUrl: getAdminOrderUrl(locale, newOrder.id),
+            }),
+        );
+
         const posthog = getPostHogClient();
         posthog?.capture({
           distinctId: customerData.email,
@@ -663,11 +862,13 @@ export async function initiateCheckout(
         return { url: paymentResponse.payment.paymentURL };
       } else {
         console.error("Netopia returned an unexpected response:", paymentResponse);
+        await failCheckoutPayment(newOrder.id);
         return { error: "Failed to generate Netopia payment link." };
       }
     } catch (error: unknown) {
       // 4. Safely handle the 'unknown' error type
       console.error("Netopia Error:", error);
+      await failCheckoutPayment(newOrder.id);
       const errorMessage =
         error instanceof Error ? error.message : "Payment initiation failed.";
       return { error: errorMessage };
@@ -702,6 +903,19 @@ export async function createBankTransferOrder(
     customerData = validateCheckoutCustomerData(customerData, {
       isDigitalOnly: !resolvedCart.hasPhysicalItems,
     });
+    const existingCheckout = await getExistingCheckoutOrder(
+      customerData.checkoutIdempotencyKey,
+      "bank_transfer",
+    );
+    const existingCheckoutResponse = getExistingBankTransferCheckoutResponse(
+      existingCheckout,
+      locale,
+    );
+
+    if (existingCheckoutResponse) {
+      return existingCheckoutResponse;
+    }
+
     const discount = await resolveBestDiscount({
       items: resolvedCart.items,
       email: customerData.email,
@@ -717,63 +931,99 @@ export async function createBankTransferOrder(
       : 0;
     const orderTotal = discountedSubtotal + shippingAmount;
     const payment = resolvePaymentAmount(orderTotal);
-    const [newOrder] = await db
-      .insert(orders)
-      .values({
-        userId,
-        accessToken: createOrderAccessToken(),
-        customerEmail: customerData.email,
-        customerFirstName: customerData.firstName,
-        customerLastName: customerData.lastName,
-        customerPhone: customerData.phone,
-        // If a locker is selected, it will be passed inside the street/city fields
-        shippingAddress: customerData.address,
-        shippingMethod: resolvedCart.hasPhysicalItems
-          ? customerData.shippingMethod
-          : "address",
-        subtotalAmount: resolvedCart.subtotal,
-        discountAmount: discount.discountAmount,
-        discountSnapshot: discount.discountSnapshot,
-        shippingAmount,
-        totalAmount: orderTotal,
-        estimatedShippingStart: resolvedCart.fulfillmentEstimate?.start ?? null,
-        estimatedShippingEnd: resolvedCart.fulfillmentEstimate?.end ?? null,
-        paymentAmount: payment.paymentAmount,
-        paymentCurrency: payment.paymentCurrency,
-        currencyExchangeRate: payment.currencyExchangeRate,
-        status: "pending", // You can track this manually until the wire hits your bank
-        paymentMethod: "bank_transfer",
-        paymentStatus: "pending",
-        fulfillmentStatus: "new",
-      })
-      .returning();
+    let newOrder: CreatedOrder;
+
+    try {
+      const [createdOrder] = await db
+        .insert(orders)
+        .values({
+          userId,
+          accessToken: createOrderAccessToken(),
+          checkoutIdempotencyKey: customerData.checkoutIdempotencyKey,
+          customerEmail: customerData.email,
+          customerFirstName: customerData.firstName,
+          customerLastName: customerData.lastName,
+          customerPhone: customerData.phone,
+          // If a locker is selected, it will be passed inside the street/city fields
+          shippingAddress: customerData.address,
+          shippingMethod: resolvedCart.hasPhysicalItems
+            ? customerData.shippingMethod
+            : "address",
+          subtotalAmount: resolvedCart.subtotal,
+          discountAmount: discount.discountAmount,
+          discountSnapshot: discount.discountSnapshot,
+          shippingAmount,
+          totalAmount: orderTotal,
+          estimatedShippingStart: resolvedCart.fulfillmentEstimate?.start ?? null,
+          estimatedShippingEnd: resolvedCart.fulfillmentEstimate?.end ?? null,
+          paymentAmount: payment.paymentAmount,
+          paymentCurrency: payment.paymentCurrency,
+          currencyExchangeRate: payment.currencyExchangeRate,
+          status: "pending", // You can track this manually until the wire hits your bank
+          paymentMethod: "bank_transfer",
+          paymentStatus: "pending",
+          fulfillmentStatus: "new",
+        })
+        .returning();
+
+      if (!createdOrder) {
+        return { error: "Failed to create order." };
+      }
+
+      newOrder = createdOrder;
+    } catch (error: unknown) {
+      if (isCheckoutIdempotencyConflict(error)) {
+        const existingCheckoutResponse = getExistingBankTransferCheckoutResponse(
+          await getExistingCheckoutOrder(
+            customerData.checkoutIdempotencyKey,
+            "bank_transfer",
+          ),
+          locale,
+        );
+
+        if (existingCheckoutResponse) {
+          return existingCheckoutResponse;
+        }
+      }
+
+      throw error;
+    }
     await saveCheckoutProfile(userId, customerData);
     await createOrderItems(newOrder.id, resolvedCart.items);
+    await reserveCheckoutStock(newOrder.id);
     await recordVoucherUsage({
       discountSnapshot: discount.discountSnapshot,
       orderId: newOrder.id,
       userId,
       email: customerData.email,
     });
-    sendAdminOrderEmail({
-      orderId: `TT-${newOrder.orderNumber}`,
-      customerName: `${customerData.firstName} ${customerData.lastName}`,
-      customerEmail: customerData.email,
-      totalAmount: orderTotal,
-      paymentMethod: "bank_transfer",
-      adminOrderUrl: getAdminOrderUrl(locale, newOrder.id),
-    });
+    void enqueueOrderEmailTask(
+      { orderId: newOrder.id, type: "admin", locale },
+      () =>
+        sendAdminOrderEmail({
+          orderId: `TT-${newOrder.orderNumber}`,
+          customerName: `${customerData.firstName} ${customerData.lastName}`,
+          customerEmail: customerData.email,
+          totalAmount: orderTotal,
+          paymentMethod: "bank_transfer",
+          adminOrderUrl: getAdminOrderUrl(locale, newOrder.id),
+        }),
+    );
 
     // Fire the email async without awaiting so it doesn't block the UI redirect
-    sendOrderEmail(
-      customerData.email,
-      customerData.firstName,
-      `TT-${newOrder.orderNumber}`,
-      orderTotal,
-      true, // isBankTransfer = true
-      getOrderAccessUrl(locale, newOrder.orderNumber, newOrder.accessToken),
-      resolvedCart.fulfillmentEstimate,
-      locale,
+    void enqueueOrderEmailTask(
+      { orderId: newOrder.id, type: "customer", locale },
+      () =>
+        sendOrderEmail(
+          customerData.email,
+          customerData.firstName,
+          `TT-${newOrder.orderNumber}`,
+          orderTotal,
+          true, // isBankTransfer = true
+          getOrderAccessUrl(locale, newOrder.orderNumber, newOrder.accessToken),
+          resolvedCart.fulfillmentEstimate,
+          locale,
+        ),
     );
 
     const posthog = getPostHogClient();

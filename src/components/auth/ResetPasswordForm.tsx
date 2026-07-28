@@ -23,12 +23,7 @@ export function ResetPasswordForm({
   token?: string;
 }) {
   const [clientToken, setClientToken] = useState(token ?? "");
-  const [state, formAction, isPending] = useActionState(
-    async (_prevState: unknown, formData: FormData) => {
-      return await updatePassword(formData);
-    },
-    null,
-  );
+  const [state, formAction, isPending] = useActionState(updatePassword, null);
 
   useEffect(() => {
     if (token || typeof window === "undefined") {

@@ -6,10 +6,10 @@ import type { Metadata } from "next";
 import { StatusBadge } from "@/components/order/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { isAdminUser } from "@/lib/admin-auth";
-import { markStaleNetopiaOrdersFailed } from "@/lib/actions/orders";
 import { db } from "@/lib/db";
 import {
   type FulfillmentStatus,
+  type InvoiceStatus,
   orders,
   type PaymentMethod,
   type PaymentStatus,
@@ -27,6 +27,7 @@ type AdminOrdersPageProps = Readonly<{
     paymentStatus?: string;
     fulfillmentStatus?: string;
     paymentMethod?: string;
+    invoiceStatus?: string;
   }>>;
 }>;
 
@@ -41,6 +42,11 @@ const fulfillmentStatusOptions: FulfillmentStatus[] = [
   "refunded",
 ];
 const paymentMethodOptions: PaymentMethod[] = ["card", "bank_transfer"];
+const invoiceStatusOptions: InvoiceStatus[] = [
+  "not_generated",
+  "generated",
+  "failed",
+];
 
 function getPaymentStatus(value?: string) {
   return paymentStatusOptions.find((option) => option === value);
@@ -52,6 +58,10 @@ function getFulfillmentStatus(value?: string) {
 
 function getPaymentMethod(value?: string) {
   return paymentMethodOptions.find((option) => option === value);
+}
+
+function getInvoiceStatus(value?: string) {
+  return invoiceStatusOptions.find((option) => option === value);
 }
 
 type OrderFilters = Awaited<AdminOrdersPageProps["searchParams"]>;
@@ -66,6 +76,7 @@ function parseOrderFilters(filters: OrderFilters) {
     paymentStatus: getPaymentStatus(filters.paymentStatus),
     fulfillmentStatus: getFulfillmentStatus(filters.fulfillmentStatus),
     paymentMethod: getPaymentMethod(filters.paymentMethod),
+    invoiceStatus: getInvoiceStatus(filters.invoiceStatus),
   };
 }
 
@@ -90,6 +101,7 @@ function getOrderWhereClause(filters: ReturnType<typeof parseOrderFilters>) {
       ? eq(orders.fulfillmentStatus, filters.fulfillmentStatus)
       : undefined,
     filters.paymentMethod ? eq(orders.paymentMethod, filters.paymentMethod) : undefined,
+    filters.invoiceStatus ? eq(orders.invoiceStatus, filters.invoiceStatus) : undefined,
     searchCondition,
   ].filter(Boolean);
 
@@ -105,6 +117,7 @@ function getOrderBaseQuery(filters: ReturnType<typeof parseOrderFilters>) {
     baseQuery.set("fulfillmentStatus", filters.fulfillmentStatus);
   }
   if (filters.paymentMethod) baseQuery.set("paymentMethod", filters.paymentMethod);
+  if (filters.invoiceStatus) baseQuery.set("invoiceStatus", filters.invoiceStatus);
 
   return baseQuery;
 }
@@ -127,8 +140,6 @@ export default async function AdminOrdersPage({
     redirect(`/${activeLocale}`);
   }
 
-  await markStaleNetopiaOrdersFailed();
-
   const filters = parseOrderFilters(await searchParams);
   const whereClause = getOrderWhereClause(filters);
   const [totalResult] = await db
@@ -149,6 +160,7 @@ export default async function AdminOrdersPage({
       customerPhone: orders.customerPhone,
       paymentStatus: orders.paymentStatus,
       fulfillmentStatus: orders.fulfillmentStatus,
+      invoiceStatus: orders.invoiceStatus,
       totalAmount: orders.totalAmount,
       createdAt: orders.createdAt,
     })
@@ -177,7 +189,7 @@ export default async function AdminOrdersPage({
         </Button>
       </div>
 
-      <form className="mb-6 grid gap-3 border border-black p-4 md:grid-cols-[1fr_180px_180px_180px_auto]">
+      <form className="mb-6 grid gap-3 border border-black p-4 md:grid-cols-[1fr_160px_160px_160px_160px_auto]">
         <input
           name="q"
           defaultValue={filters.searchTerm}
@@ -202,6 +214,12 @@ export default async function AdminOrdersPage({
           label="Method"
           options={paymentMethodOptions}
         />
+        <FilterSelect
+          name="invoiceStatus"
+          value={filters.invoiceStatus}
+          label="Invoice"
+          options={invoiceStatusOptions}
+        />
         <Button
           type="submit"
           className="h-10 rounded-none bg-black text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900"
@@ -219,7 +237,7 @@ export default async function AdminOrdersPage({
           items.map((order) => (
             <div
               key={order.id}
-              className="grid gap-4 p-4 lg:grid-cols-[120px_1fr_160px_160px_120px_auto] lg:items-center"
+              className="grid gap-4 p-4 lg:grid-cols-[120px_1fr_150px_150px_150px_120px_auto] lg:items-center"
             >
               <div className="font-black uppercase tracking-tight">
                 TT-{order.orderNumber}
@@ -234,6 +252,7 @@ export default async function AdminOrdersPage({
               </div>
               <StatusBadge value={order.paymentStatus} />
               <StatusBadge value={order.fulfillmentStatus} />
+              <StatusBadge value={order.invoiceStatus} />
               <div className="text-sm font-bold">
                 {(order.totalAmount / 100).toFixed(2)} RON
               </div>

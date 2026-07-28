@@ -349,6 +349,22 @@ function OrderSummaryCard({
               </a>
             </Button>
           )}
+          {order.invoiceUrl && (
+            <Button
+              asChild
+              variant="outline"
+              className="h-11 rounded-none border-black px-5 text-xs font-bold uppercase tracking-widest"
+            >
+              <a href={order.invoiceUrl} target="_blank" rel="noreferrer">
+                Invoice
+              </a>
+            </Button>
+          )}
+          {!order.invoiceUrl && order.paymentStatus === "paid" && (
+            <span className="inline-flex h-11 items-center border border-slate-200 px-4 text-xs font-bold uppercase tracking-widest text-slate-500">
+              Invoice pending
+            </span>
+          )}
         </div>
       </div>
     </section>

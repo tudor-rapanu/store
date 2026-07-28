@@ -46,7 +46,10 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
   const [draft, setDraft] = useState(order);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const isInternational = draft.shippingMethod === "international";
+  const canGenerateInvoice =
+    draft.paymentStatus === "paid" && draft.invoiceStatus !== "generated";
 
   async function saveOrder() {
     setMessage(null);
@@ -78,6 +81,40 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
     }
   }
 
+  async function generateInvoice() {
+    setMessage(null);
+    setIsGeneratingInvoice(true);
+
+    try {
+      const response = await fetch(`/api/admin/orders/${order.id}/generate-invoice`, {
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        ok?: boolean;
+        queued?: boolean;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error ?? "The invoice could not be generated.");
+      }
+
+      setMessage(
+        result.queued
+          ? (result.message ?? "Invoice generation was queued.")
+          : "Invoice generated.",
+      );
+      router.refresh();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "The invoice could not be generated.",
+      );
+    } finally {
+      setIsGeneratingInvoice(false);
+    }
+  }
+
   return (
     <section className="space-y-6 border border-black p-4">
       <div className="flex flex-wrap gap-2">
@@ -85,6 +122,13 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
         <StatusBadge value={draft.fulfillmentStatus} className="py-1" />
         <StatusBadge value={draft.invoiceStatus} className="py-1" />
       </div>
+
+      {draft.invoiceStatus === "failed" && (
+        <div className="border border-red-200 bg-red-50 p-3 text-xs font-bold uppercase tracking-wider text-red-700">
+          Invoice generation failed. Check the FGO configuration or order data, then
+          retry generation.
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <SelectField
@@ -172,6 +216,28 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
         value={draft.invoiceUrl ?? ""}
         onChange={(value) => setDraft((current) => ({ ...current, invoiceUrl: value }))}
       />
+
+      <div className="flex flex-wrap gap-3">
+        <Button
+          type="button"
+          disabled={!canGenerateInvoice || isGeneratingInvoice}
+          onClick={generateInvoice}
+          className="h-12 rounded-none bg-black px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isGeneratingInvoice ? "Queuing..." : "Generate FGO Invoice"}
+        </Button>
+        {draft.invoiceUrl && (
+          <Button
+            asChild
+            variant="outline"
+            className="h-12 rounded-none border-black px-6 text-xs font-black uppercase tracking-widest"
+          >
+            <a href={draft.invoiceUrl} target="_blank" rel="noreferrer">
+              Open Invoice
+            </a>
+          </Button>
+        )}
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <TextareaField

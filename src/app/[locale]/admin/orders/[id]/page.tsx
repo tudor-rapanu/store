@@ -10,7 +10,6 @@ import { SamedayAwbPanel } from "@/components/order/SamedayAwbPanel";
 import { StatusBadge } from "@/components/order/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { isAdminUser } from "@/lib/admin-auth";
-import { markStaleNetopiaOrdersFailed } from "@/lib/actions/orders";
 import { db } from "@/lib/db";
 import { orderItems, orders, products, productVariants } from "@/lib/db/schema";
 import { formatFulfillmentEstimate } from "@/lib/fulfillment/estimate";
@@ -46,8 +45,6 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
   if (!(await isAdminUser())) {
     redirect(`/${activeLocale}`);
   }
-
-  await markStaleNetopiaOrdersFailed();
 
   const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
 

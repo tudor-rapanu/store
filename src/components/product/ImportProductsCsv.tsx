@@ -63,7 +63,7 @@ const sampleCsv = Papa.unparse([
     variantValues2: "Small|Large",
     variantType3: "",
     variantValues3: "",
-    variantPrice: "25",
+    variantPrice: "",
     variantTrackStock: "true",
     variantStock: "10",
   },
@@ -209,8 +209,9 @@ export function ImportProductsCsv() {
           <code>2026-07-20T10:00</code>. For digital products, set{" "}
           <code>isDigital</code> to <code>true</code> and provide protected file URLs in{" "}
           <code>digitalFileUrl</code> or <code>digitalFileUrls</code>. Imported products
-          are private unless <code>isPrivate</code> is set to <code>false</code>.
-          Duplicate slugs are imported as copy products.
+          are private unless <code>isPrivate</code> is set to <code>false</code>. Leave{" "}
+          <code>variantPrice</code> blank to use the product base price for every
+          variant. Duplicate slugs are imported as copy products.
         </div>
 
         {message && (

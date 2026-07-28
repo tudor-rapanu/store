@@ -20,6 +20,24 @@ interface Product {
   saleStartsAt?: Date | string | null;
   saleEndsAt?: Date | string | null;
   imageUrl?: string | null;
+  trackStock?: boolean | null;
+  stock?: number | null;
+}
+
+function getStockLabel(product: Product, locale: "en" | "ro") {
+  if (!product.trackStock) {
+    return null;
+  }
+
+  const availableStock = Math.max(product.stock ?? 0, 0);
+
+  if (availableStock <= 0) {
+    return locale === "ro" ? "Stoc epuizat" : "Out of stock";
+  }
+
+  return locale === "ro"
+    ? `${availableStock} in stoc`
+    : `${availableStock} in stock`;
 }
 
 export function ProductCard({
@@ -43,6 +61,8 @@ export function ProductCard({
   const displayTitle = getTranslatedText(product.title, locale, product.slug);
   const imageSrc = getProductImageSrc(product.imageUrl, "large");
   const price = getProductPricePresentation(product);
+  const stockLabel = getStockLabel(product, locale);
+  const isOutOfStock = Boolean(product.trackStock) && (product.stock ?? 0) <= 0;
   const finalPrice = catalogDiscount?.discountedPrice ?? price.effectivePrice;
   const comparisonPrice = price.isOnSale ? price.regularPrice : price.effectivePrice;
   const isDiscounted = finalPrice < comparisonPrice;
@@ -95,6 +115,17 @@ export function ProductCard({
         {catalogDiscount && (
           <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-destructive">
             {catalogDiscount.discountName}
+          </p>
+        )}
+        {stockLabel && (
+          <p className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+            <span
+              className={`size-1.5 rounded-full ${
+                isOutOfStock ? "bg-destructive" : "bg-emerald-500"
+              }`}
+              aria-hidden="true"
+            />
+            {stockLabel}
           </p>
         )}
       </div>

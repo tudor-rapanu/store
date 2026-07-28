@@ -2,38 +2,15 @@ import { and, eq, isNull, lte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { revalidateCatalogViews } from "@/lib/catalog/cache";
+import { isAuthorizedCronRequest } from "@/lib/cron/auth";
 import { db } from "@/lib/db";
 import { products } from "@/lib/db/schema";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function getCronSecret() {
-  return (
-    process.env.CATALOG_REVALIDATE_SECRET?.trim() ||
-    process.env.CRON_SECRET?.trim() ||
-    ""
-  );
-}
-
-function isAuthorized(request: Request) {
-  const secret = getCronSecret();
-
-  if (!secret) {
-    return false;
-  }
-
-  const authorization = request.headers.get("authorization") ?? "";
-  const bearerToken = authorization.startsWith("Bearer ")
-    ? authorization.slice("Bearer ".length).trim()
-    : "";
-  const queryToken = new URL(request.url).searchParams.get("secret")?.trim();
-
-  return bearerToken === secret || queryToken === secret;
-}
-
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

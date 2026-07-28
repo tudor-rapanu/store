@@ -139,6 +139,18 @@ function parseNumber(value: unknown, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function parseOptionalPriceMajor(value: unknown) {
+  const raw = getString(value).replace(",", ".");
+
+  if (!raw) {
+    return undefined;
+  }
+
+  const parsed = Number.parseFloat(raw);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 function parsePositiveInteger(value: unknown, fallback: number) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
 
@@ -239,7 +251,9 @@ function parseVariantJson(value: unknown, rowNumber: number) {
         "sku" in variant && typeof variant.sku === "string" ? variant.sku.trim() : "",
       attributes: variant.attributes as Record<string, string>,
       price:
-        "price" in variant && typeof variant.price === "number" ? variant.price : 0,
+        "price" in variant && typeof variant.price === "number" && variant.price > 0
+          ? variant.price
+          : undefined,
       stock:
         "stock" in variant && typeof variant.stock === "number" ? variant.stock : 0,
       trackStock:
@@ -280,7 +294,7 @@ function parseFriendlyVariants(row: ImportProductRow) {
     throw new Error("Variant types need at least one variant value.");
   }
 
-  const defaultPrice = parseNumber(row.variantPrice, 0);
+  const defaultPrice = parseOptionalPriceMajor(row.variantPrice);
   const defaultTrackStock = getImportBoolean(row.variantTrackStock);
   const defaultStock = Math.max(Math.floor(parseNumber(row.variantStock, 0)), 0);
 
@@ -598,7 +612,7 @@ async function insertImportedVariants(row: NormalizedImportRow, productId: strin
       name: variant.name,
       sku: variant.sku,
       attributes: variant.attributes,
-      price: Math.round((variant.price ?? 0) * 100),
+      price: variant.price ? Math.round(variant.price * 100) : null,
       priceAdjustment: 0,
       trackStock: variant.trackStock ?? false,
       stock: variant.trackStock ? Math.max(Math.floor(variant.stock ?? 0), 0) : 0,

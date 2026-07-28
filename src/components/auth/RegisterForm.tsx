@@ -21,12 +21,7 @@ import {
 export function RegisterForm({ locale }: { locale: "en" | "ro" }) {
   const t = useTranslations("Auth");
 
-  const [state, formAction, isPending] = useActionState(
-    async (_prevState: unknown, formData: FormData) => {
-      return await register(formData);
-    },
-    null,
-  );
+  const [state, formAction, isPending] = useActionState(register, null);
   const errorMessage =
     state && "error" in state && typeof state.error === "string" ? state.error : "";
   const successMessage =

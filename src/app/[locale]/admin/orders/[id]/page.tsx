@@ -38,6 +38,40 @@ export async function generateMetadata({
   };
 }
 
+function formatVariantAttributes(attributes: Record<string, string> | null) {
+  if (!attributes) {
+    return null;
+  }
+
+  const label = Object.entries(attributes)
+    .filter(([, value]) => Boolean(value))
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(" / ");
+
+  return label || null;
+}
+
+function formatAdminOrderItemTitle({
+  product,
+  variant,
+  locale,
+}: {
+  product: { title?: { en: string; ro: string } | null; slug?: string | null } | null;
+  variant: {
+    name: string | null;
+    attributes: Record<string, string> | null;
+  } | null;
+  locale: "en" | "ro";
+}) {
+  const productTitle = product?.title
+    ? getTranslatedText(product.title, locale, product.slug ?? "Product")
+    : "Product";
+  const variantLabel =
+    formatVariantAttributes(variant?.attributes ?? null) || variant?.name || null;
+
+  return variantLabel ? `${productTitle} - ${variantLabel}` : productTitle;
+}
+
 export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
   const { locale, id } = await params;
   const activeLocale = locale === "ro" ? "ro" : "en";
@@ -62,6 +96,7 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
       variant: {
         name: productVariants.name,
         sku: productVariants.sku,
+        attributes: productVariants.attributes,
       },
       product: {
         title: products.title,
@@ -180,11 +215,11 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
             products={productOptions}
             items={items.map((row) => ({
               id: row.item.id,
-              title:
-                row.product?.title?.[activeLocale] ||
-                row.product?.title?.en ||
-                row.variant?.name ||
-                "Product",
+              title: formatAdminOrderItemTitle({
+                product: row.product,
+                variant: row.variant,
+                locale: activeLocale,
+              }),
               sku: row.variant?.sku ?? row.product?.slug ?? null,
               quantity: row.item.quantity,
               unitPrice: row.item.unitPrice,

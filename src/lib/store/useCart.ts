@@ -30,7 +30,11 @@ export const useCart = create<CartStore>()(
             return {
               items: state.items.map((i) =>
                 i.variantId === item.variantId
-                  ? { ...i, quantity: i.quantity + item.quantity }
+                  ? {
+                      ...i,
+                      ...item,
+                      quantity: i.quantity + item.quantity,
+                    }
                   : i,
               ),
             };

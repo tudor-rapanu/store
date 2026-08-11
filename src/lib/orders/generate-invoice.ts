@@ -45,6 +45,30 @@ function buildClientAddress(address: ShippingAddress) {
     .join(", ");
 }
 
+function formatVariantAttributes(attributes: Record<string, string> | null) {
+  if (!attributes) {
+    return null;
+  }
+
+  const label = Object.entries(attributes)
+    .filter(([, value]) => Boolean(value))
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(" / ");
+
+  return label || null;
+}
+
+function formatInvoiceProductName(
+  item: Awaited<ReturnType<typeof getInvoiceItems>>[number],
+) {
+  const productName =
+    getTranslatedText(item.productTitle, "ro", item.productSlug) || "Produs";
+  const variantLabel =
+    formatVariantAttributes(item.variantAttributes) || item.variantName || null;
+
+  return variantLabel ? `${productName} - ${variantLabel}` : productName;
+}
+
 async function getInvoiceItems(orderId: string) {
   return db
     .select({
@@ -53,6 +77,7 @@ async function getInvoiceItems(orderId: string) {
       productTitle: products.title,
       productSlug: products.slug,
       variantName: productVariants.name,
+      variantAttributes: productVariants.attributes,
       variantSku: productVariants.sku,
     })
     .from(orderItems)
@@ -70,10 +95,7 @@ function buildInvoiceLines({
 }) {
   const vatRate = getVatRate();
   const lines = items.map((item) => ({
-    Denumire:
-      item.variantName ||
-      getTranslatedText(item.productTitle, "ro", item.productSlug) ||
-      "Produs",
+    Denumire: formatInvoiceProductName(item),
     NrProduse: item.quantity,
     UM: "BUC",
     CotaTVA: vatRate,

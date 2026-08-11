@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/schema";
 import { formatFulfillmentEstimate } from "@/lib/fulfillment/estimate";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getTranslatedText } from "@/lib/i18n/text";
 
 type OrderRow = typeof orders.$inferSelect;
 
@@ -101,6 +102,34 @@ function getOrderFulfillmentEstimate(order: OrderRow) {
         end: order.estimatedShippingEnd,
       }
     : null;
+}
+
+function formatVariantAttributes(attributes: Record<string, string> | null) {
+  if (!attributes) {
+    return null;
+  }
+
+  const label = Object.entries(attributes)
+    .filter(([, value]) => Boolean(value))
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(" / ");
+
+  return label || null;
+}
+
+function formatOrderItemTitle(
+  row: Awaited<ReturnType<typeof getPublicOrderItems>>[number],
+  locale: "en" | "ro",
+) {
+  const productTitle = row.product
+    ? getTranslatedText(row.product.title, locale, row.product.slug ?? "Product")
+    : "Product";
+  const variantLabel =
+    formatVariantAttributes(row.variant?.attributes ?? null) ||
+    row.variant?.name ||
+    null;
+
+  return variantLabel ? `${productTitle} - ${variantLabel}` : productTitle;
 }
 
 export default async function PublicOrderPage({
@@ -190,10 +219,7 @@ export default async function PublicOrderPage({
                   >
                     <div>
                       <div className="font-bold uppercase tracking-tight">
-                        {row.product?.title?.[activeLocale] ||
-                          row.product?.title?.en ||
-                          row.variant?.name ||
-                          "Product"}
+                        {formatOrderItemTitle(row, activeLocale)}
                       </div>
                       <div className="text-xs uppercase tracking-widest text-slate-500">
                         {row.variant?.sku}

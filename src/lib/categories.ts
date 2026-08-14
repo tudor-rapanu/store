@@ -3,6 +3,7 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { categories } from "@/lib/db/schema";
 import { getTranslatedText } from "@/lib/i18n/text";
+import { slugify } from "@/lib/slug";
 
 type CategoryRow = typeof categories.$inferSelect;
 
@@ -25,11 +26,7 @@ export type CategoryPathInput = {
 };
 
 export function slugifyCategory(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return slugify(value);
 }
 
 export function parseCategoryPath(value: string): CategoryPathInput[] {

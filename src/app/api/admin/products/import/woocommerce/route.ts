@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
+import { isWooCommerceMigrationEnabled } from "@/lib/admin/woocommerce-migration-access";
 import {
   getWooCommerceImportPreview,
   importWooCommerceProductById,
@@ -15,6 +16,10 @@ function errorResponse(message: string, status = 400) {
 }
 
 export async function GET() {
+  if (!isWooCommerceMigrationEnabled()) {
+    return errorResponse("WooCommerce migration is disabled.", 404);
+  }
+
   if (!(await isAdminUser())) {
     return errorResponse("You are not allowed to preview WooCommerce imports.", 403);
   }
@@ -47,6 +52,10 @@ async function readWooId(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!isWooCommerceMigrationEnabled()) {
+    return errorResponse("WooCommerce migration is disabled.", 404);
+  }
+
   if (!(await isAdminUser())) {
     return errorResponse("You are not allowed to import WooCommerce products.", 403);
   }

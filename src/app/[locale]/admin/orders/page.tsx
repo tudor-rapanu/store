@@ -3,9 +3,12 @@ import { and, count, desc, eq, ilike, or } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
+import { ImportOrdersWooCommerce } from "@/components/order/ImportOrdersWooCommerce";
 import { StatusBadge } from "@/components/order/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { isAdminUser } from "@/lib/admin-auth";
+import { isWooCommerceMigrationEnabled } from "@/lib/admin/woocommerce-migration-access";
 import { db } from "@/lib/db";
 import {
   type FulfillmentStatus,
@@ -21,17 +24,21 @@ export const metadata: Metadata = {
 
 type AdminOrdersPageProps = Readonly<{
   params: Promise<Readonly<{ locale: string }>>;
-  searchParams: Promise<Readonly<{
-    page?: string;
-    q?: string;
-    paymentStatus?: string;
-    fulfillmentStatus?: string;
-    paymentMethod?: string;
-    invoiceStatus?: string;
-  }>>;
+  searchParams: Promise<
+    Readonly<{
+      page?: string;
+      pageSize?: string;
+      q?: string;
+      paymentStatus?: string;
+      fulfillmentStatus?: string;
+      paymentMethod?: string;
+      invoiceStatus?: string;
+    }>
+  >;
 }>;
 
-const ORDERS_PER_PAGE = 12;
+const DEFAULT_ORDERS_PER_PAGE = 12;
+const ORDER_PAGE_SIZE_OPTIONS = [12, 25, 50, 100] as const;
 const paymentStatusOptions: PaymentStatus[] = ["pending", "paid", "failed", "refunded"];
 const fulfillmentStatusOptions: FulfillmentStatus[] = [
   "new",
@@ -42,11 +49,7 @@ const fulfillmentStatusOptions: FulfillmentStatus[] = [
   "refunded",
 ];
 const paymentMethodOptions: PaymentMethod[] = ["card", "bank_transfer"];
-const invoiceStatusOptions: InvoiceStatus[] = [
-  "not_generated",
-  "generated",
-  "failed",
-];
+const invoiceStatusOptions: InvoiceStatus[] = ["not_generated", "generated", "failed"];
 
 function getPaymentStatus(value?: string) {
   return paymentStatusOptions.find((option) => option === value);
@@ -68,10 +71,18 @@ type OrderFilters = Awaited<AdminOrdersPageProps["searchParams"]>;
 
 function parseOrderFilters(filters: OrderFilters) {
   const requestedPage = Math.max(Number.parseInt(filters.page ?? "1", 10) || 1, 1);
+  const requestedPageSize =
+    Number.parseInt(filters.pageSize ?? String(DEFAULT_ORDERS_PER_PAGE), 10) ||
+    DEFAULT_ORDERS_PER_PAGE;
   const searchTerm = filters.q?.trim() ?? "";
 
   return {
     requestedPage,
+    ordersPerPage: ORDER_PAGE_SIZE_OPTIONS.includes(
+      requestedPageSize as (typeof ORDER_PAGE_SIZE_OPTIONS)[number],
+    )
+      ? requestedPageSize
+      : DEFAULT_ORDERS_PER_PAGE,
     searchTerm,
     paymentStatus: getPaymentStatus(filters.paymentStatus),
     fulfillmentStatus: getFulfillmentStatus(filters.fulfillmentStatus),
@@ -111,6 +122,7 @@ function getOrderWhereClause(filters: ReturnType<typeof parseOrderFilters>) {
 function getOrderBaseQuery(filters: ReturnType<typeof parseOrderFilters>) {
   const baseQuery = new URLSearchParams();
 
+  baseQuery.set("pageSize", String(filters.ordersPerPage));
   if (filters.searchTerm) baseQuery.set("q", filters.searchTerm);
   if (filters.paymentStatus) baseQuery.set("paymentStatus", filters.paymentStatus);
   if (filters.fulfillmentStatus) {
@@ -147,9 +159,9 @@ export default async function AdminOrdersPage({
     .from(orders)
     .where(whereClause);
   const totalOrders = totalResult?.value ?? 0;
-  const totalPages = Math.max(Math.ceil(totalOrders / ORDERS_PER_PAGE), 1);
+  const totalPages = Math.max(Math.ceil(totalOrders / filters.ordersPerPage), 1);
   const currentPage = Math.min(filters.requestedPage, totalPages);
-  const offset = (currentPage - 1) * ORDERS_PER_PAGE;
+  const offset = (currentPage - 1) * filters.ordersPerPage;
   const items = await db
     .select({
       id: orders.id,
@@ -167,7 +179,7 @@ export default async function AdminOrdersPage({
     .from(orders)
     .where(whereClause)
     .orderBy(desc(orders.createdAt))
-    .limit(ORDERS_PER_PAGE)
+    .limit(filters.ordersPerPage)
     .offset(offset);
   const baseQuery = getOrderBaseQuery(filters);
 
@@ -189,7 +201,10 @@ export default async function AdminOrdersPage({
         </Button>
       </div>
 
+      {isWooCommerceMigrationEnabled() && <ImportOrdersWooCommerce />}
+
       <form className="mb-6 grid gap-3 border border-black p-4 md:grid-cols-[1fr_160px_160px_160px_160px_auto]">
+        <input type="hidden" name="pageSize" value={filters.ordersPerPage} />
         <input
           name="q"
           defaultValue={filters.searchTerm}
@@ -228,6 +243,58 @@ export default async function AdminOrdersPage({
         </Button>
       </form>
 
+      <form
+        action={`/${activeLocale}/admin/orders`}
+        className="mb-4 flex flex-wrap items-center justify-between gap-3 text-xs font-bold uppercase tracking-widest text-slate-500"
+      >
+        <span>
+          Showing {items.length} of {totalOrders} orders
+        </span>
+        <div className="flex items-center gap-2">
+          <input type="hidden" name="page" value="1" />
+          {filters.searchTerm && (
+            <input type="hidden" name="q" value={filters.searchTerm} />
+          )}
+          {filters.paymentStatus && (
+            <input type="hidden" name="paymentStatus" value={filters.paymentStatus} />
+          )}
+          {filters.fulfillmentStatus && (
+            <input
+              type="hidden"
+              name="fulfillmentStatus"
+              value={filters.fulfillmentStatus}
+            />
+          )}
+          {filters.paymentMethod && (
+            <input type="hidden" name="paymentMethod" value={filters.paymentMethod} />
+          )}
+          {filters.invoiceStatus && (
+            <input type="hidden" name="invoiceStatus" value={filters.invoiceStatus} />
+          )}
+          <label htmlFor="orders-page-size">Items</label>
+          <select
+            id="orders-page-size"
+            name="pageSize"
+            defaultValue={filters.ordersPerPage}
+            className="h-10 rounded-none border border-black bg-white px-3 text-sm text-black"
+            aria-label="Orders per page"
+          >
+            {ORDER_PAGE_SIZE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <Button
+            type="submit"
+            variant="outline"
+            className="h-10 rounded-none border-black text-xs font-bold uppercase tracking-widest"
+          >
+            Apply
+          </Button>
+        </div>
+      </form>
+
       <div className="divide-y divide-black border border-black">
         {items.length === 0 ? (
           <div className="p-6 text-sm font-bold uppercase tracking-widest text-slate-500">
@@ -237,16 +304,19 @@ export default async function AdminOrdersPage({
           items.map((order) => (
             <div
               key={order.id}
-              className="grid gap-4 p-4 lg:grid-cols-[120px_1fr_150px_150px_150px_120px_auto] lg:items-center"
+              className="grid gap-4 p-4 lg:grid-cols-[120px_minmax(0,1fr)_150px_150px_150px_120px_auto] lg:items-center"
             >
               <div className="font-black uppercase tracking-tight">
                 TT-{order.orderNumber}
               </div>
-              <div>
-                <div className="font-bold uppercase tracking-tight">
+              <div className="min-w-0">
+                <div className="truncate font-bold uppercase tracking-tight">
                   {order.customerFirstName} {order.customerLastName}
                 </div>
-                <div className="text-xs uppercase tracking-widest text-slate-500">
+                <div
+                  className="truncate text-xs uppercase tracking-widest text-slate-500"
+                  title={`${order.customerEmail} / ${order.customerPhone}`}
+                >
                   {order.customerEmail} / {order.customerPhone}
                 </div>
               </div>
@@ -267,34 +337,12 @@ export default async function AdminOrdersPage({
         )}
       </div>
 
-      {totalOrders > ORDERS_PER_PAGE && (
-        <nav className="mt-6 flex items-center justify-between gap-4 text-xs font-bold uppercase tracking-widest">
-          <Button
-            asChild
-            variant="outline"
-            className={`rounded-none border-black text-xs font-bold uppercase tracking-widest ${
-              currentPage <= 1 ? "pointer-events-none opacity-50" : ""
-            }`}
-          >
-            <Link href={getPageHref(activeLocale, baseQuery, Math.max(currentPage - 1, 1))}>
-              Previous
-            </Link>
-          </Button>
-          <span className="text-slate-500">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            asChild
-            variant="outline"
-            className={`rounded-none border-black text-xs font-bold uppercase tracking-widest ${
-              currentPage >= totalPages ? "pointer-events-none opacity-50" : ""
-            }`}
-          >
-            <Link href={getPageHref(activeLocale, baseQuery, Math.min(currentPage + 1, totalPages))}>
-              Next
-            </Link>
-          </Button>
-        </nav>
+      {totalOrders > filters.ordersPerPage && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          hrefForPage={(page) => getPageHref(activeLocale, baseQuery, page)}
+        />
       )}
     </main>
   );

@@ -25,7 +25,7 @@ export function ProductDigitalSection({
           checked={state.isDigital}
           onChange={(event) => update("isDigital", event.target.checked)}
           className="size-4"
-        />
+        />{" "}
         Digital downloadable product
       </label>
       {state.isDigital && (

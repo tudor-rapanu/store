@@ -40,6 +40,9 @@ export function useCartReconciliation({ active }: { active: boolean }) {
   useEffect(() => {
     if (!active) {
       lastRequestKeyRef.current = null;
+      // Resets synchronously so a closed cart never flashes a stale
+      // reconciliation result if it's reopened before a re-render.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState(initialState);
       return;
     }
@@ -96,7 +99,7 @@ export function useCartReconciliation({ active }: { active: boolean }) {
           adjustedCount: result.adjustedCount,
           failed: false,
         });
-      } catch (error) {
+      } catch {
         if (controller.signal.aborted) {
           return;
         }

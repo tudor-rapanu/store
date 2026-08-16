@@ -156,7 +156,6 @@ export async function resendVerificationEmail(
 ) {
   const formData = getSubmittedFormData(previousStateOrFormData, submittedFormData);
   const email = normalizeEmail(formData.get("email"));
-  const locale = formData.get("locale") === "ro" ? "ro" : "en";
 
   if (!email) {
     return { error: "Email is required" };

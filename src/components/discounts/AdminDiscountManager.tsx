@@ -295,7 +295,7 @@ export function AdminDiscountManager({
         </Field>
 
         <label className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
-          <input name="enabled" type="checkbox" defaultChecked />
+          <input name="enabled" type="checkbox" defaultChecked />{" "}
           Enabled
         </label>
 
@@ -544,7 +544,7 @@ function DiscountEditForm({
           />
         </Field>
         <label className="flex items-center gap-3 pt-8 text-xs font-bold uppercase tracking-widest">
-          <input name="enabled" type="checkbox" defaultChecked={discount.enabled} />
+          <input name="enabled" type="checkbox" defaultChecked={discount.enabled} />{" "}
           Enabled
         </label>
       </div>

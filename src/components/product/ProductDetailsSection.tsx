@@ -70,7 +70,7 @@ export function ProductDetailsSection({ controller }: ProductDetailsSectionProps
                         controller.update(detail.rowId, "enabled", event.target.checked)
                       }
                       className="size-4"
-                    />
+                    />{" "}
                     Show
                   </label>
                   <Input

@@ -244,7 +244,7 @@ export function SizeGuidesSettings({ sizeGuides }: SizeGuidesSettingsProps) {
                       }))
                     }
                     className="size-4"
-                  />
+                  />{" "}
                   Enabled
                 </label>
 

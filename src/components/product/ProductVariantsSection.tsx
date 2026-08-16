@@ -24,7 +24,7 @@ export function ProductVariantsSection({
           checked={controller.enabled}
           onChange={(event) => controller.setEnabled(event.target.checked)}
           className="size-4"
-        />
+        />{" "}
         Enable variants
       </label>
 
@@ -137,7 +137,7 @@ export function ProductVariantsSection({
                         })
                       }
                       className="size-4"
-                    />
+                    />{" "}
                     Track stock
                   </label>
                   <Input
@@ -168,7 +168,7 @@ export function ProductVariantsSection({
                         })
                       }
                       className="size-4"
-                    />
+                    />{" "}
                     Sale
                   </label>
                   <Input

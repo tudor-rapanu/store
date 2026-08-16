@@ -343,7 +343,7 @@ export function ImportOrdersWooCommerce() {
         </p>
 
         <label className="block text-xs font-black uppercase tracking-widest">
-          Extras / FGO Postmeta
+          Extras / FGO Postmeta{" "}
           <textarea
             value={extrasText}
             onChange={(event) => setExtrasText(event.target.value)}
@@ -355,7 +355,7 @@ export function ImportOrdersWooCommerce() {
         <div className="grid gap-3 border border-black p-3 text-xs font-bold uppercase tracking-widest md:grid-cols-[1fr_auto] md:items-end">
           <div className="grid gap-3 sm:grid-cols-2">
             <label>
-              Batch Page
+              Batch Page{" "}
               <input
                 type="number"
                 min={1}
@@ -367,7 +367,7 @@ export function ImportOrdersWooCommerce() {
               />
             </label>
             <label>
-              Batch Size
+              Batch Size{" "}
               <select
                 value={batchSize}
                 onChange={(event) => updateBatchSize(event.target.value)}

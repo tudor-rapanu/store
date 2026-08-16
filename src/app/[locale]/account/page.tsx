@@ -245,7 +245,7 @@ export default async function AccountPage({ params, searchParams }: AccountPageP
                     name="preferredShippingMethod"
                     value="address"
                     defaultChecked={profile?.preferredShippingMethod !== "easybox"}
-                  />
+                  />{" "}
                   Home Address
                 </label>
                 <label className="flex items-center gap-3 border border-black p-3 text-xs font-bold uppercase tracking-widest">
@@ -254,7 +254,7 @@ export default async function AccountPage({ params, searchParams }: AccountPageP
                     name="preferredShippingMethod"
                     value="easybox"
                     defaultChecked={profile?.preferredShippingMethod === "easybox"}
-                  />
+                  />{" "}
                   Sameday Easybox
                 </label>
               </div>
@@ -263,7 +263,7 @@ export default async function AccountPage({ params, searchParams }: AccountPageP
                   type="checkbox"
                   name="marketingOptIn"
                   defaultChecked={profile?.marketingOptIn ?? false}
-                />
+                />{" "}
                 Email me about new drops and order updates.
               </label>
             </section>

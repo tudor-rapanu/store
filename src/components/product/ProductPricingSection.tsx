@@ -61,7 +61,7 @@ export function ProductPricingSection({
             checked={state.saleEnabled}
             onChange={(event) => update("saleEnabled", event.target.checked)}
             className="size-4"
-          />
+          />{" "}
           Enable product sale price
         </label>
         {state.saleEnabled && (

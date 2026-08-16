@@ -120,8 +120,8 @@ export async function PATCH(
     return errorResponse("Product was not found.", 404);
   }
 
-  let uploadedImages: string[] = [];
-  let uploadedDigitalFiles: Awaited<ReturnType<typeof uploadDigitalProductFile>>[] = [];
+  const uploadedImages: string[] = [];
+  const uploadedDigitalFiles: Awaited<ReturnType<typeof uploadDigitalProductFile>>[] = [];
 
   try {
     for (const image of images) {

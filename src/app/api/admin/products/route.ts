@@ -47,8 +47,8 @@ export async function POST(request: Request) {
   }
 
   const productId = crypto.randomUUID();
-  let uploadedImages: string[] = [];
-  let uploadedDigitalFiles: Awaited<ReturnType<typeof uploadDigitalProductFile>>[] = [];
+  const uploadedImages: string[] = [];
+  const uploadedDigitalFiles: Awaited<ReturnType<typeof uploadDigitalProductFile>>[] = [];
 
   try {
     for (const image of images) {

@@ -31,7 +31,7 @@ export function ProductStockSection({
           checked={state.trackStock}
           onChange={(event) => update("trackStock", event.target.checked)}
           className="size-4"
-        />
+        />{" "}
         Track stock for this product
       </label>
       {state.trackStock && (

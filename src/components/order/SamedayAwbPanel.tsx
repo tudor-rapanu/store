@@ -491,7 +491,7 @@ export function SamedayAwbPanel({
                   checked={personalEasyboxLoad}
                   onChange={(event) => setPersonalEasyboxLoad(event.target.checked)}
                   className="size-4 border-black"
-                />
+                />{" "}
                 I will personally load this package in an Easybox.
               </label>
 

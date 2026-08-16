@@ -68,45 +68,27 @@ export default async function AdminDiscountsPage({ params }: AdminDiscountsPageP
   );
 }
 
-async function DiscountsPanel({ activeLocale }: { activeLocale: "en" | "ro" }) {
-  try {
-    const [discountRows, options] = await withDiscountsTimeout(
-      Promise.all([
-        db.select().from(discounts).orderBy(desc(discounts.createdAt)),
-        getDiscountAdminOptions(),
-      ]),
-    );
+async function loadDiscountsPanelData() {
+  const [discountRows, options] = await withDiscountsTimeout(
+    Promise.all([
+      db.select().from(discounts).orderBy(desc(discounts.createdAt)),
+      getDiscountAdminOptions(),
+    ]),
+  );
 
-    return (
-      <AdminDiscountManager
-        discounts={discountRows.map((discount) => ({
-          id: discount.id,
-          name: discount.name,
-          code: discount.code,
-          kind: discount.kind,
-          type: discount.type,
-          scope: discount.scope,
-          value: discount.value,
-          enabled: discount.enabled,
-          expiresAt: toIsoString(discount.expiresAt),
-          productId: discount.productId,
-          categoryId: discount.categoryId,
-        }))}
-        products={options.products.map((product) => ({
-          id: product.id,
-          label: getTranslatedText(product.title, activeLocale, product.id),
-        }))}
-        categories={getCategoryOptions(options.categories, activeLocale).map(
-          (category) => ({
-            id: category.id,
-            label: category.name,
-          }),
-        )}
-      />
-    );
-  } catch (error) {
+  return { discountRows, options };
+}
+
+async function DiscountsPanel({ activeLocale }: { activeLocale: "en" | "ro" }) {
+  const result = await loadDiscountsPanelData().catch((error: unknown) => ({
+    error,
+  }));
+
+  if ("error" in result) {
     const message =
-      error instanceof Error ? error.message : "Discounts could not be loaded.";
+      result.error instanceof Error
+        ? result.error.message
+        : "Discounts could not be loaded.";
 
     return (
       <section className="space-y-3 border border-red-300 bg-red-50 p-4">
@@ -122,6 +104,36 @@ async function DiscountsPanel({ activeLocale }: { activeLocale: "en" | "ro" }) {
       </section>
     );
   }
+
+  const { discountRows, options } = result;
+
+  return (
+    <AdminDiscountManager
+      discounts={discountRows.map((discount) => ({
+        id: discount.id,
+        name: discount.name,
+        code: discount.code,
+        kind: discount.kind,
+        type: discount.type,
+        scope: discount.scope,
+        value: discount.value,
+        enabled: discount.enabled,
+        expiresAt: toIsoString(discount.expiresAt),
+        productId: discount.productId,
+        categoryId: discount.categoryId,
+      }))}
+      products={options.products.map((product) => ({
+        id: product.id,
+        label: getTranslatedText(product.title, activeLocale, product.id),
+      }))}
+      categories={getCategoryOptions(options.categories, activeLocale).map(
+        (category) => ({
+          id: category.id,
+          label: category.name,
+        }),
+      )}
+    />
+  );
 }
 
 function withDiscountsTimeout<T>(promise: Promise<T>, timeoutMs = 8000) {

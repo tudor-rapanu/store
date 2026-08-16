@@ -457,6 +457,10 @@ export function CheckoutForm({
 
   useEffect(() => {
     if (!checkoutIdempotencyKey) {
+      // crypto.randomUUID() must run client-side only - generating it during
+      // render would produce a different value on the server vs the client
+      // and mismatch the hidden input's hydrated markup.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCheckoutIdempotencyKey(createCheckoutAttemptKey());
     }
   }, [checkoutIdempotencyKey]);

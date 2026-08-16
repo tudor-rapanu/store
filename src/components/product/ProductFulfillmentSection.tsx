@@ -68,7 +68,7 @@ export function ProductFulfillmentSection({
           checked={state.preorderEnabled}
           onChange={(event) => update("preorderEnabled", event.target.checked)}
           className="size-4"
-        />
+        />{" "}
         Enable preorder
       </label>
       {state.preorderEnabled && (

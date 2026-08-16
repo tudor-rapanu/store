@@ -27,7 +27,7 @@ export function ProductPublishingSettings({
           name="isPrivate"
           defaultChecked={isPrivate}
           className="size-4"
-        />
+        />{" "}
         Private product
       </label>
 

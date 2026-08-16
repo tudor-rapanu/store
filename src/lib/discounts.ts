@@ -4,7 +4,6 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import { getAllCategories } from "@/lib/categories";
 import { db, type DbExecutor } from "@/lib/db";
 import {
-  categories,
   discounts,
   discountUsages,
   productCategories,

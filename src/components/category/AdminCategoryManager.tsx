@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Plus, Save, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -390,7 +390,7 @@ function CategoryRow({
                   className="grid gap-3 p-3 md:grid-cols-[1fr_auto_auto] md:items-center"
                 >
                   <div className="flex items-center gap-3">
-                    <ProductThumbnail product={product} />
+                    <ProductThumbnail key={product.imageUrl} product={product} />
                     <div>
                       <div className="font-bold uppercase tracking-tight">
                         {product.title}
@@ -482,10 +482,6 @@ function ProductThumbnail({ product }: { product: ProductSummary }) {
   );
   const [imageIndex, setImageIndex] = useState(0);
   const imageSrc = imageSrcs[imageIndex];
-
-  useEffect(() => {
-    setImageIndex(0);
-  }, [product.imageUrl]);
 
   return (
     <div className="relative size-12 shrink-0 overflow-hidden border border-slate-200 bg-white">

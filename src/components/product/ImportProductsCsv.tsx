@@ -195,8 +195,8 @@ export function ImportProductsCsv() {
           <code>imageUrl</code> or <code>imageUrls</code>. Optional:{" "}
           <code>titleRo</code>, <code>descriptionEn</code>, <code>descriptionRo</code>,{" "}
           <code>slug</code>, <code>categories</code>, <code>productionMinDays</code>,{" "}
-          <code>productionMaxDays</code>, <code>publishAt</code>, <code>isDigital</code>
-          , <code>trackStock</code>, <code>stock</code>, <code>digitalFileUrl</code>,{" "}
+          <code>productionMaxDays</code>, <code>publishAt</code>, <code>isDigital</code>,{" "}
+          <code>trackStock</code>, <code>stock</code>, <code>digitalFileUrl</code>,{" "}
           <code>digitalFileUrls</code>, <code>isPrivate</code>, <code>variants</code>,{" "}
           <code>variantType1</code>, <code>variantValues1</code>,{" "}
           <code>variantType2</code>, <code>variantValues2</code>,{" "}

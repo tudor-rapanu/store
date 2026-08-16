@@ -240,7 +240,7 @@ export function HomepageSectionsSettings({
                         }))
                       }
                       className="size-4"
-                    />
+                    />{" "}
                     Enabled
                   </label>
                   <div className="flex gap-1">

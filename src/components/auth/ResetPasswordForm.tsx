@@ -38,6 +38,9 @@ export function ResetPasswordForm({
       "";
 
     if (hashToken) {
+      // window.location.hash is only available post-hydration; setting it here
+      // (rather than during render) avoids a server/client markup mismatch.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setClientToken(hashToken);
     }
   }, [token]);

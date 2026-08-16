@@ -30,6 +30,7 @@ type MobileNavMenuProps = {
   categories: CategoryLink[];
   isLoggedIn: boolean;
   isAdmin: boolean;
+  wooCommerceMigrationEnabled: boolean;
   initialCurrency: DisplayCurrency;
 };
 
@@ -38,6 +39,7 @@ export function MobileNavMenu({
   categories,
   isLoggedIn,
   isAdmin,
+  wooCommerceMigrationEnabled,
   initialCurrency,
 }: MobileNavMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -134,6 +136,13 @@ export function MobileNavMenu({
                         Products
                       </Link>
                     </SheetClose>
+                    {wooCommerceMigrationEnabled && (
+                      <SheetClose asChild>
+                        <Link href={`/${locale}/admin/customers`} className={linkClass}>
+                          Customers
+                        </Link>
+                      </SheetClose>
+                    )}
                     <SheetClose asChild>
                       <Link href={`/${locale}/admin/categories`} className={linkClass}>
                         Categories

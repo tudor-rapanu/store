@@ -18,6 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  getProductPurchaseCopy,
+  getSelectAttributeLabel,
+} from "./product-purchase-copy";
+import {
+  getVariantAttributes,
+  getVariantOptionAvailability,
+  selectVariantAttribute,
+} from "./product-variant-selection";
 
 const VARIANT_BUTTON_OPTION_LIMIT = 8;
 
@@ -66,28 +75,6 @@ function getStockLabel(stock: number | null | undefined, locale: "en" | "ro") {
   return locale === "ro" ? `${availableStock} in stoc` : `${availableStock} in stock`;
 }
 
-function getVariantAttributes(variant: Variant) {
-  if (typeof variant.attributes !== "string") {
-    return variant.attributes;
-  }
-
-  try {
-    const parsed = JSON.parse(variant.attributes) as unknown;
-
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-
-    return Object.fromEntries(
-      Object.entries(parsed).filter(
-        (entry): entry is [string, string] => typeof entry[1] === "string",
-      ),
-    );
-  } catch {
-    return {};
-  }
-}
-
 function getVariantSelectionLabel(
   variant: Variant,
   selectedAttrs: Record<string, string>,
@@ -120,6 +107,7 @@ export function AddToCart({
   ronToEurRate = 0.2,
 }: AddToCartProps) {
   const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string>>({});
+  const copy = getProductPurchaseCopy(locale);
   const addItem = useCart((state) => state.addItem);
   const [wasAdded, setWasAdded] = useState(false);
   const isSimpleProduct = variants.length === 0;
@@ -152,6 +140,20 @@ export function AddToCart({
   const finalPrice = pricePresentation.effectivePrice;
   const selectedVariantOutOfStock =
     Boolean(selectedVariant?.trackStock) && (selectedVariant?.stock ?? 0) <= 0;
+  const cartVariantId = isSimpleProduct ? product.id : selectedVariant?.id;
+  const selectedStockLimit = isSimpleProduct
+    ? product.trackStock
+      ? Math.max(product.stock ?? 0, 0)
+      : null
+    : selectedVariant?.trackStock
+      ? Math.max(selectedVariant.stock ?? 0, 0)
+      : null;
+  const currentCartQuantity = useCart(
+    (state) =>
+      state.items.find((item) => item.variantId === cartVariantId)?.quantity ?? 0,
+  );
+  const reachedCartLimit =
+    selectedStockLimit !== null && currentCartQuantity >= selectedStockLimit;
   const productStockLabel =
     isSimpleProduct && product.trackStock ? getStockLabel(product.stock, locale) : null;
   const selectedVariantStockLabel =
@@ -171,42 +173,39 @@ export function AddToCart({
       ? formatEur(pricePresentation.regularPrice, ronToEurRate)
       : formatRon(pricePresentation.regularPrice);
 
-  function getVariantOptionStockState(attributeKey: string, value: string) {
-    const matchingVariants = variants.filter((variant) => {
-      const attributes = getVariantAttributes(variant);
+  function selectAttribute(attributeKey: string, value: string) {
+    setSelectedAttrs((current) =>
+      selectVariantAttribute({
+        selectedAttributes: current,
+        attributeKeys,
+        attributeKey,
+        value,
+      }),
+    );
+  }
 
-      if (attributes[attributeKey] !== value) {
-        return false;
-      }
-
-      return Object.entries(selectedAttrs).every(
-        ([selectedKey, selectedValue]) =>
-          selectedKey === attributeKey ||
-          !selectedValue ||
-          attributes[selectedKey] === selectedValue,
-      );
+  function getOptionState(attributeKey: string, value: string) {
+    const availability = getVariantOptionAvailability({
+      variants,
+      selectedAttributes: selectedAttrs,
+      attributeKeys,
+      attributeKey,
+      value,
     });
-    const trackedVariants = matchingVariants.filter((variant) =>
-      Boolean(variant.trackStock),
-    );
-
-    if (trackedVariants.length === 0) {
-      return null;
-    }
-
-    const optionStock = trackedVariants.reduce(
-      (totalStock, variant) => totalStock + Math.max(variant.stock ?? 0, 0),
-      0,
-    );
 
     return {
-      isOutOfStock: optionStock <= 0,
-      label: getStockLabel(optionStock, locale),
+      ...availability,
+      label:
+        availability.reason === "unavailable"
+          ? copy.unavailable
+          : availability.stock !== null
+            ? getStockLabel(availability.stock, locale)
+            : null,
     };
   }
 
   const handleAdd = () => {
-    if (simpleProductOutOfStock || selectedVariantOutOfStock) {
+    if (simpleProductOutOfStock || selectedVariantOutOfStock || reachedCartLimit) {
       return;
     }
 
@@ -218,6 +217,7 @@ export function AddToCart({
         price: finalPrice,
         sku: product.slug,
         quantity: 1,
+        maxQuantity: selectedStockLimit,
         isDigital: Boolean(product.isDigital),
       });
       capturePostHog("add_to_cart", {
@@ -240,6 +240,7 @@ export function AddToCart({
         price: finalPrice,
         sku: selectedVariant.sku,
         quantity: 1,
+        maxQuantity: selectedStockLimit,
         isDigital: Boolean(product.isDigital),
       });
       capturePostHog("add_to_cart", {
@@ -285,37 +286,38 @@ export function AddToCart({
                   return (
                     <Select
                       value={selectedAttrs[key] ?? ""}
-                      onValueChange={(val: string) =>
-                        setSelectedAttrs({ ...selectedAttrs, [key]: val })
-                      }
+                      onValueChange={(val: string) => selectAttribute(key, val)}
                     >
                       <SelectTrigger className="h-12 rounded-none border-black uppercase font-bold">
-                        <SelectValue placeholder={`SELECT ${key.toUpperCase()}`} />
+                        <SelectValue
+                          placeholder={getSelectAttributeLabel(key, locale)}
+                        />
                       </SelectTrigger>
                       <SelectContent className="rounded-none border-black">
                         {optionValues.map((val) => {
-                          const optionStock = getVariantOptionStockState(key, val);
+                          const optionState = getOptionState(key, val);
 
                           return (
                             <SelectItem
                               key={val}
                               value={val}
+                              disabled={!optionState.isAvailable}
                               className="rounded-none uppercase text-xs font-bold"
                             >
                               <span className="flex w-full items-center justify-between gap-3 pr-4">
                                 <span>{val}</span>
-                                {optionStock && (
+                                {optionState.label && (
                                   <span className="flex items-center gap-1.5 text-[10px] font-black tracking-widest text-slate-500">
                                     <span
                                       className={cn(
                                         "size-1.5 rounded-full",
-                                        optionStock.isOutOfStock
+                                        !optionState.isAvailable
                                           ? "bg-destructive"
                                           : "bg-emerald-500",
                                       )}
                                       aria-hidden="true"
                                     />
-                                    {optionStock.label}
+                                    {optionState.label}
                                   </span>
                                 )}
                               </span>
@@ -337,25 +339,25 @@ export function AddToCart({
                     )}
                   >
                     {optionValues.map((val) => {
-                      const optionStock = getVariantOptionStockState(key, val);
+                      const optionState = getOptionState(key, val);
                       const isSelected = selectedAttrs[key] === val;
 
                       return (
                         <button
                           key={val}
                           type="button"
-                          onClick={() =>
-                            setSelectedAttrs({ ...selectedAttrs, [key]: val })
-                          }
+                          onClick={() => selectAttribute(key, val)}
+                          disabled={!optionState.isAvailable}
+                          aria-pressed={isSelected}
                           className={cn(
-                            "min-h-14 border border-black px-3 py-2 text-left uppercase transition-colors",
+                            "min-h-14 border border-black px-3 py-2 text-left uppercase transition-colors disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400",
                             isSelected
                               ? "bg-black text-white"
                               : "bg-white text-black hover:bg-slate-100",
                           )}
                         >
                           <span className="block text-xs font-black">{val}</span>
-                          {optionStock && (
+                          {optionState.label && (
                             <span
                               className={cn(
                                 "mt-1 flex items-center gap-1.5 text-[10px] font-black tracking-widest",
@@ -365,13 +367,13 @@ export function AddToCart({
                               <span
                                 className={cn(
                                   "size-1.5 rounded-full",
-                                  optionStock.isOutOfStock
+                                  !optionState.isAvailable
                                     ? "bg-destructive"
                                     : "bg-emerald-500",
                                 )}
                                 aria-hidden="true"
                               />
-                              {optionStock.label}
+                              {optionState.label}
                             </span>
                           )}
                         </button>
@@ -417,16 +419,22 @@ export function AddToCart({
         disabled={
           simpleProductOutOfStock ||
           (!isSimpleProduct && !selectedVariant) ||
-          selectedVariantOutOfStock
+          selectedVariantOutOfStock ||
+          reachedCartLimit
         }
         className="w-full h-14 rounded-none bg-black text-white hover:bg-slate-800 uppercase tracking-widest font-bold text-sm"
       >
         {simpleProductOutOfStock || selectedVariantOutOfStock
-          ? "Out of Stock"
-          : wasAdded
-            ? "Added"
-            : "Add to Cart"}
+          ? copy.outOfStock
+          : reachedCartLimit
+            ? copy.maximumInCart
+            : wasAdded
+              ? copy.added
+              : copy.addToCart}
       </Button>
+      <p className="sr-only" role="status" aria-live="polite">
+        {wasAdded ? copy.addedConfirmation : ""}
+      </p>
     </div>
   );
 }

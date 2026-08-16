@@ -8,6 +8,7 @@ import { SearchBar } from "@/components/search/SearchBar";
 import { logoutFromLocale } from "@/lib/actions/auth";
 import { isAdminUserRecord } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
+import { isWooCommerceMigrationEnabled } from "@/lib/admin/woocommerce-migration-access";
 import { getCachedPublicCategories } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
 import { readEnvValue } from "@/lib/env";
@@ -17,6 +18,7 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
   const user = await getCurrentUser();
   const adminEmail = readEnvValue(process.env.ADMIN_EMAIL, "ADMIN_EMAIL");
   const isAdmin = isAdminUserRecord(user, adminEmail);
+  const wooCommerceMigrationEnabled = isWooCommerceMigrationEnabled();
   const [categoryLinks, currencyPresentation] = await Promise.all([
     getCategoryLinks(locale),
     getCurrencyPresentation(),
@@ -83,6 +85,14 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
                       >
                         Products
                       </Link>
+                      {wooCommerceMigrationEnabled && (
+                        <Link
+                          href={`/${locale}/admin/customers`}
+                          className="hover:text-slate-500 transition-colors"
+                        >
+                          Customers
+                        </Link>
+                      )}
                       <Link
                         href={`/${locale}/admin/categories`}
                         className="hover:text-slate-500 transition-colors"
@@ -159,6 +169,7 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
               categories={categoryLinks}
               isLoggedIn={Boolean(user)}
               isAdmin={isAdmin}
+              wooCommerceMigrationEnabled={wooCommerceMigrationEnabled}
               initialCurrency={currencyPresentation.displayCurrency}
             />
           </div>

@@ -1,19 +1,15 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { clampCartQuantity } from "./cart-quantity";
+import type { CartItemData } from "./cart-reconciliation";
 
-export interface CartItem {
-  productId?: string;
-  variantId: string;
-  title: string;
-  price: number;
-  quantity: number;
-  sku: string;
-  isDigital?: boolean;
-}
+export type CartItem = CartItemData;
 
 interface CartStore {
   items: CartItem[];
   addItem: (item: CartItem) => void;
+  replaceItems: (items: CartItem[]) => void;
+  updateQuantity: (variantId: string, quantity: number) => void;
   removeItem: (variantId: string) => void;
   clearCart: () => void;
   total: () => number;
@@ -33,14 +29,33 @@ export const useCart = create<CartStore>()(
                   ? {
                       ...i,
                       ...item,
-                      quantity: i.quantity + item.quantity,
+                      quantity: clampCartQuantity(
+                        i.quantity + item.quantity,
+                        item.maxQuantity,
+                      ),
                     }
                   : i,
               ),
             };
           }
-          return { items: [...state.items, item] };
+          const quantity = clampCartQuantity(item.quantity, item.maxQuantity);
+
+          return quantity > 0
+            ? { items: [...state.items, { ...item, quantity }] }
+            : state;
         }),
+      replaceItems: (items) => set({ items }),
+      updateQuantity: (variantId, quantity) =>
+        set((state) => ({
+          items: state.items.map((item) =>
+            item.variantId === variantId
+              ? {
+                  ...item,
+                  quantity: clampCartQuantity(quantity, item.maxQuantity),
+                }
+              : item,
+          ),
+        })),
       removeItem: (variantId) =>
         set((state) => ({
           items: state.items.filter((i) => i.variantId !== variantId),

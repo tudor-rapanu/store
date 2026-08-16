@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { orders, type PaymentCurrency } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { sendOrderEmail } from "@/lib/email";
 import {
   reduceTrackedStockForPaidOrder,
@@ -493,22 +493,25 @@ async function handlePaidPayment({
     return NextResponse.json({ error: "Payment amount mismatch" }, { status: 400 });
   }
 
-  const wasAlreadyPaid = existingOrder.paymentStatus === "paid";
+  // Idempotent regardless of race: the underlying update only ever fires once
+  // per order (guarded by stockReducedAt), so concurrent webhooks are safe here.
+  await reduceTrackedStockForPaidOrder(existingOrder.id);
 
-  if (!wasAlreadyPaid) {
-    await reduceTrackedStockForPaidOrder(existingOrder.id);
-  }
-
+  // Atomic conditional transition: the WHERE clause ensures only one of any
+  // concurrent/duplicate "paid" webhooks actually flips the status, so only
+  // that request sends the confirmation email and queues the invoice.
   const [updatedOrder] = await db
     .update(orders)
     .set(getPaidOrderUpdate({ acceptedPayment, existingOrder, netopiaTxId }))
-    .where(eq(orders.id, orderId))
+    .where(and(eq(orders.id, orderId), ne(orders.paymentStatus, "paid")))
     .returning();
 
-  if (!wasAlreadyPaid) {
-    sendFirstPaymentEmail(updatedOrder);
-    queueInvoiceGeneration(updatedOrder);
+  if (!updatedOrder) {
+    return null;
   }
+
+  sendFirstPaymentEmail(updatedOrder);
+  queueInvoiceGeneration(updatedOrder);
 
   capturePaymentEvent({
     event: "payment_confirmed",

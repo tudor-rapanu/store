@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
 import { checkRequestRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/auth/session";
+import { failPendingOrderPayment, releaseTrackedStockForOrder } from "@/lib/inventory";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -71,6 +72,17 @@ export async function POST(
       updatedAt: new Date(),
     })
     .where(eq(orders.id, order.id));
+
+  // A paid order needs a refund before its stock can be released — that's an
+  // admin/refund-flow action, not something a customer-triggered cancellation
+  // should do automatically. Pending orders can release their reservation now.
+  if (order.paymentStatus !== "paid") {
+    if (order.paymentMethod === "card") {
+      await failPendingOrderPayment(order.id);
+    } else {
+      await releaseTrackedStockForOrder(order.id);
+    }
+  }
 
   revalidatePath("/", "layout");
 

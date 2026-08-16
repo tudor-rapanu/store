@@ -2,7 +2,7 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import { and, eq, inArray, or } from "drizzle-orm";
 
 import { getAllCategories } from "@/lib/categories";
-import { db } from "@/lib/db";
+import { db, type DbExecutor } from "@/lib/db";
 import {
   categories,
   discounts,
@@ -286,22 +286,25 @@ export async function resolveBestDiscount({
   return best;
 }
 
-export async function recordVoucherUsage({
-  discountSnapshot,
-  orderId,
-  userId,
-  email,
-}: {
-  discountSnapshot: DiscountResult["discountSnapshot"];
-  orderId: string;
-  userId: string | null;
-  email: string;
-}) {
+export async function recordVoucherUsage(
+  {
+    discountSnapshot,
+    orderId,
+    userId,
+    email,
+  }: {
+    discountSnapshot: DiscountResult["discountSnapshot"];
+    orderId: string;
+    userId: string | null;
+    email: string;
+  },
+  executor: DbExecutor = db,
+) {
   if (!discountSnapshot?.code) {
     return;
   }
 
-  await db.insert(discountUsages).values({
+  await executor.insert(discountUsages).values({
     discountId: discountSnapshot.id,
     orderId,
     userId,

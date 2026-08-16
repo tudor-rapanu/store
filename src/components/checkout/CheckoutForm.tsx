@@ -32,6 +32,8 @@ import {
   normalizeCheckoutCountry,
 } from "@/lib/geo/checkout-countries";
 import { fetchCachedJson } from "@/lib/client/api-cache";
+import { useCartReconciliation } from "@/lib/store/use-cart-reconciliation";
+import { getCartCopy, getCartReconciliationMessage } from "@/lib/store/cart-copy";
 
 declare global {
   interface Window {
@@ -219,10 +221,7 @@ function getEasyboxAddress(
   return formData.get("street") as string;
 }
 
-function getCheckoutLocationFields(
-  formData: FormData,
-  context: CheckoutSubmitContext,
-) {
+function getCheckoutLocationFields(formData: FormData, context: CheckoutSubmitContext) {
   if (context.isRomania) {
     return {
       city: context.selectedLocation.cityName,
@@ -320,9 +319,9 @@ async function submitNetopiaCheckout(
     context.items,
   );
 
-  if (response?.url) {
+  if ("url" in response) {
     window.location.href = response.url;
-  } else if (response?.error) {
+  } else if ("error" in response) {
     context.setErrorMessage(response.error);
     context.resetCheckoutAttempt();
   }
@@ -347,9 +346,7 @@ async function submitBankTransferCheckout(
     window.location.href = `/${window.location.pathname.split("/")[1]}/checkout/transfer-instructions`;
   } else {
     context.setErrorMessage(
-      "error" in response
-        ? response.error
-        : "Failed to process bank transfer order.",
+      "error" in response ? response.error : "Failed to process bank transfer order.",
     );
     context.resetCheckoutAttempt();
   }
@@ -357,10 +354,7 @@ async function submitBankTransferCheckout(
   return response;
 }
 
-async function submitCheckoutForm(
-  formData: FormData,
-  context: CheckoutSubmitContext,
-) {
+async function submitCheckoutForm(formData: FormData, context: CheckoutSubmitContext) {
   context.setErrorMessage(null);
 
   const validationMessage = getCheckoutValidationMessage(context);
@@ -388,6 +382,12 @@ export function CheckoutForm({
   initialPaymentCurrency,
 }: CheckoutFormProps) {
   const { items, total, clearCart } = useCart();
+  const cartReconciliation = useCartReconciliation({ active: true });
+  const cartCopy = getCartCopy(locale);
+  const cartReconciliationMessage = getCartReconciliationMessage(
+    locale,
+    cartReconciliation,
+  );
   const lockerPluginSubscribedRef = useRef(false);
   const [countryCode, setCountryCode] = useState(
     normalizeCheckoutCountry(initialCustomer?.address?.countryCode ?? detectedCountry),
@@ -468,12 +468,6 @@ export function CheckoutForm({
 
     return `${((value / 100) * currencySettings.ronToEurRate).toFixed(2)} EUR`;
   }
-
-  useEffect(() => {
-    if (paymentMethod === "transfer") {
-      setPaymentCurrency("RON");
-    }
-  }, [paymentMethod]);
 
   useEffect(() => {
     async function loadShippingProfiles() {
@@ -738,7 +732,9 @@ export function CheckoutForm({
         shippingAmount,
         orderTotal,
         canSaveProfileAddress:
-          Boolean(initialCustomer) && !isDigitalOnlyCart && shippingMethod !== "easybox",
+          Boolean(initialCustomer) &&
+          !isDigitalOnlyCart &&
+          shippingMethod !== "easybox",
         clearCart,
         resetCheckoutAttempt: () =>
           setCheckoutIdempotencyKey(createCheckoutAttemptKey()),
@@ -749,6 +745,7 @@ export function CheckoutForm({
   const stateErrorMessage = getActionStateError(state);
   const isCheckoutDisabled =
     isPending ||
+    cartReconciliation.isRefreshing ||
     !checkoutIdempotencyKey ||
     isApplyingVoucher ||
     (isLoadingShippingProfiles && !isDigitalOnlyCart) ||
@@ -1116,6 +1113,7 @@ export function CheckoutForm({
                 onClick={() => {
                   if (paymentMethod !== "transfer") {
                     setPaymentMethod("transfer");
+                    setPaymentCurrency("RON");
                     setCheckoutIdempotencyKey(createCheckoutAttemptKey());
                   }
                   capturePostHog("payment_method_selected", {
@@ -1135,6 +1133,17 @@ export function CheckoutForm({
           </section>
 
           {/* Error Display */}
+          {(cartReconciliation.isRefreshing || cartReconciliationMessage) && (
+            <div
+              className="border border-slate-200 bg-slate-50 p-4 text-sm font-bold uppercase tracking-wider text-slate-600"
+              role="status"
+              aria-live="polite"
+            >
+              {cartReconciliation.isRefreshing
+                ? cartCopy.checkingAvailability
+                : cartReconciliationMessage}
+            </div>
+          )}
           {(errorMessage || stateErrorMessage) && (
             <div className="text-sm font-bold text-destructive bg-destructive/10 p-4 border border-destructive uppercase tracking-wider">
               {errorMessage || stateErrorMessage}
@@ -1286,11 +1295,13 @@ export function CheckoutForm({
                 disabled={isCheckoutDisabled}
                 className="w-full h-14 rounded-none bg-black text-white hover:bg-slate-900 uppercase tracking-widest font-black text-sm mt-4 transition-colors"
               >
-                {isPending || isLoadingShippingProfiles
-                  ? "Processing..."
-                  : paymentMethod === "netopia"
-                    ? "Redirect to Payment"
-                    : "Place Order"}
+                {cartReconciliation.isRefreshing
+                  ? cartCopy.checkingAvailability
+                  : isPending || isLoadingShippingProfiles
+                    ? "Processing..."
+                    : paymentMethod === "netopia"
+                      ? "Redirect to Payment"
+                      : "Place Order"}
               </Button>
             </CardContent>
           </Card>

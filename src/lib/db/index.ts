@@ -5,6 +5,9 @@ import * as schema from "./schema";
 
 type Database = ReturnType<typeof drizzle<typeof schema>>;
 
+export type DbTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+export type DbExecutor = Database | DbTransaction;
+
 // Prevent multiple instances in development
 declare global {
   var db: Database | undefined;

@@ -427,8 +427,21 @@ function capturePaymentEvent({
   order: typeof orders.$inferSelect;
   status: number;
 }) {
-  getPostHogClient()?.capture({
-    distinctId: order.customerEmail,
+  const posthog = getPostHogClient();
+
+  // Only report if the browser gave analytics consent at checkout time -
+  // this webhook fires asynchronously and has no other way to know.
+  if (!posthog || order.analyticsConsent !== "accepted") {
+    return;
+  }
+
+  const distinctId = crypto
+    .createHash("sha256")
+    .update(order.customerEmail)
+    .digest("hex");
+
+  posthog.capture({
+    distinctId,
     event,
     properties: {
       order_id: order.id,

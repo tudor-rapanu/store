@@ -204,6 +204,13 @@
       "when": 1781463962304,
       "tag": "0028_order_checkout_idempotency",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1786893599150,
+      "tag": "0029_add_order_analytics_consent",
+      "breakpoints": true
     }
   ]
 }

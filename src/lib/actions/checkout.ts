@@ -705,6 +705,7 @@ async function createCardOrder(
   resolvedCart: Awaited<ReturnType<typeof resolveCheckoutCart>>,
   discount: Awaited<ReturnType<typeof resolveBestDiscount>>,
   shippingAmount: number,
+  analyticsConsent?: "accepted" | "declined",
 ) {
   const discountedSubtotal = Math.max(
     resolvedCart.subtotal - discount.discountAmount,
@@ -741,6 +742,7 @@ async function createCardOrder(
       paymentMethod: "card",
       paymentStatus: "pending",
       fulfillmentStatus: "new",
+      analyticsConsent: analyticsConsent ?? null,
     })
     .returning();
 
@@ -1000,6 +1002,7 @@ export async function initiateCheckout(
           resolvedCart,
           discount,
           shippingAmount,
+          analyticsConsent,
         );
 
         await tx.insert(orderItems).values(
@@ -1161,6 +1164,7 @@ export async function createBankTransferOrder(
             paymentMethod: "bank_transfer",
             paymentStatus: "pending",
             fulfillmentStatus: "new",
+            analyticsConsent: analyticsConsent ?? null,
           })
           .returning();
 

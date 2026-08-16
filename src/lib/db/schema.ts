@@ -282,6 +282,9 @@ export const orders = pgTable(
     fgoInvoiceId: text("fgo_invoice_id"),
     cancelRequestedAt: timestamp("cancel_requested_at"),
     stockReducedAt: timestamp("stock_reduced_at"),
+    // The browser's cookie-consent choice at checkout time, persisted so the
+    // async Netopia webhook can honor it when reporting payment analytics.
+    analyticsConsent: text("analytics_consent").$type<"accepted" | "declined">(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

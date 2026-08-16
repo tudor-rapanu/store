@@ -10,6 +10,7 @@ import {
 } from "react";
 import Script from "next/script";
 import { capturePostHog } from "@/lib/analytics/posthog-client";
+import { getStoredCookieConsent } from "@/lib/cookie-consent";
 import { useCart, type CartItem } from "@/lib/store/useCart";
 import {
   initiateCheckout,
@@ -317,6 +318,7 @@ async function submitNetopiaCheckout(
     customerData,
     locale,
     context.items,
+    getStoredCookieConsent() ?? undefined,
   );
 
   if ("url" in response) {
@@ -339,6 +341,7 @@ async function submitBankTransferCheckout(
     customerData,
     locale,
     context.items,
+    getStoredCookieConsent() ?? undefined,
   );
 
   if ("success" in response && response.success) {

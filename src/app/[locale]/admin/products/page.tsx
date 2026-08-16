@@ -12,10 +12,13 @@ import { ImportProductsWooCommerce } from "@/components/product/ImportProductsWo
 import { StatusBadge } from "@/components/order/StatusBadge";
 import { db } from "@/lib/db";
 import { productVariants, products } from "@/lib/db/schema";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   getInventorySummaryForProducts,
   getInventorySummaryKey,
 } from "@/lib/admin/inventory-summary";
+import { isWooCommerceMigrationEnabled } from "@/lib/admin/woocommerce-migration-access";
+import { requireAdminPage } from "@/lib/admin-page-auth";
 import { formatFulfillmentDate } from "@/lib/fulfillment/estimate";
 import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImageSrc } from "@/lib/product-images";
@@ -53,7 +56,7 @@ export default async function AdminProductsPage({
     pageSize: pageSizeParam,
     q: queryParam,
   } = await searchParams;
-  const activeLocale = locale === "ro" ? "ro" : "en";
+  const activeLocale = await requireAdminPage(locale);
   const searchQuery = queryParam?.trim() ?? "";
   const requestedPageSize =
     Number.parseInt(pageSizeParam ?? String(DEFAULT_PRODUCTS_PER_PAGE), 10) ||
@@ -160,7 +163,7 @@ export default async function AdminProductsPage({
       </div>
 
       <ImportProductsCsv />
-      <ImportProductsWooCommerce />
+      {isWooCommerceMigrationEnabled() && <ImportProductsWooCommerce />}
 
       <form
         action={`/${activeLocale}/admin/products`}
@@ -316,68 +319,11 @@ export default async function AdminProductsPage({
       </div>
 
       {totalProducts > productsPerPage && (
-        <nav className="mt-6 flex flex-wrap items-center justify-between gap-4 text-xs font-bold uppercase tracking-widest">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              asChild
-              variant="outline"
-              className={`rounded-none border-black text-xs font-bold uppercase tracking-widest ${
-                currentPage <= 1 ? "pointer-events-none opacity-50" : ""
-              }`}
-            >
-              <Link href={pageHref(1)} aria-disabled={currentPage <= 1}>
-                First
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className={`rounded-none border-black text-xs font-bold uppercase tracking-widest ${
-                currentPage <= 1 ? "pointer-events-none opacity-50" : ""
-              }`}
-            >
-              <Link
-                href={pageHref(Math.max(currentPage - 1, 1))}
-                aria-disabled={currentPage <= 1}
-              >
-                Previous
-              </Link>
-            </Button>
-          </div>
-          <span className="text-slate-500">
-            Page {currentPage} of {totalPages}
-          </span>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              asChild
-              variant="outline"
-              className={`rounded-none border-black text-xs font-bold uppercase tracking-widest ${
-                currentPage >= totalPages ? "pointer-events-none opacity-50" : ""
-              }`}
-            >
-              <Link
-                href={pageHref(Math.min(currentPage + 1, totalPages))}
-                aria-disabled={currentPage >= totalPages}
-              >
-                Next
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className={`rounded-none border-black text-xs font-bold uppercase tracking-widest ${
-                currentPage >= totalPages ? "pointer-events-none opacity-50" : ""
-              }`}
-            >
-              <Link
-                href={pageHref(totalPages)}
-                aria-disabled={currentPage >= totalPages}
-              >
-                Last
-              </Link>
-            </Button>
-          </div>
-        </nav>
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          hrefForPage={pageHref}
+        />
       )}
     </main>
   );

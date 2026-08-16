@@ -1,4 +1,5 @@
 import { AdminProductForm } from "@/components/product/AdminProductForm";
+import { requireAdminPage } from "@/lib/admin-page-auth";
 import { getAllCategories, getCategoryOptions } from "@/lib/categories";
 import { db } from "@/lib/db";
 import { sizeGuides } from "@/lib/db/schema";
@@ -10,14 +11,16 @@ export const metadata: Metadata = {
 };
 
 type NewProductPageProps = Readonly<{
-  params: Promise<Readonly<{
-    locale: string;
-  }>>;
+  params: Promise<
+    Readonly<{
+      locale: string;
+    }>
+  >;
 }>;
 
 export default async function NewProductPage({ params }: NewProductPageProps) {
   const { locale } = await params;
-  const activeLocale = locale === "ro" ? "ro" : "en";
+  const activeLocale = await requireAdminPage(locale);
   const [allCategories, guides] = await Promise.all([
     getAllCategories(),
     db.select().from(sizeGuides),

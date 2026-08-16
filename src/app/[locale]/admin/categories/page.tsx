@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 import { AdminCategoryManager } from "@/components/category/AdminCategoryManager";
 import { Button } from "@/components/ui/button";
+import { requireAdminPage } from "@/lib/admin-page-auth";
 import { buildCategoryTree } from "@/lib/categories";
 import { db } from "@/lib/db";
 import { categories, productCategories, products } from "@/lib/db/schema";
@@ -14,16 +15,18 @@ export const metadata: Metadata = {
 };
 
 type AdminCategoriesPageProps = Readonly<{
-  params: Promise<Readonly<{
-    locale: string;
-  }>>;
+  params: Promise<
+    Readonly<{
+      locale: string;
+    }>
+  >;
 }>;
 
 export default async function AdminCategoriesPage({
   params,
 }: AdminCategoriesPageProps) {
   const { locale } = await params;
-  const activeLocale = locale === "ro" ? "ro" : "en";
+  const activeLocale = await requireAdminPage(locale);
   const categoryRows = await db
     .select({
       category: {

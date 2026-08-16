@@ -1,4 +1,8 @@
-import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
 import crypto from "crypto";
 
 import { readEnvValue } from "@/lib/env";
@@ -36,7 +40,6 @@ export async function uploadDigitalProductFile(file: File, productId: string) {
 
   const fileName = sanitizeFileName(file.name) || "download";
   const contentType = file.type || "application/octet-stream";
-  const storageKey = `digital-products/${productId}/${crypto.randomUUID()}-${fileName}`;
   const body = Buffer.from(await file.arrayBuffer());
 
   return uploadDigitalProductFileBuffer({
@@ -98,5 +101,18 @@ export async function getDigitalProductFileObject(storageKey: string) {
       Bucket: readEnvValue(process.env.R2_BUCKET_NAME, "R2_BUCKET_NAME"),
       Key: storageKey,
     }),
+  );
+}
+
+export async function deleteDigitalProductFiles(storageKeys: string[]) {
+  await Promise.allSettled(
+    storageKeys.map((storageKey) =>
+      r2Client.send(
+        new DeleteObjectCommand({
+          Bucket: readEnvValue(process.env.R2_BUCKET_NAME, "R2_BUCKET_NAME"),
+          Key: storageKey,
+        }),
+      ),
+    ),
   );
 }

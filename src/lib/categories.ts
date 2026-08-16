@@ -6,6 +6,7 @@ import { getTranslatedText } from "@/lib/i18n/text";
 import { slugify } from "@/lib/slug";
 
 type CategoryRow = typeof categories.$inferSelect;
+type CategoryDatabase = Pick<typeof db, "insert" | "select">;
 
 export type CategoryTreeNode = CategoryRow & {
   children: CategoryTreeNode[];
@@ -143,7 +144,10 @@ export function getDirectSubcategories<T extends Pick<CategoryRow, "parentId">>(
   return rows.filter((category) => category.parentId === parentId);
 }
 
-export async function findOrCreateCategoryPath(pathValue: string) {
+export async function findOrCreateCategoryPath(
+  pathValue: string,
+  database: CategoryDatabase = db,
+) {
   const path = parseCategoryPath(pathValue);
 
   if (path.length === 0) {
@@ -154,7 +158,7 @@ export async function findOrCreateCategoryPath(pathValue: string) {
   let lastCategoryId: string | null = null;
 
   for (const part of path) {
-    const [existingCategory] = await db
+    const [existingCategory] = await database
       .select({ id: categories.id })
       .from(categories)
       .where(eq(categories.slug, part.slug))
@@ -166,7 +170,7 @@ export async function findOrCreateCategoryPath(pathValue: string) {
       continue;
     }
 
-    const createdCategories: Array<{ id: string }> = await db
+    const createdCategories: Array<{ id: string }> = await database
       .insert(categories)
       .values({
         parentId,
@@ -183,12 +187,15 @@ export async function findOrCreateCategoryPath(pathValue: string) {
   return lastCategoryId;
 }
 
-export async function findOrCreateCategoryIds(pathValues: string[]) {
+export async function findOrCreateCategoryIds(
+  pathValues: string[],
+  database: CategoryDatabase = db,
+) {
   const ids: string[] = [];
   const seen = new Set<string>();
 
   for (const pathValue of pathValues) {
-    const id = await findOrCreateCategoryPath(pathValue);
+    const id = await findOrCreateCategoryPath(pathValue, database);
 
     if (id && !seen.has(id)) {
       ids.push(id);

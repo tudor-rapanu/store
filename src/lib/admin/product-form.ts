@@ -4,6 +4,7 @@ import { findOrCreateCategoryIds } from "@/lib/categories";
 import { parseRomaniaDateTimeLocal } from "@/lib/dates/romania";
 import { db } from "@/lib/db";
 import { productCategories } from "@/lib/db/schema";
+import { slugify } from "./product-identifiers";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -289,35 +290,6 @@ export function parseOptionalUuid(value: string) {
   }
 
   return UUID_PATTERN.test(value) ? value : null;
-}
-
-export function slugify(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-export function getVariantSku(
-  variant: VariantInput,
-  productSlug: string,
-  index: number,
-) {
-  const explicitSku = variant.sku.trim();
-
-  if (explicitSku) {
-    return explicitSku;
-  }
-
-  const fallbackLabel =
-    variant.name ||
-    Object.values(variant.attributes).filter(Boolean).join("-") ||
-    `variant-${index + 1}`;
-  const baseSku =
-    slugify(`${productSlug}-${fallbackLabel}`) || `${productSlug}-variant`;
-
-  return `${baseSku}-${index + 1}`;
 }
 
 export function parseVariants(value: string) {

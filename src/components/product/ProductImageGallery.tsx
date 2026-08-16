@@ -5,17 +5,27 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { getProductImageSrc } from "@/lib/product-images";
+import {
+  getProductGalleryLabel,
+  getProductImageLabel,
+  getProductPurchaseCopy,
+  getViewProductImageLabel,
+  type StorefrontLocale,
+} from "./product-purchase-copy";
 
 export function ProductImageGallery({
   images,
   title,
+  locale,
 }: {
   images: string[];
   title: string;
+  locale: StorefrontLocale;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeImage = images[activeIndex];
   const hasMultipleImages = images.length > 1;
+  const copy = getProductPurchaseCopy(locale);
 
   function move(direction: -1 | 1) {
     setActiveIndex((current) => {
@@ -28,13 +38,22 @@ export function ProductImageGallery({
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      className="space-y-4"
+      role="region"
+      aria-label={getProductGalleryLabel(title, locale)}
+    >
       <div className="relative aspect-square overflow-hidden border border-slate-200 bg-white">
         {activeImage ? (
           <div key={activeImage} className="product-gallery-image absolute inset-0">
             <Image
               src={activeImage}
-              alt={title}
+              alt={getProductImageLabel({
+                title,
+                index: activeIndex + 1,
+                total: images.length,
+                locale,
+              })}
               fill
               priority
               unoptimized
@@ -44,7 +63,7 @@ export function ProductImageGallery({
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-xs font-bold uppercase tracking-widest text-slate-300">
-            Image Placeholder
+            {copy.imagePlaceholder}
           </div>
         )}
 
@@ -54,7 +73,7 @@ export function ProductImageGallery({
               type="button"
               onClick={() => move(-1)}
               className="absolute left-3 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center border border-black bg-white/90 transition-colors hover:bg-black hover:text-white"
-              aria-label="Previous product image"
+              aria-label={copy.previousImage}
             >
               <ChevronLeft size={20} />
             </button>
@@ -62,7 +81,7 @@ export function ProductImageGallery({
               type="button"
               onClick={() => move(1)}
               className="absolute right-3 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center border border-black bg-white/90 transition-colors hover:bg-black hover:text-white"
-              aria-label="Next product image"
+              aria-label={copy.nextImage}
             >
               <ChevronRight size={20} />
             </button>
@@ -80,7 +99,8 @@ export function ProductImageGallery({
               className={`relative aspect-square border bg-white transition-all duration-200 hover:border-black ${
                 index === activeIndex ? "border-black" : "border-slate-200"
               }`}
-              aria-label={`View product image ${index + 1}`}
+              aria-label={getViewProductImageLabel(index + 1, locale)}
+              aria-current={index === activeIndex ? "true" : undefined}
             >
               <Image
                 src={getProductImageSrc(image, "thumb") ?? image}

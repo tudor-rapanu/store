@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 
 import { AdminProductForm } from "@/components/product/AdminProductForm";
 import { Button } from "@/components/ui/button";
+import { requireAdminPage } from "@/lib/admin-page-auth";
 import { getAllCategories, getCategoryOptions } from "@/lib/categories";
 import { db } from "@/lib/db";
 import {
@@ -24,17 +25,19 @@ import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImagePaths, getProductImageSrc } from "@/lib/product-images";
 
 type EditProductPageProps = Readonly<{
-  params: Promise<Readonly<{
-    locale: string;
-    id: string;
-  }>>;
+  params: Promise<
+    Readonly<{
+      locale: string;
+      id: string;
+    }>
+  >;
 }>;
 
 export async function generateMetadata({
   params,
 }: EditProductPageProps): Promise<Metadata> {
   const { locale, id } = await params;
-  const activeLocale = locale === "ro" ? "ro" : "en";
+  const activeLocale = await requireAdminPage(locale);
   const [product] = await db
     .select({ title: products.title })
     .from(products)
@@ -50,7 +53,7 @@ export async function generateMetadata({
 
 export default async function EditProductPage({ params }: EditProductPageProps) {
   const { locale, id } = await params;
-  const activeLocale = locale === "ro" ? "ro" : "en";
+  const activeLocale = await requireAdminPage(locale);
   const [product] = await db
     .select()
     .from(products)

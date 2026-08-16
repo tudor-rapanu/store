@@ -26,10 +26,12 @@ import { db } from "@/lib/db";
 import { productVariants, products } from "@/lib/db/schema";
 
 type ProductPageProps = Readonly<{
-  params: Promise<Readonly<{
-    locale: string;
-    slug: string;
-  }>>;
+  params: Promise<
+    Readonly<{
+      locale: string;
+      slug: string;
+    }>
+  >;
 }>;
 
 function toIsoString(value?: Date | string | null) {
@@ -129,7 +131,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         basePrice={product.basePrice}
       />
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <ProductImageGallery images={imageSrcs} title={title} />
+        <ProductImageGallery images={imageSrcs} title={title} locale={activeLocale} />
 
         <section className="flex flex-col gap-8">
           <div className="border-b border-black pb-6">
@@ -195,8 +197,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 saleEndsAt: toIsoString(variant.saleEndsAt),
                 priceAdjustment: variant.priceAdjustment,
                 trackStock:
-                  freshStock.variants.get(variant.id)?.trackStock ??
-                  variant.trackStock,
+                  freshStock.variants.get(variant.id)?.trackStock ?? variant.trackStock,
                 stock: freshStock.variants.get(variant.id)?.stock ?? variant.stock,
               }))}
               locale={activeLocale}

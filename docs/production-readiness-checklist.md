@@ -8,7 +8,9 @@ Use this checklist before important deploys, payment tests, product drops, and e
 - [ ] Cloud Run deploy succeeds.
 - [ ] Required Cloud Run secrets and environment variables are configured.
 - [ ] `NEXT_PUBLIC_SITE_URL` points to the correct production domain.
-- [ ] Neon migrations are pushed with `npm run db:push`.
+- [ ] Neon schema changes follow [`database-migrations.md`](database-migrations.md).
+- [ ] WooCommerce migration is disabled (`ENABLE_WOOCOMMERCE_IMPORT` is unset or false).
+- [ ] Retired WooCommerce credentials have been removed or rotated.
 - [ ] Admin Neon Auth user has `role = "ADMIN"`.
 - [ ] Admin user has logged out and back in after role changes.
 

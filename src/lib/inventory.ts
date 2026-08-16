@@ -3,6 +3,8 @@ import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { db, type DbExecutor, type DbTransaction } from "@/lib/db";
 import { orderItems, orders, productVariants, products } from "@/lib/db/schema";
 
+export class InsufficientStockError extends Error {}
+
 async function reserveTrackedStockWithExecutor(orderId: string, executor: DbExecutor) {
   const [reservedOrder] = await executor
     .update(orders)
@@ -53,7 +55,7 @@ async function reserveTrackedStockWithExecutor(orderId: string, executor: DbExec
         .returning({ id: productVariants.id });
 
       if (!updatedVariant) {
-        throw new Error("An order could not reserve variant stock.");
+        throw new InsufficientStockError("An order could not reserve variant stock.");
       }
 
       continue;
@@ -79,7 +81,7 @@ async function reserveTrackedStockWithExecutor(orderId: string, executor: DbExec
       .returning({ id: products.id });
 
     if (!updatedProduct) {
-      throw new Error("An order could not reserve product stock.");
+      throw new InsufficientStockError("An order could not reserve product stock.");
     }
   }
 }

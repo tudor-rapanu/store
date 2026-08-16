@@ -31,6 +31,7 @@ import { getCartFulfillmentEstimate } from "@/lib/fulfillment/estimate";
 import { enqueueOrderEmailTask } from "@/lib/tasks/order-email";
 import {
   failPendingOrderPayment,
+  InsufficientStockError,
   reserveTrackedStockForOrder,
 } from "@/lib/inventory";
 
@@ -1030,6 +1031,10 @@ export async function initiateCheckout(
       orderTotal = result.orderTotal;
       payment = result.payment;
     } catch (error: unknown) {
+      if (error instanceof InsufficientStockError) {
+        return { error: "One of the products in your cart is no longer in stock." };
+      }
+
       if (isCheckoutIdempotencyConflict(error)) {
         const existingCheckoutResponse = await handleIdempotentCardOrderCreation(
           customerData.checkoutIdempotencyKey,
@@ -1188,6 +1193,10 @@ export async function createBankTransferOrder(
         return createdOrder;
       });
     } catch (error: unknown) {
+      if (error instanceof InsufficientStockError) {
+        return { error: "One of the products in your cart is no longer in stock." };
+      }
+
       if (isCheckoutIdempotencyConflict(error)) {
         const existingCheckoutResponse = getExistingBankTransferCheckoutResponse(
           await getExistingCheckoutOrder(

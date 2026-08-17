@@ -28,9 +28,9 @@ export default function TransferInstructionsPage() {
           <p className="font-bold text-xs uppercase tracking-widest text-slate-500">
             Bank Details
           </p>
-          <p className="font-black">Company: [TODDS THREADS SRL]</p>
-          <p className="font-black">IBAN: [RO44BTRLRONCRT0CU1820501]</p>
-          <p className="font-black">Bank: [BANCA TRANSILVANIA]</p>
+          <p className="font-black">Company: TODDS THREADS SRL</p>
+          <p className="font-black">IBAN: RO44BTRLRONCRT0CU1820501</p>
+          <p className="font-black">Bank: BANCA TRANSILVANIA</p>
         </div>
 
         <div className="p-4 bg-yellow-50 border border-yellow-200">

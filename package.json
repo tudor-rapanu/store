@@ -18,6 +18,7 @@
     "db:neon:push": "DRIZZLE_ENV_FILE=.env.neon.local drizzle-kit push",
     "db:neon:migrate": "DRIZZLE_ENV_FILE=.env.neon.local drizzle-kit migrate",
     "neon:env:pull": "CI= npx -y neonctl env pull --file .env.neon.local",
+    "db:prod:push": "DRIZZLE_ENV_FILE=.env.production.local drizzle-kit push",
     "cloudflare:rate-limits": "node scripts/configure-cloudflare-rate-limits.mjs",
     "load:smoke": "node scripts/run-artillery-docker.mjs smoke",
     "load:smoke:report": "node scripts/run-artillery-docker.mjs smoke --report",
@@ -29,7 +30,7 @@
     "load:stress:api": "node scripts/run-artillery-docker.mjs stress-api",
     "load:stress:mixed": "node scripts/run-artillery-docker.mjs stress-mixed",
     "gcloud:build": "docker buildx build --platform linux/amd64 --cache-from=type=registry,ref=europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:buildcache --cache-to=type=registry,ref=europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:buildcache,mode=min -t europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:latest --push .",
-    "gcloud:deploy": "gcloud run deploy todds-threads-service --image=europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:latest --region=europe-west4 --allow-unauthenticated --port=3000 --max-instances=10 --concurrency=20 --memory=1024Mi --cpu=1 --timeout=300 --execution-environment=gen2 --startup-probe=httpGet.path=/api/readyz,initialDelaySeconds=5,periodSeconds=5,timeoutSeconds=3,failureThreshold=6 --liveness-probe=httpGet.path=/api/healthz,initialDelaySeconds=10,periodSeconds=30,timeoutSeconds=3,failureThreshold=3"
+    "gcloud:deploy": "npm run db:prod:push && gcloud run deploy todds-threads-service --image=europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront:latest --region=europe-west4 --allow-unauthenticated --port=3000 --max-instances=10 --concurrency=20 --memory=1024Mi --cpu=1 --timeout=300 --execution-environment=gen2 --startup-probe=httpGet.path=/api/readyz,initialDelaySeconds=5,periodSeconds=5,timeoutSeconds=3,failureThreshold=6 --liveness-probe=httpGet.path=/api/healthz,initialDelaySeconds=10,periodSeconds=30,timeoutSeconds=3,failureThreshold=3"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1068.0",

@@ -1,0 +1,187 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: 'Type "deploy" to confirm a production deploy'
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  REGION: europe-west4
+  IMAGE_REPO: europe-west4-docker.pkg.dev/todd-s-threads-1767780009807/todds-threads-repo/storefront
+
+jobs:
+  quality:
+    uses: ./.github/workflows/quality.yml
+
+  build:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Compute short SHA
+        id: vars
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west4-docker.pkg.dev --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE_REPO }}:sha-${{ steps.vars.outputs.sha }}
+            ${{ env.IMAGE_REPO }}:latest
+          cache-from: type=registry,ref=${{ env.IMAGE_REPO }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_REPO }}:buildcache,mode=min
+
+  deploy-staging:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Push DB schema (staging)
+        run: |
+          export DATABASE_URL="$(gcloud secrets versions access latest --secret=staging-DATABASE_URL)"
+          export DATABASE_URL_UNPOOLED="$(gcloud secrets versions access latest --secret=staging-DATABASE_URL_UNPOOLED)"
+          npx drizzle-kit push --force
+
+      - name: Record current revision (for rollback)
+        id: prev
+        run: |
+          REV=$(gcloud run services describe todds-threads-staging --region="$REGION" --format='value(status.traffic[0].revisionName)')
+          echo "revision=$REV" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Cloud Run (staging)
+        run: |
+          gcloud run deploy todds-threads-staging \
+            --image="${{ env.IMAGE_REPO }}:sha-${{ needs.build.outputs.sha }}" \
+            --region="$REGION" \
+            --quiet
+
+      - name: Smoke test
+        id: smoke
+        run: node scripts/smoke-test.mjs --url=https://todds-threads-staging-926730476454.europe-west4.run.app
+
+      - name: Roll back on smoke test failure
+        if: failure() && steps.smoke.outcome == 'failure'
+        run: |
+          gcloud run services update-traffic todds-threads-staging \
+            --region="$REGION" \
+            --to-revisions="${{ steps.prev.outputs.revision }}=100"
+          echo "::error::Smoke test failed - rolled back to ${{ steps.prev.outputs.revision }}"
+
+  deploy-production:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm_production == 'deploy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Push DB schema (production)
+        run: |
+          export DATABASE_URL="$(gcloud secrets versions access latest --secret=prod-DATABASE_URL)"
+          export DATABASE_URL_UNPOOLED="$(gcloud secrets versions access latest --secret=prod-DATABASE_URL_UNPOOLED)"
+          npx drizzle-kit push
+        # Intentionally no --force here: if a change needs confirmation
+        # (e.g. a column rename that looks like drop+add), this fails the
+        # job loudly instead of silently applying a destructive change to
+        # production. Apply it manually after review if that happens.
+
+      - name: Record current revision (for rollback)
+        id: prev
+        run: |
+          REV=$(gcloud run services describe todds-threads-service --region="$REGION" --format='value(status.traffic[0].revisionName)')
+          echo "revision=$REV" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Cloud Run (production)
+        run: |
+          gcloud run deploy todds-threads-service \
+            --image="${{ env.IMAGE_REPO }}:sha-${{ needs.build.outputs.sha }}" \
+            --region="$REGION" \
+            --quiet
+
+      - name: Smoke test
+        id: smoke
+        run: node scripts/smoke-test.mjs --url=https://todds-threads-service-926730476454.europe-west4.run.app
+
+      - name: Roll back on smoke test failure
+        if: failure() && steps.smoke.outcome == 'failure'
+        run: |
+          gcloud run services update-traffic todds-threads-service \
+            --region="$REGION" \
+            --to-revisions="${{ steps.prev.outputs.revision }}=100"
+          echo "::error::Smoke test failed - rolled back to ${{ steps.prev.outputs.revision }}"

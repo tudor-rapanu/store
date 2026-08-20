@@ -37,7 +37,6 @@ export function DuplicateProductButton({
       }
 
       router.replace(`/${locale}/admin/products?updated=${Date.now()}`);
-      router.refresh();
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : "Product could not be duplicated.",

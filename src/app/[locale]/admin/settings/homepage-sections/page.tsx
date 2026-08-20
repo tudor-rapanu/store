@@ -35,10 +35,10 @@ export default async function HomepageSectionsSettingsPage({
         id: products.id,
         title: products.title,
         slug: products.slug,
+        imageUrl: products.imageUrl,
       })
       .from(products)
-      .orderBy(desc(products.createdAt))
-      .limit(100),
+      .orderBy(desc(products.createdAt)),
   ]);
 
   return (
@@ -53,6 +53,8 @@ export default async function HomepageSectionsSettingsPage({
         products={productRows.map((product) => ({
           id: product.id,
           title: getTranslatedText(product.title, activeLocale, product.slug),
+          slug: product.slug,
+          imageUrl: product.imageUrl,
         }))}
       />
     </main>

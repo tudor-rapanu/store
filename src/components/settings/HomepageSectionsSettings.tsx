@@ -1,20 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
+import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { getFetchErrorMessage, showToast } from "@/lib/client/toast";
 import type {
   HomepageContentSection,
   HomepageSectionType,
 } from "@/lib/homepage/settings";
+import { getProductImageSrc } from "@/lib/product-images";
 
 type ProductOption = {
   id: string;
   title: string;
+  slug: string;
+  imageUrl: string | null;
 };
 
 type HomepageSectionsSettingsProps = {
@@ -332,14 +343,11 @@ function SectionFields({
   if (section.type === "featuredProduct") {
     return (
       <div className="grid gap-4 md:grid-cols-2">
-        <SelectField
+        <ProductPickerField
           label="Product"
           value={getString(section.content, "productId")}
           onChange={(value) => onChange("productId", value)}
-          options={products.map((product) => ({
-            value: product.id,
-            label: product.title,
-          }))}
+          products={products}
         />
         <TextField
           label="Image URL Override"
@@ -546,32 +554,125 @@ function TextField({
   );
 }
 
-function SelectField({
+function ProductPickerField({
   label,
   value,
   onChange,
-  options,
+  products,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  options: Array<{ value: string; label: string }>;
+  products: ProductOption[];
 }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const selectedProduct = products.find((product) => product.id === value);
+
+  const filteredProducts = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return products;
+    }
+
+    return products.filter(
+      (product) =>
+        product.title.toLowerCase().includes(query) ||
+        product.slug.toLowerCase().includes(query),
+    );
+  }, [products, search]);
+
+  function selectProduct(productId: string) {
+    onChange(productId);
+    setSearch("");
+    setOpen(false);
+  }
+
   return (
     <div className="space-y-2">
       <Label className="text-xs font-bold uppercase tracking-widest">{label}</Label>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-none border border-black bg-white px-3 text-sm"
-      >
-        <option value="">Select product</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 w-full justify-start gap-3 rounded-none border-black px-3 text-sm font-normal normal-case tracking-normal"
+          >
+            {selectedProduct ? (
+              <>
+                <ProductThumbnail product={selectedProduct} />
+                <span className="truncate">{selectedProduct.title}</span>
+              </>
+            ) : (
+              <span className="text-slate-500">Select product</span>
+            )}
+          </Button>
+        </SheetTrigger>
+        <SheetContent className="flex w-full flex-col gap-4 sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Select product</SheetTitle>
+          </SheetHeader>
+
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by title or slug"
+            className="h-10 rounded-none border-black"
+            aria-label="Search products"
+          />
+
+          <div className="flex-1 divide-y divide-slate-200 overflow-y-auto border border-slate-200">
+            {filteredProducts.length === 0 ? (
+              <div className="p-3 text-sm text-slate-500">No products match.</div>
+            ) : (
+              filteredProducts.map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => selectProduct(product.id)}
+                  className={`flex w-full items-center gap-3 p-3 text-left hover:bg-slate-50 ${
+                    product.id === value ? "bg-slate-100" : ""
+                  }`}
+                >
+                  <ProductThumbnail product={product} />
+                  <div className="min-w-0">
+                    <div className="truncate font-bold uppercase tracking-tight">
+                      {product.title}
+                    </div>
+                    <div className="text-xs uppercase tracking-widest text-slate-500">
+                      {product.slug}
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+function ProductThumbnail({ product }: { product: ProductOption }) {
+  const imageSrc = getProductImageSrc(product.imageUrl, "thumb");
+
+  return (
+    <div className="relative size-10 shrink-0 overflow-hidden border border-slate-200 bg-white">
+      {imageSrc ? (
+        <Image
+          src={imageSrc}
+          alt={product.title}
+          fill
+          unoptimized
+          className="object-contain p-1"
+          sizes="40px"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center text-[8px] font-bold uppercase tracking-widest text-slate-300">
+          No image
+        </div>
+      )}
     </div>
   );
 }

@@ -211,7 +211,8 @@ export async function DELETE(
     if (!deletedProduct) {
       return errorResponse("Product was not found.", 404);
     }
-  } catch {
+  } catch (error) {
+    console.error("Failed to delete product:", error);
     return errorResponse(
       "This product could not be deleted. It may already be linked to order history; mark it private instead.",
       409,

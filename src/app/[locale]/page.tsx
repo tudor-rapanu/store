@@ -99,11 +99,7 @@ export default async function HomePage({ params }: PageProps) {
       <PaymentReturnNotice />
 
       <Suspense fallback={<HomeHeroSkeleton />}>
-        <HomeCustomContent
-          locale={activeLocale}
-          copy={copy}
-          currencyPresentationPromise={currencyPresentationPromise}
-        />
+        <HomeCustomContent locale={activeLocale} copy={copy} />
       </Suspense>
 
       <Suspense fallback={<HomeCatalogSkeleton />}>
@@ -120,11 +116,9 @@ export default async function HomePage({ params }: PageProps) {
 async function HomeCustomContent({
   locale,
   copy,
-  currencyPresentationPromise,
 }: {
   locale: "en" | "ro";
   copy: (typeof homeCopy)["en" | "ro"];
-  currencyPresentationPromise: Promise<CurrencyPresentation>;
 }) {
   const homepageContent = await withHomeDataTimeout(
     getCachedHomepageContentSections(),
@@ -136,15 +130,11 @@ async function HomeCustomContent({
     return <DefaultHomeHero locale={locale} copy={copy} />;
   }
 
-  const currencyPresentation = await currencyPresentationPromise;
-
   return (
     <HomepageContentSections
       sections={homepageContent.sections}
       featuredProducts={homepageContent.featuredProducts}
       locale={locale}
-      displayCurrency={currencyPresentation.displayCurrency}
-      ronToEurRate={currencyPresentation.ronToEurRate}
     />
   );
 }

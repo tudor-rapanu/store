@@ -14,6 +14,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { StatusBadge } from "@/components/order/StatusBadge";
 import { getFetchErrorMessage, showToast } from "@/lib/client/toast";
 import type {
   HomepageContentSection,
@@ -26,6 +27,7 @@ type ProductOption = {
   title: string;
   slug: string;
   imageUrl: string | null;
+  isPrivate?: boolean;
 };
 
 type HomepageSectionsSettingsProps = {
@@ -603,6 +605,9 @@ function ProductPickerField({
               <>
                 <ProductThumbnail product={selectedProduct} />
                 <span className="truncate">{selectedProduct.title}</span>
+                {selectedProduct.isPrivate && (
+                  <StatusBadge value="private" className="ml-auto shrink-0 px-2 py-1" />
+                )}
               </>
             ) : (
               <span className="text-slate-500">Select product</span>
@@ -636,7 +641,7 @@ function ProductPickerField({
                   }`}
                 >
                   <ProductThumbnail product={product} />
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="truncate font-bold uppercase tracking-tight">
                       {product.title}
                     </div>
@@ -644,6 +649,9 @@ function ProductPickerField({
                       {product.slug}
                     </div>
                   </div>
+                  {product.isPrivate && (
+                    <StatusBadge value="private" className="shrink-0 px-2 py-1" />
+                  )}
                 </button>
               ))
             )}

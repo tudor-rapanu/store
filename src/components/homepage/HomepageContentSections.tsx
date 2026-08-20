@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { ProductCard } from "@/components/product/ProductCard";
 import type { HomepageContentSection } from "@/lib/homepage/settings";
 import { getProductImageSrc } from "@/lib/product-images";
 
@@ -25,8 +24,6 @@ type HomepageContentSectionsProps = {
   sections: HomepageContentSection[];
   featuredProducts: Product[];
   locale: "en" | "ro";
-  displayCurrency: "RON" | "EUR";
-  ronToEurRate: number;
 };
 
 function getString(content: Record<string, unknown>, key: string) {
@@ -63,8 +60,6 @@ export function HomepageContentSections({
   sections,
   featuredProducts,
   locale,
-  displayCurrency,
-  ronToEurRate,
 }: HomepageContentSectionsProps) {
   if (sections.length === 0) {
     return null;
@@ -92,8 +87,6 @@ export function HomepageContentSections({
               section={section}
               product={productsById.get(getString(section.content, "productId"))}
               locale={locale}
-              displayCurrency={displayCurrency}
-              ronToEurRate={ronToEurRate}
             />
           );
         }
@@ -278,14 +271,10 @@ function FeaturedProduct({
   section,
   product,
   locale,
-  displayCurrency,
-  ronToEurRate,
 }: {
   section: HomepageContentSection;
   product?: Product;
   locale: "en" | "ro";
-  displayCurrency: "RON" | "EUR";
-  ronToEurRate: number;
 }) {
   if (!product) {
     return null;
@@ -293,15 +282,24 @@ function FeaturedProduct({
 
   const title = getLocalizedString(section.content, "title", locale);
   const body = getLocalizedString(section.content, "body", locale);
+  const imageSrc = getProductImageSrc(product.imageUrl, "large");
 
   return (
-    <section className="grid gap-8 border-t border-black pt-12 lg:grid-cols-[minmax(0,420px)_1fr] lg:items-center">
-      <ProductCard
-        product={product}
-        locale={locale}
-        displayCurrency={displayCurrency}
-        ronToEurRate={ronToEurRate}
-      />
+    <section className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr] lg:items-center">
+      <Link
+        href={`/${locale}/products/${product.slug}`}
+        className="relative block aspect-square overflow-hidden bg-white"
+      >
+        {imageSrc && (
+          <Image
+            src={imageSrc}
+            alt={title || product.slug}
+            fill
+            unoptimized
+            className="object-contain"
+          />
+        )}
+      </Link>
       <div className="space-y-5">
         {title && (
           <h2 className="text-3xl font-black uppercase tracking-tight sm:text-4xl">

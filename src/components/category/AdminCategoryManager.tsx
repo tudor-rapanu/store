@@ -16,6 +16,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { StatusBadge } from "@/components/order/StatusBadge";
 import { getProductImageSrc } from "@/lib/product-images";
 
 type ProductSummary = {
@@ -23,6 +24,7 @@ type ProductSummary = {
   title: string;
   slug: string;
   imageUrl: string | null;
+  isPrivate?: boolean;
 };
 
 type CategorySummary = {
@@ -546,7 +548,7 @@ function AddProductsToCategory({
                   className="size-4 shrink-0"
                 />
                 <ProductThumbnail key={product.imageUrl} product={product} />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="truncate font-bold uppercase tracking-tight">
                     {product.title}
                   </div>
@@ -554,6 +556,9 @@ function AddProductsToCategory({
                     {product.slug}
                   </div>
                 </div>
+                {product.isPrivate && (
+                  <StatusBadge value="private" className="shrink-0 px-2 py-1" />
+                )}
               </label>
             ))
           )}

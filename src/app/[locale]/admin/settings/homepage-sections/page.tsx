@@ -36,6 +36,7 @@ export default async function HomepageSectionsSettingsPage({
         title: products.title,
         slug: products.slug,
         imageUrl: products.imageUrl,
+        isPrivate: products.isPrivate,
       })
       .from(products)
       .orderBy(desc(products.createdAt)),
@@ -55,6 +56,7 @@ export default async function HomepageSectionsSettingsPage({
           title: getTranslatedText(product.title, activeLocale, product.slug),
           slug: product.slug,
           imageUrl: product.imageUrl,
+          isPrivate: product.isPrivate,
         }))}
       />
     </main>

@@ -53,6 +53,7 @@ export default async function AdminCategoriesPage({
       slug: products.slug,
       title: products.title,
       imageUrl: products.imageUrl,
+      isPrivate: products.isPrivate,
     })
     .from(products)
     .orderBy(asc(products.createdAt));
@@ -150,6 +151,7 @@ export default async function AdminCategoriesPage({
           title: getTranslatedText(product.title, activeLocale, product.slug),
           slug: product.slug,
           imageUrl: product.imageUrl,
+          isPrivate: product.isPrivate,
         }))}
       />
     </main>

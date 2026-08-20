@@ -1,4 +1,3 @@
-import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
@@ -19,30 +18,17 @@ export async function POST(
   }
 
   const { id } = await params;
-  const body = (await request.json()) as { productId?: string };
-  const productId = body.productId?.trim();
+  const body = (await request.json()) as { productIds?: string[] };
+  const productIds = [...new Set(body.productIds ?? [])].filter(Boolean);
 
-  if (!productId) {
-    return errorResponse("Product is required.");
+  if (productIds.length === 0) {
+    return errorResponse("At least one product is required.");
   }
 
-  const [existingLink] = await db
-    .select()
-    .from(productCategories)
-    .where(
-      and(
-        eq(productCategories.categoryId, id),
-        eq(productCategories.productId, productId),
-      ),
-    )
-    .limit(1);
-
-  if (!existingLink) {
-    await db.insert(productCategories).values({
-      categoryId: id,
-      productId,
-    });
-  }
+  await db
+    .insert(productCategories)
+    .values(productIds.map((productId) => ({ categoryId: id, productId })))
+    .onConflictDoNothing();
 
   revalidateCatalogViews();
 

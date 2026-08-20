@@ -8,6 +8,14 @@ import { Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { getProductImageSrc } from "@/lib/product-images";
 
 type ProductSummary = {
@@ -274,9 +282,6 @@ function CategoryRow({
   const availableProducts = products.filter(
     (product) => !linkedProductIds.has(product.id),
   );
-  const [selectedProductId, setSelectedProductId] = useState(
-    availableProducts[0]?.id ?? "",
-  );
   return (
     <details className="group">
       <summary className="grid cursor-pointer gap-4 p-4 md:grid-cols-[1fr_auto] md:items-center">
@@ -428,42 +433,149 @@ function CategoryRow({
           )}
         </div>
 
-        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-          <select
-            value={selectedProductId}
-            onChange={(event) => setSelectedProductId(event.target.value)}
-            className="h-10 rounded-none border border-black bg-white px-3 text-sm"
-          >
-            {availableProducts.length === 0 ? (
-              <option value="">No available products</option>
-            ) : (
-              availableProducts.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.title}
-                </option>
-              ))
-            )}
-          </select>
-          <Button
-            type="button"
-            disabled={!selectedProductId || pendingKey === `link-${category.id}`}
-            onClick={() =>
-              onRequest(
-                `link-${category.id}`,
-                `/api/admin/categories/${category.id}/products`,
-                {
-                  method: "POST",
-                  body: JSON.stringify({ productId: selectedProductId }),
-                },
-              )
-            }
-            className="h-10 rounded-none bg-black text-xs font-bold uppercase tracking-widest text-white hover:bg-slate-900"
-          >
-            <Plus size={14} /> Add Product
-          </Button>
-        </div>
+        <AddProductsToCategory
+          categoryId={category.id}
+          availableProducts={availableProducts}
+          pendingKey={pendingKey}
+          onRequest={onRequest}
+        />
       </div>
     </details>
+  );
+}
+
+function AddProductsToCategory({
+  categoryId,
+  availableProducts,
+  pendingKey,
+  onRequest,
+}: {
+  categoryId: string;
+  availableProducts: ProductSummary[];
+  pendingKey: string | null;
+  onRequest: (key: string, url: string, options: RequestInit) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const requestKey = `link-${categoryId}`;
+  const isPending = pendingKey === requestKey;
+
+  const filteredProducts = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return availableProducts;
+    }
+
+    return availableProducts.filter(
+      (product) =>
+        product.title.toLowerCase().includes(query) ||
+        product.slug.toLowerCase().includes(query),
+    );
+  }, [availableProducts, search]);
+
+  function toggleProduct(productId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+
+      return next;
+    });
+  }
+
+  async function addSelectedProducts() {
+    const ok = await onRequest(
+      requestKey,
+      `/api/admin/categories/${categoryId}/products`,
+      {
+        method: "POST",
+        body: JSON.stringify({ productIds: Array.from(selectedIds) }),
+      },
+    );
+
+    if (ok) {
+      setSelectedIds(new Set());
+      setSearch("");
+      setOpen(false);
+    }
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button
+          type="button"
+          disabled={availableProducts.length === 0}
+          className="h-10 rounded-none bg-black text-xs font-bold uppercase tracking-widest text-white hover:bg-slate-900"
+        >
+          <Plus size={14} /> Add Products
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="flex w-full flex-col gap-4 sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>Add products to category</SheetTitle>
+        </SheetHeader>
+
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by title or slug"
+          className="h-10 rounded-none border-black"
+          aria-label="Search products"
+        />
+
+        <div className="flex-1 divide-y divide-slate-200 overflow-y-auto border border-slate-200">
+          {filteredProducts.length === 0 ? (
+            <div className="p-3 text-sm text-slate-500">No products match.</div>
+          ) : (
+            filteredProducts.map((product) => (
+              <label
+                key={product.id}
+                className="flex cursor-pointer items-center gap-3 p-3 hover:bg-slate-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(product.id)}
+                  onChange={() => toggleProduct(product.id)}
+                  className="size-4 shrink-0"
+                />
+                <ProductThumbnail key={product.imageUrl} product={product} />
+                <div className="min-w-0">
+                  <div className="truncate font-bold uppercase tracking-tight">
+                    {product.title}
+                  </div>
+                  <div className="text-xs uppercase tracking-widest text-slate-500">
+                    {product.slug}
+                  </div>
+                </div>
+              </label>
+            ))
+          )}
+        </div>
+
+        <SheetFooter>
+          <Button
+            type="button"
+            disabled={selectedIds.size === 0 || isPending}
+            onClick={addSelectedProducts}
+            className="h-10 rounded-none bg-black text-xs font-bold uppercase tracking-widest text-white hover:bg-slate-900"
+          >
+            <Plus size={14} />
+            {isPending
+              ? "Adding..."
+              : selectedIds.size === 0
+                ? "Add Products"
+                : `Add ${selectedIds.size} Product${selectedIds.size === 1 ? "" : "s"}`}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 

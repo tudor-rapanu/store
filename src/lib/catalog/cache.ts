@@ -17,7 +17,9 @@ import {
   getHomepageSettings,
 } from "@/lib/homepage/settings";
 
-const CATALOG_REVALIDATE_SECONDS = 60;
+// Writes bust this via revalidateCatalogCache()/revalidateCatalogViews(), so this is
+// just a staleness safety net — kept long to cut DB reads from repeat/bot traffic.
+const CATALOG_REVALIDATE_SECONDS = 300;
 export const PUBLIC_PRODUCTS_PER_PAGE = 12;
 
 export const CATALOG_CACHE_TAGS = {

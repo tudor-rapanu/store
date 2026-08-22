@@ -37,5 +37,13 @@ export const config = {
     "/",
     "/(en|ro)/:path*",
     "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // The pattern above excludes image-extension paths so real asset requests skip
+    // the i18n middleware, but that also hides WP asset-probe URLs (e.g.
+    // /wp-content/uploads/x.png) from the dead-path check above. Match those
+    // prefixes explicitly, extension or not, so they still get a 410.
+    "/wp-admin/:path*",
+    "/wp-content/:path*",
+    "/wp-includes/:path*",
+    "/wp-json/:path*",
   ],
 };

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { eq } from "drizzle-orm";
 
 import { Button } from "@/components/ui/button";
 import { AddToCart } from "@/components/product/AddToCart";
@@ -10,6 +9,7 @@ import { ProductImageGallery } from "@/components/product/ProductImageGallery";
 import { ProductSizeGuide } from "@/components/product/ProductSizeGuide";
 import { ProductViewTracker } from "@/components/product/ProductViewTracker";
 import {
+  getCachedFreshStockState,
   getCachedProductDetailBlocks,
   getCachedProductVariants,
   getCachedPublicProductBySlug,
@@ -22,8 +22,6 @@ import {
 } from "@/lib/fulfillment/estimate";
 import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImageSrcs } from "@/lib/product-images";
-import { db } from "@/lib/db";
-import { productVariants, products } from "@/lib/db/schema";
 
 type ProductPageProps = Readonly<{
   params: Promise<
@@ -46,40 +44,6 @@ function toIsoString(value?: Date | string | null) {
   const date = new Date(value);
 
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-async function getFreshStockState(productId: string) {
-  const [productRows, variantRows] = await Promise.all([
-    db
-      .select({
-        trackStock: products.trackStock,
-        stock: products.stock,
-      })
-      .from(products)
-      .where(eq(products.id, productId))
-      .limit(1),
-    db
-      .select({
-        id: productVariants.id,
-        trackStock: productVariants.trackStock,
-        stock: productVariants.stock,
-      })
-      .from(productVariants)
-      .where(eq(productVariants.productId, productId)),
-  ]);
-
-  return {
-    product: productRows[0] ?? null,
-    variants: new Map(
-      variantRows.map((variant) => [
-        variant.id,
-        {
-          trackStock: variant.trackStock,
-          stock: variant.stock,
-        },
-      ]),
-    ),
-  };
 }
 
 export async function generateMetadata({
@@ -119,7 +83,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       getCachedProductDetailBlocks(product.id),
       getCachedSizeGuideById(product.sizeGuideId),
       getCurrencyPresentation(),
-      getFreshStockState(product.id),
+      getCachedFreshStockState(product.id),
     ]);
 
   return (
@@ -197,8 +161,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 saleEndsAt: toIsoString(variant.saleEndsAt),
                 priceAdjustment: variant.priceAdjustment,
                 trackStock:
-                  freshStock.variants.get(variant.id)?.trackStock ?? variant.trackStock,
-                stock: freshStock.variants.get(variant.id)?.stock ?? variant.stock,
+                  freshStock.variants[variant.id]?.trackStock ?? variant.trackStock,
+                stock: freshStock.variants[variant.id]?.stock ?? variant.stock,
               }))}
               locale={activeLocale}
               displayCurrency={currencyPresentation.displayCurrency}

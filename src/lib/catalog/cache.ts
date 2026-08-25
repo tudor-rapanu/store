@@ -414,6 +414,44 @@ export const getCachedProductDetailBlocks = unstable_cache(
   },
 );
 
+export const getCachedFreshStockState = unstable_cache(
+  async (productId: string) => {
+    const [productRows, variantRows] = await Promise.all([
+      db
+        .select({
+          trackStock: products.trackStock,
+          stock: products.stock,
+        })
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1),
+      db
+        .select({
+          id: productVariants.id,
+          trackStock: productVariants.trackStock,
+          stock: productVariants.stock,
+        })
+        .from(productVariants)
+        .where(eq(productVariants.productId, productId)),
+    ]);
+
+    return {
+      product: productRows[0] ?? null,
+      variants: Object.fromEntries(
+        variantRows.map((variant) => [
+          variant.id,
+          { trackStock: variant.trackStock, stock: variant.stock },
+        ]),
+      ),
+    };
+  },
+  ["catalog:fresh-stock-state"],
+  {
+    revalidate: CATALOG_REVALIDATE_SECONDS,
+    tags: [CATALOG_CACHE_TAGS.products],
+  },
+);
+
 export const getCachedSizeGuideById = unstable_cache(
   async (sizeGuideId: string | null) => {
     if (!sizeGuideId) {

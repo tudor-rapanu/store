@@ -1,5 +1,6 @@
 import { and, eq, gte, isNull, sql } from "drizzle-orm";
 
+import { revalidateCatalogCache } from "@/lib/catalog/cache";
 import { db, type DbExecutor, type DbTransaction } from "@/lib/db";
 import { orderItems, orders, productVariants, products } from "@/lib/db/schema";
 
@@ -94,6 +95,7 @@ export async function reserveTrackedStockForOrder(orderId: string, tx?: DbTransa
   }
 
   await db.transaction((innerTx) => reserveTrackedStockWithExecutor(orderId, innerTx));
+  revalidateCatalogCache();
 }
 
 export async function reduceTrackedStockForPaidOrder(orderId: string) {
@@ -165,6 +167,8 @@ export async function releaseTrackedStockForOrder(orderId: string) {
       })
       .where(eq(orders.id, orderId));
   });
+
+  revalidateCatalogCache();
 }
 
 // Transitions a pending order to failed and releases its stock reservation.

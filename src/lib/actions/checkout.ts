@@ -22,7 +22,7 @@ import { checkServerActionRateLimit } from "@/lib/rate-limit";
 import { formatEur, formatRon, normalizePaymentCurrency } from "@/lib/currency/format";
 import { getCurrencySettings } from "@/lib/currency/settings";
 import { recordVoucherUsage, resolveBestDiscount } from "@/lib/discounts";
-import { publicProductWhere } from "@/lib/catalog/cache";
+import { publicProductWhere, revalidateCatalogCache } from "@/lib/catalog/cache";
 import {
   getEffectiveProductPrice,
   getEffectiveVariantPrice,
@@ -1033,6 +1033,7 @@ export async function initiateCheckout(
       newOrder = result.order;
       orderTotal = result.orderTotal;
       payment = result.payment;
+      revalidateCatalogCache();
     } catch (error: unknown) {
       if (error instanceof InsufficientStockError) {
         return { error: "One of the products in your cart is no longer in stock." };
@@ -1196,6 +1197,7 @@ export async function createBankTransferOrder(
 
         return createdOrder;
       });
+      revalidateCatalogCache();
     } catch (error: unknown) {
       if (error instanceof InsufficientStockError) {
         return { error: "One of the products in your cart is no longer in stock." };

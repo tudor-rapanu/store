@@ -28,16 +28,22 @@ const REQUEST_RATE_LIMIT = { keyPrefix: "proxy", limit: 40, windowMs: 60_000 };
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const rateLimit = await checkRequestRateLimit(request, REQUEST_RATE_LIMIT);
+  // Only enforce when Cloudflare has attached the real visitor IP. Requests
+  // without it (the raw *.run.app URL, used only by deploy tooling/smoke tests,
+  // never by real customers) would otherwise share a weak fallback identifier
+  // and risk tripping the limit on unrelated callers instead of one bad actor.
+  if (request.headers.get("cf-connecting-ip")) {
+    const rateLimit = await checkRequestRateLimit(request, REQUEST_RATE_LIMIT);
 
-  if (!rateLimit.allowed) {
-    return new NextResponse("Too Many Requests", {
-      status: 429,
-      headers: {
-        "Retry-After": String(rateLimit.retryAfter),
-        "Cache-Control": "no-store",
-      },
-    });
+    if (!rateLimit.allowed) {
+      return new NextResponse("Too Many Requests", {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfter),
+          "Cache-Control": "no-store",
+        },
+      });
+    }
   }
 
   if (DEAD_PATH_PATTERN.test(pathname) || DEAD_EXACT_PATHS.has(pathname)) {

@@ -18,12 +18,15 @@ const DEAD_PATH_PATTERN =
   /^\/(?:en\/|ro\/)?(?:produs|categorie-produs|product|product-category|wp-admin|wp-content|wp-includes|wp-json|wp-login\.php|wp-cron\.php|xmlrpc\.php)(?:\/.*)?$/;
 const DEAD_EXACT_PATHS = new Set(["/.env"]);
 
-// Vulnerability-scanner sweeps have hit thousands of requests/minute from a single
-// IP. No real visitor or well-behaved crawler comes close to this, so a generous
-// per-IP cap catches scan bursts without touching normal traffic. Falls back to an
-// in-memory bucket per Cloud Run instance when Upstash isn't configured — not
-// perfectly accurate across instances, but still meaningfully throttles a burst.
-const REQUEST_RATE_LIMIT = { keyPrefix: "proxy", limit: 40, windowMs: 60_000 };
+// Vulnerability-scanner sweeps have hit 1,000-1,900+ requests/minute from a single
+// IP. Real browsing can still be bursty -- Next.js prefetches a request for every
+// link that scrolls into view, so one visitor scrolling a product listing can fire
+// dozens of requests in seconds. Keep the limit far below the observed scanner rate
+// but well above that, and skip prefetch requests entirely since they're inherent
+// to normal navigation, not attacker-controlled volume. Falls back to an in-memory
+// bucket per Cloud Run instance when Upstash isn't configured -- not perfectly
+// accurate across instances, but still meaningfully throttles a burst.
+const REQUEST_RATE_LIMIT = { keyPrefix: "proxy", limit: 200, windowMs: 60_000 };
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -32,7 +35,7 @@ export async function proxy(request: NextRequest) {
   // without it (the raw *.run.app URL, used only by deploy tooling/smoke tests,
   // never by real customers) would otherwise share a weak fallback identifier
   // and risk tripping the limit on unrelated callers instead of one bad actor.
-  if (request.headers.get("cf-connecting-ip")) {
+  if (request.headers.get("cf-connecting-ip") && !request.headers.get("next-router-prefetch")) {
     const rateLimit = await checkRequestRateLimit(request, REQUEST_RATE_LIMIT);
 
     if (!rateLimit.allowed) {

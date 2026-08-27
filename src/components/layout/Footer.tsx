@@ -5,7 +5,7 @@ export function Footer({ locale }: { locale: "en" | "ro" }) {
   const links = [
     { href: `/${locale}/legal/terms`, label: "Terms" },
     { href: `/${locale}/legal/privacy`, label: "Privacy" },
-    { href: `/${locale}/legal/returns`, label: "Returns" },
+    { href: `/${locale}/legal/delivery-and-returns`, label: "Delivery & Returns" },
     { href: `/${locale}/checkout`, label: "Checkout" },
   ];
 

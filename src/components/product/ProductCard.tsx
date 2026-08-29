@@ -99,7 +99,7 @@ export function ProductCard({
         )}
       </div>
       <div className="flex flex-col">
-        <h3 className="font-bold uppercase tracking-tight text-sm">{displayTitle}</h3>
+        <h3 className="break-words font-bold uppercase tracking-tight text-sm">{displayTitle}</h3>
         <div className="flex items-center gap-2 text-sm text-slate-500">
           {(price.isOnSale || isDiscounted) && (
             <span className="text-xs line-through">{regularDisplayPrice}</span>

@@ -31,7 +31,7 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
           <Link
             href={`/${locale}`}
-            className="flex min-w-0 items-center gap-2 text-lg font-black tracking-tighter uppercase sm:text-2xl"
+            className="flex shrink-0 items-center gap-2 text-lg font-black tracking-tighter uppercase sm:text-2xl"
           >
             <span
               aria-hidden="true"
@@ -41,14 +41,14 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
                 WebkitMask: "url('/tt-logo.svg') center / contain no-repeat",
               }}
             />
-            <span className="truncate">Todd&apos;s Threads</span>
+            <span>Todd&apos;s Threads</span>
           </Link>
           <div className="flex items-center gap-2 sm:gap-4">
             {!isAdmin && (
-              <div className="hidden xl:flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
+              <div className="hidden 2xl:flex max-w-[40vw] items-center gap-3 overflow-x-auto text-xs font-bold uppercase tracking-widest [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <Link
                   href={`/${locale}/products`}
-                  className="hover:text-slate-500 transition-colors"
+                  className="shrink-0 hover:text-slate-500 transition-colors"
                 >
                   Shop
                 </Link>
@@ -58,7 +58,7 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
                     <Link
                       key={category.slug}
                       href={`/${locale}/category/${category.slug}`}
-                      className="hover:text-slate-500 transition-colors"
+                      className="shrink-0 hover:text-slate-500 transition-colors"
                     >
                       {category.name}
                     </Link>
@@ -68,7 +68,7 @@ export async function Navbar({ locale }: { locale: "en" | "ro" }) {
             <div className="hidden md:block">
               <SearchBar locale={locale} compact />
             </div>
-            <div className="hidden xl:flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
+            <div className="hidden 2xl:flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
               {user ? (
                 <>
                   {isAdmin && (

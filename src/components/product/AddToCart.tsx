@@ -264,7 +264,7 @@ export function AddToCart({
         <div
           className={cn(
             "grid gap-4",
-            attributeKeys.length === 1 ? "grid-cols-1" : "grid-cols-2",
+            attributeKeys.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2",
           )}
         >
           {attributeKeys.map((key) => (

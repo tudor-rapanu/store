@@ -43,7 +43,7 @@ export function ProductCategorySlider({
   const sliderId = `product-slider-${href.replace(/[^a-z0-9]+/gi, "-")}`;
 
   return (
-    <section className="border-t border-black py-12">
+    <section className="min-w-0 border-t border-black py-12">
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black uppercase tracking-tight">{title}</h2>

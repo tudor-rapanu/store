@@ -66,7 +66,7 @@ export function MobileNavMenu({
       <SheetTrigger asChild>
         <Button
           variant="ghost"
-          className="h-10 w-10 rounded-none hover:bg-black hover:text-white transition-colors xl:hidden"
+          className="h-10 w-10 rounded-none hover:bg-black hover:text-white transition-colors 2xl:hidden"
           aria-label="Open navigation menu"
         >
           <Menu size={20} strokeWidth={1.5} />

@@ -99,7 +99,7 @@ export default async function CategoryPage({
         <p className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">
           Category
         </p>
-        <h1 className="text-4xl font-black tracking-tighter uppercase">{title}</h1>
+        <h1 className="break-words text-4xl font-black tracking-tighter uppercase">{title}</h1>
       </div>
 
       {subcategories.length > 0 && (

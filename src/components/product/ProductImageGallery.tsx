@@ -39,7 +39,7 @@ export function ProductImageGallery({
 
   return (
     <div
-      className="space-y-4"
+      className="min-w-0 space-y-4"
       role="region"
       aria-label={getProductGalleryLabel(title, locale)}
     >
@@ -90,7 +90,7 @@ export function ProductImageGallery({
       </div>
 
       {hasMultipleImages && (
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
           {images.map((image, index) => (
             <button
               key={image}

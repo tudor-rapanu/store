@@ -94,7 +94,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         productSlug={product.slug}
         basePrice={product.basePrice}
       />
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_420px]">
         <ProductImageGallery images={imageSrcs} title={title} locale={activeLocale} />
 
         <section className="flex flex-col gap-8">
@@ -102,7 +102,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <p className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">
               Product
             </p>
-            <h1 className="text-4xl font-black uppercase tracking-tight">{title}</h1>
+            <h1 className="break-words text-4xl font-black uppercase tracking-tight">{title}</h1>
           </div>
 
           {description && (

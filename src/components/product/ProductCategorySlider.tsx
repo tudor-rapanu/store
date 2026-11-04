@@ -22,6 +22,7 @@ type ProductCategorySliderProps = {
   locale: "en" | "ro";
   displayCurrency: "RON" | "EUR";
   ronToEurRate: number;
+  showDiscountBadges?: boolean;
   catalogDiscounts: Map<
     string,
     {
@@ -39,6 +40,7 @@ export function ProductCategorySlider({
   displayCurrency,
   ronToEurRate,
   catalogDiscounts,
+  showDiscountBadges = false,
 }: ProductCategorySliderProps) {
   const sliderId = `product-slider-${href.replace(/[^a-z0-9]+/gi, "-")}`;
 
@@ -73,6 +75,7 @@ export function ProductCategorySlider({
               displayCurrency={displayCurrency}
               ronToEurRate={ronToEurRate}
               catalogDiscount={catalogDiscounts.get(product.id)}
+              showDiscountBadge={showDiscountBadges}
             />
           </div>
         ))}

@@ -3,7 +3,7 @@ import Image from "next/image";
 import { formatEur, formatRon } from "@/lib/currency/format";
 import { getTranslatedText } from "@/lib/i18n/text";
 import { getProductImageSrc } from "@/lib/product-images";
-import { getProductPricePresentation } from "@/lib/product-pricing";
+import { getDiscountPercent, getProductPricePresentation } from "@/lib/product-pricing";
 
 interface TranslatedText {
   en: string;
@@ -47,6 +47,7 @@ export function ProductCard({
   displayCurrency = "RON",
   ronToEurRate = 0.2,
   catalogDiscount,
+  showDiscountBadge = false,
 }: {
   product: Product;
   locale: "en" | "ro";
@@ -57,6 +58,7 @@ export function ProductCard({
     discountName: string;
     discountedPrice: number;
   };
+  showDiscountBadge?: boolean;
 }) {
   const displayTitle = getTranslatedText(product.title, locale, product.slug);
   const imageSrc = getProductImageSrc(product.imageUrl, "large");
@@ -66,6 +68,9 @@ export function ProductCard({
   const finalPrice = catalogDiscount?.discountedPrice ?? price.effectivePrice;
   const comparisonPrice = price.isOnSale ? price.regularPrice : price.effectivePrice;
   const isDiscounted = finalPrice < comparisonPrice;
+  const discountPercent = showDiscountBadge
+    ? getDiscountPercent(price.regularPrice, finalPrice)
+    : null;
   const displayPrice =
     displayCurrency === "EUR"
       ? formatEur(finalPrice, ronToEurRate)
@@ -82,6 +87,11 @@ export function ProductCard({
     >
       <div className="relative aspect-square w-full overflow-hidden border border-slate-200 bg-white">
         <div className="absolute inset-0 bg-black/[0.03] opacity-0 transition-opacity group-hover:opacity-100 z-10" />
+        {discountPercent !== null && (
+          <span className="absolute left-0 top-0 z-20 bg-[#ffd83f] px-2.5 py-1.5 text-xs font-black tracking-widest text-black">
+            -{discountPercent}%
+          </span>
+        )}
         {imageSrc ? (
           <Image
             src={imageSrc}

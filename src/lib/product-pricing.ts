@@ -120,3 +120,15 @@ export function getVariantPricePresentation(
     isOnSale: effectivePrice < regularPrice,
   };
 }
+
+// Whole-number percentage saved versus the regular price, or null when there is
+// no saving worth showing (rounds below 1%).
+export function getDiscountPercent(regularPrice: number, finalPrice: number) {
+  if (regularPrice <= 0 || finalPrice >= regularPrice) {
+    return null;
+  }
+
+  const percent = Math.round(((regularPrice - finalPrice) / regularPrice) * 100);
+
+  return percent >= 1 ? percent : null;
+}

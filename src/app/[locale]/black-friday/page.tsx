@@ -178,6 +178,7 @@ async function BlackFridaySliders({
           displayCurrency={currencyPresentation.displayCurrency}
           ronToEurRate={currencyPresentation.ronToEurRate}
           catalogDiscounts={catalogDiscounts}
+          showDiscountBadges
         />
       ))}
     </div>

@@ -25,6 +25,11 @@ const SETTINGS_SECTIONS = [
     href: "homepage-sliders",
   },
   {
+    title: "Black Friday",
+    description: "Schedule the full-screen countdown and sale takeover.",
+    href: "black-friday",
+  },
+  {
     title: "Shipping & Currency",
     description: "Manage shipping profiles, international fares, and currency rates.",
     href: "shipping",

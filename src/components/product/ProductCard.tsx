@@ -35,9 +35,7 @@ function getStockLabel(product: Product, locale: "en" | "ro") {
     return locale === "ro" ? "Stoc epuizat" : "Out of stock";
   }
 
-  return locale === "ro"
-    ? `${availableStock} in stoc`
-    : `${availableStock} in stock`;
+  return locale === "ro" ? `${availableStock} in stoc` : `${availableStock} in stock`;
 }
 
 export function ProductCard({
@@ -109,7 +107,9 @@ export function ProductCard({
         )}
       </div>
       <div className="flex flex-col">
-        <h3 className="break-words font-bold uppercase tracking-tight text-sm">{displayTitle}</h3>
+        <h3 className="break-words font-bold uppercase tracking-tight text-sm">
+          {displayTitle}
+        </h3>
         <div className="flex items-center gap-2 text-sm text-slate-500">
           {(price.isOnSale || isDiscounted) && (
             <span className="text-xs line-through">{regularDisplayPrice}</span>
@@ -122,11 +122,11 @@ export function ProductCard({
             {displayPrice}
           </span>
         </div>
-        {catalogDiscount && (
+        {/* {catalogDiscount && (
           <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-destructive">
             {catalogDiscount.discountName}
           </p>
-        )}
+        )} */}
         {stockLabel && (
           <p className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
             <span

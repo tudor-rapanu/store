@@ -264,6 +264,24 @@ export const getCachedHomepageCategorySliders = unstable_cache(
   },
 );
 
+// One row per product/category link, newest products first. Sale windows and
+// automatic discounts are time-dependent, so callers filter for discounts per request.
+export const getCachedPublicProductCategoryLinks = unstable_cache(
+  async () => {
+    return db
+      .select({ categoryId: productCategories.categoryId, ...productCardSelect })
+      .from(productCategories)
+      .innerJoin(products, eq(products.id, productCategories.productId))
+      .where(publicProductWhere())
+      .orderBy(desc(products.createdAt));
+  },
+  ["catalog:public-product-category-links"],
+  {
+    revalidate: CATALOG_REVALIDATE_SECONDS,
+    tags: [CATALOG_CACHE_TAGS.categories, CATALOG_CACHE_TAGS.products],
+  },
+);
+
 function getHomepageFeaturedProductIds(sections: HomepageContentSection[]) {
   return Array.from(
     new Set(

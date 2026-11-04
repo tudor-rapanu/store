@@ -48,6 +48,8 @@ const HIDDEN_PATH_SEGMENTS = new Set([
   "forgot-password",
   "reset-password",
   "orders",
+  // The dedicated sale page already shows the same countdown.
+  "black-friday",
 ]);
 
 export const DEFAULT_BLACK_FRIDAY_COPY: Record<BlackFridayLocale, BlackFridayCopy> = {
@@ -191,7 +193,7 @@ export function validateBlackFridaySettings(settings: BlackFridaySettings) {
   }
 
   if (!settings.ctaHref) {
-    return "Set the Black Friday page link (a path like /category/black-friday or a full URL).";
+    return "Set the Black Friday page link (a path like /black-friday or a full URL).";
   }
 
   return null;

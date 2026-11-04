@@ -178,7 +178,7 @@ export function BlackFridaySettings({ settings }: BlackFridaySettingsProps) {
             id="black-friday-cta-href"
             value={ctaHref}
             onChange={(event) => setCtaHref(event.target.value)}
-            placeholder="/category/black-friday"
+            placeholder="/black-friday"
             className="h-12 rounded-none border-black"
           />
           <p className="text-xs text-slate-500">

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, X } from "lucide-react";
 
+import { CountdownGrid } from "@/components/black-friday/BlackFridayCountdown";
 import { capturePostHog } from "@/lib/analytics/posthog-client";
 import {
   BLACK_FRIDAY_UI_COPY,
@@ -125,12 +126,6 @@ export function BlackFridayTakeover({ locale, settings }: BlackFridayTakeoverPro
     getBlackFridayCountdownTarget(settings, phase),
     now,
   );
-  const countdownUnits: Array<{ label: string; value: number }> = [
-    { label: copy.days, value: countdown.days },
-    { label: copy.hours, value: countdown.hours },
-    { label: copy.minutes, value: countdown.minutes },
-    { label: copy.seconds, value: countdown.seconds },
-  ];
   const title = phase === "teaser" ? campaignCopy.teaserTitle : campaignCopy.saleTitle;
   const text = phase === "teaser" ? campaignCopy.teaserText : campaignCopy.saleText;
   const isExternalCta = /^https?:\/\//i.test(ctaHref);
@@ -172,7 +167,7 @@ export function BlackFridayTakeover({ locale, settings }: BlackFridayTakeoverPro
           </p> */}
           <h2
             id="black-friday-title"
-            className="text-5xl font-black uppercase leading-[0.9] tracking-tighter sm:text-7xl md:text-8xl"
+            className="text-5xl font-black uppercase leading-[0.9] tracking-tighter text-[#ffd83f] sm:text-7xl md:text-8xl"
           >
             {title}
           </h2>
@@ -185,25 +180,7 @@ export function BlackFridayTakeover({ locale, settings }: BlackFridayTakeoverPro
           <p className="text-xs font-bold uppercase tracking-widest text-white/60">
             {phase === "teaser" ? copy.startsIn : copy.endsIn}
           </p>
-          <div
-            className="grid max-w-2xl grid-cols-4 border border-white/40"
-            role="timer"
-            aria-live="off"
-          >
-            {countdownUnits.map((unit, index) => (
-              <div
-                key={unit.label}
-                className={`px-2 py-4 text-center sm:py-6 ${index > 0 ? "border-l border-white/40" : ""}`}
-              >
-                <div className="text-3xl font-black tabular-nums sm:text-5xl">
-                  {String(unit.value).padStart(2, "0")}
-                </div>
-                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-white/60 sm:text-xs">
-                  {unit.label}
-                </div>
-              </div>
-            ))}
-          </div>
+          <CountdownGrid locale={locale} parts={countdown} />
         </div>
 
         {phase === "sale" && (

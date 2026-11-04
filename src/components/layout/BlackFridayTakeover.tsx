@@ -155,21 +155,21 @@ export function BlackFridayTakeover({ locale, settings }: BlackFridayTakeoverPro
           <ArrowLeft className="size-4" aria-hidden="true" />
           {copy.goHome}
         </Link>
-        <button
+        {/* <button
           type="button"
           onClick={() => dismiss("close")}
           aria-label={copy.close}
           className="inline-flex size-10 items-center justify-center border border-white/40 transition-colors hover:bg-white hover:text-black"
         >
           <X className="size-5" aria-hidden="true" />
-        </button>
+        </button> */}
       </div>
 
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center gap-10 px-4 py-12 sm:px-6">
         <div className="space-y-4">
-          <p className="text-xs font-bold uppercase tracking-[0.3em] text-white/60">
+          {/* <p className="text-xs font-bold uppercase tracking-[0.3em] text-white/60">
             {copy.eyebrow}
-          </p>
+          </p> */}
           <h2
             id="black-friday-title"
             className="text-5xl font-black uppercase leading-[0.9] tracking-tighter sm:text-7xl md:text-8xl"

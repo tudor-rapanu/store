@@ -12,7 +12,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // -------------------------------------------------------------------------
 // TypeScript Types for strict compiler safety on JSONB Translation Objects
@@ -321,6 +321,16 @@ export const discounts = pgTable(
     categoryId: uuid("category_id").references(() => categories.id, {
       onDelete: "cascade",
     }),
+    // Targets for product/category scopes. The single productId/categoryId columns
+    // above are legacy: still honored for older rows, cleared whenever a discount is saved.
+    productIds: uuid("product_ids")
+      .array()
+      .default(sql`'{}'::uuid[]`)
+      .notNull(),
+    categoryIds: uuid("category_ids")
+      .array()
+      .default(sql`'{}'::uuid[]`)
+      .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

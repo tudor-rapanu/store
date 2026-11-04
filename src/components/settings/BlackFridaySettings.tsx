@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 
+import {
+  MultiSelectPicker,
+  type PickerItem,
+} from "@/components/admin/MultiSelectPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +19,7 @@ import { formatRomaniaDateTimeLocal } from "@/lib/dates/romania";
 
 type BlackFridaySettingsProps = {
   settings: BlackFridaySettingsValue;
+  categories: PickerItem[];
 };
 
 type DateField = "teaserStartsAt" | "saleStartsAt" | "saleEndsAt";
@@ -54,7 +59,10 @@ const LOCALES: Array<{ locale: BlackFridayLocale; label: string }> = [
   { locale: "ro", label: "Romanian" },
 ];
 
-export function BlackFridaySettings({ settings }: BlackFridaySettingsProps) {
+export function BlackFridaySettings({
+  settings,
+  categories,
+}: BlackFridaySettingsProps) {
   const [enabled, setEnabled] = useState(settings.enabled);
   const [dates, setDates] = useState<Record<DateField, string>>(() => ({
     teaserStartsAt: formatRomaniaDateTimeLocal(settings.teaserStartsAt),
@@ -62,6 +70,7 @@ export function BlackFridaySettings({ settings }: BlackFridaySettingsProps) {
     saleEndsAt: formatRomaniaDateTimeLocal(settings.saleEndsAt),
   }));
   const [ctaHref, setCtaHref] = useState(settings.ctaHref);
+  const [categoryIds, setCategoryIds] = useState(settings.categoryIds);
   const [copy, setCopy] = useState(settings.copy);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -85,7 +94,7 @@ export function BlackFridaySettings({ settings }: BlackFridaySettingsProps) {
       const response = await fetch("/api/admin/settings/black-friday", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled, ...dates, ctaHref, copy }),
+        body: JSON.stringify({ enabled, ...dates, ctaHref, categoryIds, copy }),
       });
       const data = (await response.json()) as {
         ok?: boolean;
@@ -184,6 +193,22 @@ export function BlackFridaySettings({ settings }: BlackFridaySettingsProps) {
           <p className="text-xs text-slate-500">
             A path without the language prefix (it is added automatically) or a full
             URL.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <MultiSelectPicker
+            label="Sale Page Categories"
+            items={categories}
+            value={categoryIds}
+            onChange={setCategoryIds}
+            noun={{ singular: "category", plural: "categories" }}
+            reorderable
+          />
+          <p className="text-xs text-slate-500">
+            Each category becomes a slider of its discounted products (subcategories
+            included), in this order. Leave empty to show every top-level category that
+            has discounted products.
           </p>
         </div>
       </section>

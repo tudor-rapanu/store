@@ -11,6 +11,7 @@ import {
   type DiscountScope,
   type DiscountType,
 } from "@/lib/db/schema";
+import { isProductEligibleForDiscount } from "@/lib/discount-targets";
 import {
   getEffectiveProductPrice,
   type ProductPriceFields,
@@ -109,7 +110,8 @@ function isActiveDiscount(row: typeof discounts.$inferSelect, now: Date) {
     return false;
   }
 
-  if (expiresAt && expiresAt < now) {
+  // The end time is exclusive: a discount ending at 00:00 is over at 00:00.
+  if (expiresAt && expiresAt <= now) {
     return false;
   }
 
@@ -145,14 +147,12 @@ function getEligibleSubtotal(
   productCategoryMap: Map<string, Set<string>>,
 ) {
   return items.reduce((sum, item) => {
-    if (discount.scope === "product" && discount.productId !== item.productId) {
-      return sum;
-    }
-
     if (
-      discount.scope === "category" &&
-      (!discount.categoryId ||
-        !productCategoryMap.get(item.productId)?.has(discount.categoryId))
+      !isProductEligibleForDiscount(
+        discount,
+        item.productId,
+        productCategoryMap.get(item.productId),
+      )
     ) {
       return sum;
     }
@@ -365,6 +365,9 @@ export async function getDiscountAdminOptions() {
       .select({
         id: products.id,
         title: products.title,
+        slug: products.slug,
+        imageUrl: products.imageUrl,
+        isPrivate: products.isPrivate,
       })
       .from(products),
     getAllCategories(),

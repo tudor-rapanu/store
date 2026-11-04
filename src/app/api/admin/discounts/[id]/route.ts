@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
+import { readDiscountSchedule, readDiscountTargets } from "@/lib/admin/discount-input";
 import { db } from "@/lib/db";
 import {
   discounts,
@@ -21,22 +22,6 @@ function errorResponse(message: string, status = 400) {
 
 function readString(value: unknown, fallback = "") {
   return typeof value === "string" ? value.trim() : fallback;
-}
-
-function readDate(value: unknown) {
-  const raw = readString(value);
-
-  if (!raw) {
-    return null;
-  }
-
-  const date = new Date(raw);
-
-  if (Number.isNaN(date.getTime())) {
-    throw new Error("Invalid expiration date.");
-  }
-
-  return date;
 }
 
 function readValue(value: unknown, type: DiscountType) {
@@ -122,9 +107,8 @@ function getDiscountUpdateValues(body: Record<string, unknown>) {
     scope,
     value: readValue(body.value, type),
     enabled: body.enabled !== false,
-    expiresAt: readDate(body.expiresAt),
-    productId: scope === "product" ? readString(body.productId) || null : null,
-    categoryId: scope === "category" ? readString(body.categoryId) || null : null,
+    ...readDiscountSchedule(body),
+    ...readDiscountTargets(scope, body),
     updatedAt: new Date(),
   };
 }

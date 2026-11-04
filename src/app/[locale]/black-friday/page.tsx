@@ -10,7 +10,10 @@ import {
   type BlackFridaySettings,
 } from "@/lib/black-friday/campaign";
 import { getCachedBlackFridaySettings } from "@/lib/black-friday/settings";
-import { buildBlackFridaySliders } from "@/lib/black-friday/sliders";
+import {
+  buildBlackFridaySliders,
+  selectBlackFridayCategories,
+} from "@/lib/black-friday/sliders";
 import {
   getCachedPublicCategories,
   getCachedPublicProductCategoryLinks,
@@ -52,7 +55,7 @@ function getPageState(settings: BlackFridaySettings, now = Date.now()): PageStat
   return now < Date.parse(settings.saleStartsAt ?? "") ? "teaser" : "sale";
 }
 
-async function getDiscountedCategorySliders() {
+async function getDiscountedCategorySliders(selectedCategoryIds: string[]) {
   const [links, categories, currencyPresentation] = await Promise.all([
     getCachedPublicProductCategoryLinks(),
     getCachedPublicCategories(),
@@ -79,18 +82,17 @@ async function getDiscountedCategorySliders() {
       )
       .map((product) => product.id),
   );
+  const sliderCategories = selectBlackFridayCategories(categories, selectedCategoryIds);
   const descendantIdsByCategoryId = new Map(
-    categories
-      .filter((category) => !category.parentId)
-      .map((category) => [
-        category.id,
-        getCategoryAndDescendantIds(categories, category.id),
-      ]),
+    sliderCategories.map((category) => [
+      category.id,
+      getCategoryAndDescendantIds(categories, category.id),
+    ]),
   );
 
   return {
     sliders: buildBlackFridaySliders({
-      categories,
+      sliderCategories,
       descendantIdsByCategoryId,
       links: productLinks,
       discountedProductIds,
@@ -140,7 +142,13 @@ export default async function BlackFridayPage({ params }: BlackFridayPageProps) 
         </div>
       </BlackFridayHero>
 
-      {isSale && <BlackFridaySliders locale={activeLocale} copy={copy} />}
+      {isSale && (
+        <BlackFridaySliders
+          locale={activeLocale}
+          copy={copy}
+          categoryIds={settings.categoryIds}
+        />
+      )}
     </main>
   );
 }
@@ -148,12 +156,14 @@ export default async function BlackFridayPage({ params }: BlackFridayPageProps) 
 async function BlackFridaySliders({
   locale,
   copy,
+  categoryIds,
 }: {
   locale: "en" | "ro";
   copy: (typeof pageCopy)["en" | "ro"];
+  categoryIds: string[];
 }) {
   const { sliders, catalogDiscounts, currencyPresentation } =
-    await getDiscountedCategorySliders();
+    await getDiscountedCategorySliders(categoryIds);
 
   if (sliders.length === 0) {
     return (

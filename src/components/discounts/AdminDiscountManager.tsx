@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  MultiSelectPicker,
+  type PickerItem,
+} from "@/components/admin/MultiSelectPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatRomaniaDateTimeLocal } from "@/lib/dates/romania";
 import type { DiscountKind, DiscountScope, DiscountType } from "@/lib/db/schema";
 
 type DiscountRow = {
@@ -17,21 +22,28 @@ type DiscountRow = {
   scope: DiscountScope;
   value: number;
   enabled: boolean;
+  startsAt: Date | string | null;
   expiresAt: Date | string | null;
-  productId: string | null;
-  categoryId: string | null;
-};
-
-type Option = {
-  id: string;
-  label: string;
+  productIds: string[];
+  categoryIds: string[];
 };
 
 type AdminDiscountManagerProps = {
   discounts: DiscountRow[];
-  products: Option[];
-  categories: Option[];
+  products: PickerItem[];
+  categories: PickerItem[];
 };
+
+type DiscountFormState = {
+  kind: DiscountKind;
+  type: DiscountType;
+  scope: DiscountScope;
+  productIds: string[];
+  categoryIds: string[];
+};
+
+const PRODUCT_NOUN = { singular: "product", plural: "products" };
+const CATEGORY_NOUN = { singular: "category", plural: "categories" };
 
 function formatValue(discount: DiscountRow) {
   return discount.type === "percentage"
@@ -39,12 +51,41 @@ function formatValue(discount: DiscountRow) {
     : `${(discount.value / 100).toFixed(2)} RON`;
 }
 
-function formatDate(value: Date | string | null) {
-  if (!value) {
-    return "No expiration";
+function formatRomaniaDateTime(value: Date | string) {
+  return new Date(value).toLocaleString("ro-RO", {
+    timeZone: "Europe/Bucharest",
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
+function formatSchedule(discount: DiscountRow) {
+  const starts = discount.startsAt
+    ? `Starts ${formatRomaniaDateTime(discount.startsAt)}`
+    : "Starts immediately";
+  const ends = discount.expiresAt
+    ? `ends ${formatRomaniaDateTime(discount.expiresAt)}`
+    : "no end date";
+
+  return `${starts}, ${ends}`;
+}
+
+function formatTargets(discount: DiscountRow, labelsById: Map<string, string>) {
+  const ids =
+    discount.scope === "product"
+      ? discount.productIds
+      : discount.scope === "category"
+        ? discount.categoryIds
+        : [];
+
+  if (ids.length === 0) {
+    return null;
   }
 
-  return new Date(value).toLocaleDateString("ro-RO");
+  const labels = ids.map((id) => labelsById.get(id) ?? "Deleted item");
+  const shown = labels.slice(0, 3).join(", ");
+
+  return labels.length > 3 ? `${shown} +${labels.length - 3} more` : shown;
 }
 
 export function AdminDiscountManager({
@@ -56,9 +97,15 @@ export function AdminDiscountManager({
   const [kind, setKind] = useState<DiscountKind>("automatic");
   const [type, setType] = useState<DiscountType>("percentage");
   const [scope, setScope] = useState<DiscountScope>("storewide");
+  const [productIds, setProductIds] = useState<string[]>([]);
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const labelsById = useMemo(
+    () => new Map([...products, ...categories].map((item) => [item.id, item.label])),
+    [products, categories],
+  );
 
   async function createDiscount(formData: FormData) {
     setIsSaving(true);
@@ -78,8 +125,9 @@ export function AdminDiscountManager({
             type === "fixed"
               ? Math.round(Number(formData.get("value")) * 100)
               : Number(formData.get("value")),
-          productId: formData.get("productId"),
-          categoryId: formData.get("categoryId"),
+          productIds,
+          categoryIds,
+          startsAt: formData.get("startsAt"),
           expiresAt: formData.get("expiresAt"),
           enabled: formData.get("enabled") === "on",
         }),
@@ -118,11 +166,7 @@ export function AdminDiscountManager({
   async function updateDiscount(
     id: string,
     formData: FormData,
-    state: {
-      kind: DiscountKind;
-      type: DiscountType;
-      scope: DiscountScope;
-    },
+    state: DiscountFormState,
   ) {
     setIsSaving(true);
     setMessage(null);
@@ -141,8 +185,9 @@ export function AdminDiscountManager({
             state.type === "fixed"
               ? Math.round(Number(formData.get("value")) * 100)
               : Number(formData.get("value")),
-          productId: formData.get("productId"),
-          categoryId: formData.get("categoryId"),
+          productIds: state.productIds,
+          categoryIds: state.categoryIds,
+          startsAt: formData.get("startsAt"),
           expiresAt: formData.get("expiresAt"),
           enabled: formData.get("enabled") === "on",
         }),
@@ -253,50 +298,30 @@ export function AdminDiscountManager({
         </Field>
 
         {scope === "category" && (
-          <Field label="Category">
-            <select
-              name="categoryId"
-              required
-              className="h-12 w-full rounded-none border border-black bg-white px-3"
-            >
-              <option value="">Select category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <MultiSelectPicker
+            label="Categories"
+            items={categories}
+            value={categoryIds}
+            onChange={setCategoryIds}
+            noun={CATEGORY_NOUN}
+          />
         )}
 
         {scope === "product" && (
-          <Field label="Product">
-            <select
-              name="productId"
-              required
-              className="h-12 w-full rounded-none border border-black bg-white px-3"
-            >
-              <option value="">Select product</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <MultiSelectPicker
+            label="Products"
+            items={products}
+            value={productIds}
+            onChange={setProductIds}
+            noun={PRODUCT_NOUN}
+            showThumbnails
+          />
         )}
 
-        <Field label="Expiration">
-          <Input
-            name="expiresAt"
-            type="date"
-            className="h-12 rounded-none border-black"
-          />
-        </Field>
+        <ScheduleFields />
 
         <label className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
-          <input name="enabled" type="checkbox" defaultChecked />{" "}
-          Enabled
+          <input name="enabled" type="checkbox" defaultChecked /> Enabled
         </label>
 
         <Button
@@ -354,8 +379,13 @@ export function AdminDiscountManager({
                     </p>
                     <p className="text-sm text-slate-600">
                       {discount.code ? `Code: ${discount.code}` : "Automatic"} /{" "}
-                      {formatDate(discount.expiresAt)}
+                      {formatSchedule(discount)}
                     </p>
+                    {formatTargets(discount, labelsById) && (
+                      <p className="text-sm text-slate-600">
+                        {formatTargets(discount, labelsById)}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -404,28 +434,29 @@ function DiscountEditForm({
   onSubmit,
 }: {
   discount: DiscountRow;
-  products: Option[];
-  categories: Option[];
+  products: PickerItem[];
+  categories: PickerItem[];
   isSaving: boolean;
   onCancel: () => void;
-  onSubmit: (
-    formData: FormData,
-    state: {
-      kind: DiscountKind;
-      type: DiscountType;
-      scope: DiscountScope;
-    },
-  ) => void;
+  onSubmit: (formData: FormData, state: DiscountFormState) => void;
 }) {
   const [kind, setKind] = useState<DiscountKind>(discount.kind);
   const [type, setType] = useState<DiscountType>(discount.type);
   const [scope, setScope] = useState<DiscountScope>(discount.scope);
+  const [productIds, setProductIds] = useState(discount.productIds);
+  const [categoryIds, setCategoryIds] = useState(discount.categoryIds);
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit(new FormData(event.currentTarget), { kind, type, scope });
+        onSubmit(new FormData(event.currentTarget), {
+          kind,
+          type,
+          scope,
+          productIds,
+          categoryIds,
+        });
       }}
       className="space-y-4 md:col-span-2"
     >
@@ -499,55 +530,32 @@ function DiscountEditForm({
       </div>
 
       {scope === "category" && (
-        <Field label="Category">
-          <select
-            name="categoryId"
-            defaultValue={discount.categoryId ?? ""}
-            required
-            className="h-12 w-full rounded-none border border-black bg-white px-3"
-          >
-            <option value="">Select category</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.label}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <MultiSelectPicker
+          label="Categories"
+          items={categories}
+          value={categoryIds}
+          onChange={setCategoryIds}
+          noun={CATEGORY_NOUN}
+        />
       )}
 
       {scope === "product" && (
-        <Field label="Product">
-          <select
-            name="productId"
-            defaultValue={discount.productId ?? ""}
-            required
-            className="h-12 w-full rounded-none border border-black bg-white px-3"
-          >
-            <option value="">Select product</option>
-            {products.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.label}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <MultiSelectPicker
+          label="Products"
+          items={products}
+          value={productIds}
+          onChange={setProductIds}
+          noun={PRODUCT_NOUN}
+          showThumbnails
+        />
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Expiration">
-          <Input
-            name="expiresAt"
-            type="date"
-            defaultValue={toDateInputValue(discount.expiresAt)}
-            className="h-12 rounded-none border-black"
-          />
-        </Field>
-        <label className="flex items-center gap-3 pt-8 text-xs font-bold uppercase tracking-widest">
-          <input name="enabled" type="checkbox" defaultChecked={discount.enabled} />{" "}
-          Enabled
-        </label>
-      </div>
+      <ScheduleFields startsAt={discount.startsAt} expiresAt={discount.expiresAt} />
+
+      <label className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest">
+        <input name="enabled" type="checkbox" defaultChecked={discount.enabled} />{" "}
+        Enabled
+      </label>
 
       <div className="flex flex-wrap gap-2">
         <Button
@@ -570,18 +578,39 @@ function DiscountEditForm({
   );
 }
 
-function toDateInputValue(value: Date | string | null) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toISOString().slice(0, 10);
+function ScheduleFields({
+  startsAt = null,
+  expiresAt = null,
+}: {
+  startsAt?: Date | string | null;
+  expiresAt?: Date | string | null;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Starts At">
+          <Input
+            name="startsAt"
+            type="datetime-local"
+            defaultValue={formatRomaniaDateTimeLocal(startsAt)}
+            className="h-12 rounded-none border-black"
+          />
+        </Field>
+        <Field label="Ends At">
+          <Input
+            name="expiresAt"
+            type="datetime-local"
+            defaultValue={formatRomaniaDateTimeLocal(expiresAt)}
+            className="h-12 rounded-none border-black"
+          />
+        </Field>
+      </div>
+      <p className="text-xs text-slate-500">
+        Romania time. Leave empty to start now or never end. The discount stops exactly
+        at the end time, so use 00:00 of the next day to include a whole day.
+      </p>
+    </div>
+  );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

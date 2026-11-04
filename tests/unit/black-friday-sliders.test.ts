@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildBlackFridaySliders } from "../../src/lib/black-friday/sliders";
+import {
+  buildBlackFridaySliders,
+  selectBlackFridayCategories,
+} from "../../src/lib/black-friday/sliders";
 
 const categories = [
   { id: "apparel", parentId: null },
@@ -11,6 +14,7 @@ const categories = [
 ];
 const descendantIdsByCategoryId = new Map([
   ["apparel", ["apparel", "t-shirts"]],
+  ["t-shirts", ["t-shirts"]],
   ["patches", ["patches"]],
   ["stickers", ["stickers"]],
 ]);
@@ -24,9 +28,13 @@ const links = [
   { categoryId: "stickers", product: { id: "sticker" } },
 ];
 
-function sliderIds(discounted: string[], productsPerSlider = 24) {
+function sliderIds(
+  discounted: string[],
+  productsPerSlider = 24,
+  selectedCategoryIds: string[] = [],
+) {
   return buildBlackFridaySliders({
-    categories,
+    sliderCategories: selectBlackFridayCategories(categories, selectedCategoryIds),
     descendantIdsByCategoryId,
     links,
     discountedProductIds: new Set(discounted),
@@ -53,4 +61,27 @@ test("sliders are capped at the products-per-slider limit, newest first", () => 
   assert.deepEqual(sliderIds(["tee-new", "hoodie", "tee-old"], 2), [
     ["apparel", ["tee-new", "hoodie"]],
   ]);
+});
+
+test("picked categories are used in the picked order, subcategories included", () => {
+  assert.deepEqual(
+    sliderIds(["tee-new", "hoodie", "sticker"], 24, [
+      "stickers",
+      "t-shirts",
+      "patches",
+    ]),
+    [
+      ["stickers", ["sticker"]],
+      ["t-shirts", ["tee-new", "hoodie"]],
+    ],
+  );
+});
+
+test("picked categories that no longer exist are skipped", () => {
+  assert.deepEqual(
+    selectBlackFridayCategories(categories, ["deleted", "patches"]).map(
+      (category) => category.id,
+    ),
+    ["patches"],
+  );
 });

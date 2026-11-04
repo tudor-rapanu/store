@@ -5,6 +5,7 @@ import { BlackFridaySettings } from "@/components/settings/BlackFridaySettings";
 import { SettingsPageHeader } from "@/components/settings/SettingsPageHeader";
 import { isAdminUser } from "@/lib/admin-auth";
 import { getBlackFridaySettings } from "@/lib/black-friday/settings";
+import { getAllCategories, getCategoryOptions } from "@/lib/categories";
 
 export const metadata: Metadata = {
   title: "Black Friday Settings",
@@ -24,7 +25,10 @@ export default async function BlackFridaySettingsPage({
     redirect(`/${activeLocale}`);
   }
 
-  const settings = await getBlackFridaySettings();
+  const [settings, categoryRows] = await Promise.all([
+    getBlackFridaySettings(),
+    getAllCategories(),
+  ]);
 
   return (
     <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl px-4 py-16">
@@ -33,7 +37,13 @@ export default async function BlackFridaySettingsPage({
         title="Black Friday"
         description="Full-screen countdown and sale takeover"
       />
-      <BlackFridaySettings settings={settings} />
+      <BlackFridaySettings
+        settings={settings}
+        categories={getCategoryOptions(categoryRows, activeLocale).map((category) => ({
+          id: category.id,
+          label: category.name,
+        }))}
+      />
     </main>
   );
 }

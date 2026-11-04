@@ -18,6 +18,9 @@ export type BlackFridaySettings = {
   saleStartsAt: string | null;
   saleEndsAt: string | null;
   ctaHref: string;
+  // Categories shown as sliders on the sale page, in order. Empty means every
+  // top-level category that has discounted products.
+  categoryIds: string[];
   copy: Record<BlackFridayLocale, BlackFridayCopy>;
 };
 
@@ -37,6 +40,8 @@ const COPY_FIELD_MAX_LENGTH: Record<keyof BlackFridayCopy, number> = {
 };
 
 const CTA_HREF_MAX_LENGTH = 300;
+const MAX_SALE_CATEGORIES = 50;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Pages where a full-screen takeover would get in the way of a task the visitor
 // is already in the middle of (paying, signing in, managing the store).
@@ -101,6 +106,7 @@ export function getDefaultBlackFridaySettings(): BlackFridaySettings {
     saleStartsAt: null,
     saleEndsAt: null,
     ctaHref: "",
+    categoryIds: [],
     copy: {
       en: { ...DEFAULT_BLACK_FRIDAY_COPY.en },
       ro: { ...DEFAULT_BLACK_FRIDAY_COPY.ro },
@@ -126,6 +132,20 @@ function normalizeCtaHref(value: unknown) {
   const trimmed = value.trim().slice(0, CTA_HREF_MAX_LENGTH);
 
   return trimmed.startsWith("/") || /^https?:\/\//i.test(trimmed) ? trimmed : "";
+}
+
+function normalizeCategoryIds(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value.filter(
+        (item): item is string => typeof item === "string" && UUID_PATTERN.test(item),
+      ),
+    ),
+  ).slice(0, MAX_SALE_CATEGORIES);
 }
 
 function normalizeCopy(value: unknown, locale: BlackFridayLocale): BlackFridayCopy {
@@ -165,6 +185,7 @@ export function normalizeBlackFridaySettings(value: unknown): BlackFridaySetting
     saleStartsAt: normalizeTimestamp(source.saleStartsAt),
     saleEndsAt: normalizeTimestamp(source.saleEndsAt),
     ctaHref: normalizeCtaHref(source.ctaHref),
+    categoryIds: normalizeCategoryIds(source.categoryIds),
     copy: {
       en: normalizeCopy(copy.en, "en"),
       ro: normalizeCopy(copy.ro, "ro"),

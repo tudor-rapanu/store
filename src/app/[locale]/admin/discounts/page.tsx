@@ -10,6 +10,7 @@ import { isAdminUser } from "@/lib/admin-auth";
 import { getCategoryOptions } from "@/lib/categories";
 import { db } from "@/lib/db";
 import { discounts } from "@/lib/db/schema";
+import { getDiscountCategoryIds, getDiscountProductIds } from "@/lib/discount-targets";
 import { getDiscountAdminOptions } from "@/lib/discounts";
 import { getTranslatedText } from "@/lib/i18n/text";
 
@@ -118,13 +119,17 @@ async function DiscountsPanel({ activeLocale }: { activeLocale: "en" | "ro" }) {
         scope: discount.scope,
         value: discount.value,
         enabled: discount.enabled,
+        startsAt: toIsoString(discount.startsAt),
         expiresAt: toIsoString(discount.expiresAt),
-        productId: discount.productId,
-        categoryId: discount.categoryId,
+        productIds: Array.from(getDiscountProductIds(discount)),
+        categoryIds: Array.from(getDiscountCategoryIds(discount)),
       }))}
       products={options.products.map((product) => ({
         id: product.id,
-        label: getTranslatedText(product.title, activeLocale, product.id),
+        label: getTranslatedText(product.title, activeLocale, product.slug),
+        sublabel: product.slug,
+        imageUrl: product.imageUrl,
+        isPrivate: product.isPrivate,
       }))}
       categories={getCategoryOptions(options.categories, activeLocale).map(
         (category) => ({

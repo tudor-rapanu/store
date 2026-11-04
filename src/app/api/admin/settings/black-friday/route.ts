@@ -14,6 +14,7 @@ type BlackFridayPayload = {
   saleStartsAt?: unknown;
   saleEndsAt?: unknown;
   ctaHref?: unknown;
+  categoryIds?: unknown;
   copy?: unknown;
 };
 
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
     saleStartsAt: parseRomaniaInput(body.saleStartsAt),
     saleEndsAt: parseRomaniaInput(body.saleEndsAt),
     ctaHref: body.ctaHref,
+    categoryIds: body.categoryIds,
     copy: body.copy,
   });
   const validationError = validateBlackFridaySettings(settings);

@@ -16,6 +16,7 @@ import {
   getCachedSizeGuideById,
 } from "@/lib/catalog/cache";
 import { getCurrencyPresentation } from "@/lib/currency/display";
+import { getProductAutomaticDiscounts } from "@/lib/discounts";
 import {
   formatFulfillmentDate,
   normalizeProductionRange,
@@ -77,14 +78,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
     product.preorderEnabled && product.preorderShipDate
       ? formatFulfillmentDate(product.preorderShipDate, activeLocale)
       : null;
-  const [variants, detailBlocks, sizeGuide, currencyPresentation, freshStock] =
-    await Promise.all([
-      getCachedProductVariants(product.id),
-      getCachedProductDetailBlocks(product.id),
-      getCachedSizeGuideById(product.sizeGuideId),
-      getCurrencyPresentation(),
-      getCachedFreshStockState(product.id),
-    ]);
+  const [
+    variants,
+    detailBlocks,
+    sizeGuide,
+    currencyPresentation,
+    freshStock,
+    automaticDiscounts,
+  ] = await Promise.all([
+    getCachedProductVariants(product.id),
+    getCachedProductDetailBlocks(product.id),
+    getCachedSizeGuideById(product.sizeGuideId),
+    getCurrencyPresentation(),
+    getCachedFreshStockState(product.id),
+    getProductAutomaticDiscounts(product.id),
+  ]);
 
   return (
     <main className="max-w-7xl mx-auto px-8 py-16">
@@ -167,6 +175,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               locale={activeLocale}
               displayCurrency={currencyPresentation.displayCurrency}
               ronToEurRate={currencyPresentation.ronToEurRate}
+              automaticDiscounts={automaticDiscounts}
             />
             <Button
               asChild

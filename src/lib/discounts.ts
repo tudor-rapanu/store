@@ -12,6 +12,7 @@ import {
   type DiscountType,
 } from "@/lib/db/schema";
 import { isProductEligibleForDiscount } from "@/lib/discount-targets";
+import { calculateDiscountAmount, type DiscountRule } from "@/lib/discount-pricing";
 import {
   getEffectiveProductPrice,
   type ProductPriceFields,
@@ -159,24 +160,6 @@ function getEligibleSubtotal(
 
     return sum + item.unitPrice * item.quantity;
   }, 0);
-}
-
-function calculateDiscountAmount(
-  discount: typeof discounts.$inferSelect,
-  eligibleSubtotal: number,
-) {
-  if (eligibleSubtotal <= 0) {
-    return 0;
-  }
-
-  if (discount.type === "percentage") {
-    return Math.min(
-      eligibleSubtotal,
-      Math.round((eligibleSubtotal * discount.value) / 100),
-    );
-  }
-
-  return Math.min(eligibleSubtotal, discount.value);
 }
 
 async function voucherWasUsed({
@@ -357,6 +340,41 @@ export async function getCatalogAutomaticDiscountPrices(
   }
 
   return discountMap;
+}
+
+// Active automatic discounts that cover this product, for showing the discounted
+// price on the product page (the best one depends on the selected variant's price).
+export async function getProductAutomaticDiscounts(
+  productId: string,
+): Promise<DiscountRule[]> {
+  const now = new Date();
+  const activeDiscounts = (await getCachedAutomaticDiscountRows()).filter((discount) =>
+    isActiveDiscount(discount, now),
+  );
+
+  if (activeDiscounts.length === 0) {
+    return [];
+  }
+
+  const productCategoryMap = activeDiscounts.some(
+    (discount) => discount.scope === "category",
+  )
+    ? await getProductCategoryMap([productId])
+    : new Map<string, Set<string>>();
+
+  return activeDiscounts
+    .filter((discount) =>
+      isProductEligibleForDiscount(
+        discount,
+        productId,
+        productCategoryMap.get(productId),
+      ),
+    )
+    .map((discount) => ({
+      name: discount.name,
+      type: discount.type,
+      value: discount.value,
+    }));
 }
 
 export async function getDiscountAdminOptions() {

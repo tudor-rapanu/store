@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatEur, formatRon } from "@/lib/currency/format";
+import { getBestDiscountForPrice, type DiscountRule } from "@/lib/discount-pricing";
 import {
   getProductPricePresentation,
   getVariantPricePresentation,
@@ -63,6 +64,7 @@ interface AddToCartProps {
   locale?: "en" | "ro";
   displayCurrency?: "RON" | "EUR";
   ronToEurRate?: number;
+  automaticDiscounts?: DiscountRule[];
 }
 
 function getStockLabel(stock: number | null | undefined, locale: "en" | "ro") {
@@ -105,6 +107,7 @@ export function AddToCart({
   locale = "en",
   displayCurrency = "RON",
   ronToEurRate = 0.2,
+  automaticDiscounts = [],
 }: AddToCartProps) {
   const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string>>({});
   const copy = getProductPurchaseCopy(locale);
@@ -138,6 +141,10 @@ export function AddToCart({
     ? getVariantPricePresentation(product, selectedVariant)
     : getProductPricePresentation(product);
   const finalPrice = pricePresentation.effectivePrice;
+  // Shown price only: the cart keeps finalPrice and checkout applies the discount.
+  const automaticDiscount = getBestDiscountForPrice(automaticDiscounts, finalPrice);
+  const shownPrice = automaticDiscount?.discountedPrice ?? finalPrice;
+  const isDiscounted = pricePresentation.isOnSale || Boolean(automaticDiscount);
   const selectedVariantOutOfStock =
     Boolean(selectedVariant?.trackStock) && (selectedVariant?.stock ?? 0) <= 0;
   const cartVariantId = isSimpleProduct ? product.id : selectedVariant?.id;
@@ -166,8 +173,8 @@ export function AddToCart({
     Boolean(selectedVariantStockLabel && selectedVariantOutOfStock);
   const displayPrice =
     displayCurrency === "EUR"
-      ? formatEur(finalPrice, ronToEurRate)
-      : formatRon(finalPrice);
+      ? formatEur(shownPrice, ronToEurRate)
+      : formatRon(shownPrice);
   const regularDisplayPrice =
     displayCurrency === "EUR"
       ? formatEur(pricePresentation.regularPrice, ronToEurRate)
@@ -388,14 +395,14 @@ export function AddToCart({
       )}
 
       <div className="flex items-baseline gap-3">
-        {pricePresentation.isOnSale && (
+        {isDiscounted && (
           <span className="text-base font-bold text-slate-400 line-through">
             {regularDisplayPrice}
           </span>
         )}
         <span
           className={`text-2xl font-black tracking-tighter ${
-            pricePresentation.isOnSale ? "text-destructive" : ""
+            isDiscounted ? "text-destructive" : ""
           }`}
         >
           {displayPrice}

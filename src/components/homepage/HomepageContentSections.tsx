@@ -121,7 +121,7 @@ function PromoStrip({
   }
 
   const content = (
-    <div className="flex flex-col gap-2 border border-black bg-black px-4 py-3 text-white sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-2 bg-black px-4 py-3 text-white sm:flex-row sm:items-center sm:justify-between">
       <div>
         {title && (
           <p className="text-sm font-black uppercase tracking-widest">{title}</p>
@@ -160,8 +160,8 @@ function ImageTextSection({
     <section
       className={
         hero
-          ? "grid gap-8 border-b border-black pb-12 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end"
-          : "grid gap-8 border-t border-black pt-12 lg:grid-cols-2 lg:items-center"
+          ? "grid gap-8 pb-12 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end"
+          : "grid gap-8 pt-12 lg:grid-cols-2 lg:items-center"
       }
     >
       {isRenderableImageSrc(imageUrl) && !hero && (
@@ -210,12 +210,12 @@ function BannerSlider({
   }
 
   return (
-    <section className="overflow-x-auto border-y border-black py-6">
+    <section className="overflow-x-auto py-6">
       <div className="flex snap-x gap-4">
         {slides.map((slide, index) => (
           <div
             key={index}
-            className="relative min-h-[340px] min-w-[86%] snap-start overflow-hidden border border-black bg-black text-white md:min-w-[560px]"
+            className="relative min-h-[340px] min-w-[86%] snap-start overflow-hidden bg-black text-white md:min-w-[560px]"
           >
             <SlideImage slide={slide} locale={locale} />
           </div>

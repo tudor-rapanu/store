@@ -7,7 +7,10 @@ import { checkRequestRateLimit } from "@/lib/rate-limit";
 // 1. Initialize the i18n middleware
 const intlMiddleware = createMiddleware({
   locales: ["en", "ro"],
-  defaultLocale: "en",
+  defaultLocale: "ro",
+  // The bare domain always lands on Romanian; visitors switch with the language
+  // selector instead of being redirected by browser language or a remembered cookie.
+  localeDetection: false,
 });
 
 // Leftover WooCommerce/WordPress URLs still crawled by bots after the migration to

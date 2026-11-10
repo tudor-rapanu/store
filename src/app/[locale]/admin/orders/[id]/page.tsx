@@ -101,6 +101,8 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
       product: {
         title: products.title,
         slug: products.slug,
+        imageUrl: products.imageUrl,
+        isPrivate: products.isPrivate,
       },
     })
     .from(orderItems)
@@ -221,6 +223,12 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
                 locale: activeLocale,
               }),
               sku: row.variant?.sku ?? row.product?.slug ?? null,
+              imageUrl: row.product?.imageUrl ?? null,
+              // Private products aren't reachable in the storefront, so don't link them.
+              storefrontHref:
+                row.product?.slug && !row.product.isPrivate
+                  ? `/${activeLocale}/products/${row.product.slug}`
+                  : null,
               quantity: row.item.quantity,
               unitPrice: row.item.unitPrice,
             }))}

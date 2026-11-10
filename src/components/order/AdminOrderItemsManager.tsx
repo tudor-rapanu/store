@@ -1,16 +1,20 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getProductImageSrc } from "@/lib/product-images";
 
 type OrderItemSummary = {
   id: string;
   title: string;
   sku: string | null;
+  imageUrl: string | null;
+  storefrontHref: string | null;
   quantity: number;
   unitPrice: number;
 };
@@ -241,10 +245,26 @@ export function AdminOrderItemsManager({
               key={item.id}
               className="grid gap-2 p-3 md:grid-cols-[1fr_auto_auto_auto] md:items-center"
             >
-              <div>
-                <div className="font-bold uppercase tracking-tight">{item.title}</div>
-                <div className="text-xs uppercase tracking-widest text-slate-500">
-                  {item.sku}
+              <div className="flex min-w-0 items-center gap-3">
+                {item.storefrontHref ? (
+                  <a
+                    href={item.storefrontHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 transition-opacity hover:opacity-75"
+                    aria-label={`Open ${item.title} in the storefront`}
+                    title="Open in storefront"
+                  >
+                    <OrderItemThumbnail key={item.imageUrl} item={item} />
+                  </a>
+                ) : (
+                  <OrderItemThumbnail key={item.imageUrl} item={item} />
+                )}
+                <div className="min-w-0">
+                  <div className="font-bold uppercase tracking-tight">{item.title}</div>
+                  <div className="text-xs uppercase tracking-widest text-slate-500">
+                    {item.sku}
+                  </div>
                 </div>
               </div>
               <div className="font-bold">x{item.quantity}</div>
@@ -265,5 +285,44 @@ export function AdminOrderItemsManager({
         </div>
       )}
     </section>
+  );
+}
+
+// Older images may lack the small variants, so fall back to larger sizes on error.
+function OrderItemThumbnail({ item }: { item: OrderItemSummary }) {
+  const imageSrcs = useMemo(
+    () =>
+      [
+        getProductImageSrc(item.imageUrl, "thumb"),
+        getProductImageSrc(item.imageUrl, "card"),
+        getProductImageSrc(item.imageUrl, "large"),
+      ].filter(
+        (src, index, sources): src is string =>
+          Boolean(src) && sources.indexOf(src) === index,
+      ),
+    [item.imageUrl],
+  );
+  const [imageIndex, setImageIndex] = useState(0);
+  const imageSrc = imageSrcs[imageIndex];
+
+  return (
+    <div className="relative size-14 shrink-0 overflow-hidden border border-slate-200 bg-white">
+      {imageSrc ? (
+        <Image
+          key={imageSrc}
+          src={imageSrc}
+          alt={item.title}
+          fill
+          unoptimized
+          onError={() => setImageIndex((current) => current + 1)}
+          className="object-contain p-1.5"
+          sizes="56px"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center text-[9px] font-bold uppercase tracking-widest text-slate-300">
+          No Image
+        </div>
+      )}
+    </div>
   );
 }

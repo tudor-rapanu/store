@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import AdminOrderEmail from "@/components/emails/AdminOrderEmail";
+import CustomerNoteEmail from "@/components/emails/CustomerNoteEmail";
 import InvoiceEmail from "@/components/emails/InvoiceEmail";
 import OrderConfirmationEmail from "@/components/emails/OrderConfirmation";
 import TrackingEmail from "@/components/emails/TrackingEmail";
@@ -167,5 +168,43 @@ export async function sendInvoiceEmail({
     return data;
   } catch (error) {
     console.error("Failed to send invoice email:", error);
+  }
+}
+
+export async function sendCustomerNoteEmail({
+  email,
+  customerName,
+  orderId,
+  note,
+  orderUrl,
+}: {
+  email: string;
+  customerName: string;
+  orderId: string;
+  note: string;
+  orderUrl?: string;
+}) {
+  try {
+    if (!resend) {
+      console.warn("Skipping customer note email because RESEND_API_KEY is not configured.");
+      return;
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM ?? "no-reply@example.com",
+      to: email,
+      subject: `Noutăți despre comanda ta Todd's Threads #${orderId}`,
+      react: CustomerNoteEmail({
+        customerName,
+        orderId,
+        note,
+        orderUrl,
+      }),
+    });
+
+    if (error) console.error("Resend Customer Note Email Error:", error);
+    return data;
+  } catch (error) {
+    console.error("Failed to send customer note email:", error);
   }
 }

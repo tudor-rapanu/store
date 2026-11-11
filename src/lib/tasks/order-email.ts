@@ -2,7 +2,7 @@ import { createJsonCloudTask } from "@/lib/tasks/cloud-tasks";
 
 export type OrderEmailTaskPayload = {
   orderId: string;
-  type: "admin" | "customer" | "tracking" | "invoice";
+  type: "admin" | "customer" | "tracking" | "invoice" | "customer_note";
   locale?: "en" | "ro";
 };
 

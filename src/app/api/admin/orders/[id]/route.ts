@@ -11,6 +11,8 @@ import {
   type PaymentStatus,
   type ShippingMethod,
 } from "@/lib/db/schema";
+import { sendCustomerNoteEmailForOrder } from "@/lib/orders/customer-note-email";
+import { enqueueOrderEmailTask } from "@/lib/tasks/order-email";
 import {
   reduceTrackedStockForPaidOrder,
   releaseTrackedStockForOrder,
@@ -53,6 +55,7 @@ type OrderUpdateBody = {
   trackingUrl?: string;
   adminNotes?: string;
   customerNotes?: string;
+  notifyCustomer?: boolean;
   invoiceStatus?: InvoiceStatus;
   invoiceNumber?: string;
   invoiceUrl?: string;
@@ -76,6 +79,10 @@ function validateOrderUpdateBody(body: OrderUpdateBody) {
 
   if (body.invoiceStatus && !invoiceStatuses.has(body.invoiceStatus)) {
     return "Invalid invoice status.";
+  }
+
+  if (body.notifyCustomer && !body.customerNotes?.trim()) {
+    return "Add a customer note before notifying the customer.";
   }
 
   return null;
@@ -193,7 +200,16 @@ export async function PATCH(
     body.paymentStatus,
   );
 
+  const customerNoteEmailQueued = body.notifyCustomer === true;
+
+  if (customerNoteEmailQueued) {
+    void enqueueOrderEmailTask(
+      { orderId: existingOrder.id, type: "customer_note", locale: "ro" },
+      () => sendCustomerNoteEmailForOrder(existingOrder.id, "ro"),
+    );
+  }
+
   revalidatePath("/", "layout");
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, customerNoteEmailQueued });
 }

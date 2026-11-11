@@ -46,6 +46,9 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
   const [draft, setDraft] = useState(order);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [notifyCustomerChecked, setNotifyCustomer] = useState(false);
+  const notifyCustomer =
+    notifyCustomerChecked && Boolean(draft.customerNotes?.trim());
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const isInternational = draft.shippingMethod === "international";
   const canGenerateInvoice =
@@ -59,18 +62,24 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
       const response = await fetch(`/api/admin/orders/${order.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
+        body: JSON.stringify({ ...draft, notifyCustomer }),
       });
       const result = (await response.json()) as {
         ok?: boolean;
         error?: string;
+        customerNoteEmailQueued?: boolean;
       };
 
       if (!response.ok || !result.ok) {
         throw new Error(result.error ?? "The order could not be saved.");
       }
 
-      setMessage("Order updated.");
+      setMessage(
+        result.customerNoteEmailQueued
+          ? "Order updated. Customer note emailed to the customer."
+          : "Order updated.",
+      );
+      setNotifyCustomer(false);
       router.refresh();
     } catch (error) {
       setMessage(
@@ -254,6 +263,19 @@ export function AdminOrderEditor({ order }: { order: EditableOrder }) {
             setDraft((current) => ({ ...current, customerNotes: value }))
           }
         />
+      </div>
+
+      <div className="flex justify-end">
+        <label className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-slate-700">
+          <input
+            type="checkbox"
+            checked={notifyCustomer}
+            disabled={!draft.customerNotes?.trim()}
+            onChange={(event) => setNotifyCustomer(event.target.checked)}
+            className="size-4 border-black"
+          />{" "}
+          Email this customer note to the customer on save
+        </label>
       </div>
 
       {message && (

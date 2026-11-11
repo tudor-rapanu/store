@@ -10,6 +10,7 @@ import {
   sendTrackingEmail,
 } from "@/lib/email";
 import type { FulfillmentEstimate } from "@/lib/fulfillment/estimate";
+import { sendCustomerNoteEmailForOrder } from "@/lib/orders/customer-note-email";
 import { isAuthorizedTaskRequest } from "@/lib/tasks/auth";
 import type { OrderEmailTaskPayload } from "@/lib/tasks/order-email";
 
@@ -58,7 +59,8 @@ function isOrderEmailTaskType(value: unknown): value is OrderEmailTaskPayload["t
     value === "admin" ||
     value === "customer" ||
     value === "tracking" ||
-    value === "invoice"
+    value === "invoice" ||
+    value === "customer_note"
   );
 }
 
@@ -76,7 +78,7 @@ function parsePayload(value: unknown): OrderEmailTaskPayload | null {
   return {
     orderId: payload.orderId,
     type: payload.type,
-    locale: payload.locale === "ro" ? "ro" : "en",
+    locale: payload.locale === "en" ? "en" : payload.locale === "ro" ? "ro" : undefined,
   };
 }
 
@@ -89,6 +91,19 @@ async function sendQueuedOrderEmail(payload: OrderEmailTaskPayload) {
 
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  }
+
+  if (payload.type === "customer_note") {
+    const sent = await sendCustomerNoteEmailForOrder(order.id, payload.locale);
+
+    if (!sent) {
+      return NextResponse.json(
+        { error: "Order does not have a customer note" },
+        { status: 409 },
+      );
+    }
+
+    return NextResponse.json({ ok: true, orderId: order.id, type: payload.type });
   }
 
   const locale = payload.locale ?? "en";
